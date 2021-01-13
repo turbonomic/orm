@@ -19,9 +19,13 @@ spec:
           - history
           - intersight-integration
           - kafka
+          - kubeturbo
           - market
+          - mediation-acims
           - mediation-actionscript
+          - mediation-actionstream-kafka
           - mediation-aix
+          - mediation-apic
           - mediation-appdynamics
           - mediation-appinsights
           - mediation-aws
@@ -36,7 +40,6 @@ spec:
           - mediation-baremetal
           - mediation-cloudfoundry
           - mediation-compellent
-          - mediation-customdata
           - mediation-datadog
           - mediation-dynatrace
           - mediation-gcp
@@ -46,17 +49,21 @@ spec:
           - mediation-hpe3par
           - mediation-hyperflex
           - mediation-hyperv
+          - mediation-instana
           - mediation-intersight
           - mediation-intersighthyperflex
           - mediation-intersightucs
           - mediation-istio
+          - mediation-jvm
           - mediation-mssql
+          - mediation-mysql
           - mediation-netapp
           - mediation-netflow
           - mediation-newrelic
           - mediation-nutanix
           - mediation-oneview
           - mediation-openstack
+          - mediation-oracle
           - mediation-pivotal
           - mediation-pure
           - mediation-rhv
@@ -65,6 +72,7 @@ spec:
           - mediation-snmp
           - mediation-terraform
           - mediation-tetration
+          - mediation-tomcat
           - mediation-ucs
           - mediation-ucsdirector
           - mediation-udt
