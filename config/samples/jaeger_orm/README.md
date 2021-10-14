@@ -12,4 +12,7 @@ Follow the steps mentioned in https://github.com/jaegertracing/jaeger-operator#g
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/turbonomic/orm/master/config/crd/bases/turbo_operator_resource_mapping_crd.yaml
 ```
-2. Deploy "jaeger_operator_resource_mapping_sample_cr.yaml" in the same namespace Jaeger is deployed
+2. Deploy "jaeger_operator_resource_mapping_sample_cr.yaml" in the same namespace Jaeger is deployed:
+```bash
+kubectl -n <jaeger_namespace> apply -f https://raw.githubusercontent.com/turbonomic/orm/master/config/samples/jaeger_orm/jaeger_operator_resource_mapping_sample_cr.yaml
+```
