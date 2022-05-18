@@ -1,0 +1,36 @@
+# This is a sample ORM CR for Redis Sentinel CRD.
+apiVersion: turbonomic.com/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  # Redis Sentinel operator CRD
+  name: redissentinels.redis.databases.cloud.ibm.com
+spec:
+  resourceMappings:
+    - srcResourceSpec:
+        kind: StatefulSet
+        componentNames:
+          - c-default-redis-m
+      resourceMappingTemplates:
+        - srcPath: .spec.template.spec.containers[?(@.name=="db")].resources
+          destPath: .spec.member.db.resources
+        - srcPath: .spec.template.spec.containers[?(@.name=="mgmt")].resources
+          destPath: .spec.member.mgmt.resources
+        - srcPath: .spec.template.spec.containers[?(@.name=="proxy")].resources
+          destPath: .spec.member.proxy.resources
+        - srcPath: .spec.template.spec.containers[?(@.name=="proxylog")].resources
+          destPath: .spec.member.proxylog.resources
+        - srcPath: .spec.replicas
+          destPath: .spec.size
+    - srcResourceSpec:
+        kind: StatefulSet
+        componentNames:
+          - c-default-redis-s
+      resourceMappingTemplates:
+        - srcPath: .spec.template.spec.containers[?(@.name=="db")].resources
+          destPath: .spec.sentinel.db.resources
+        - srcPath: .spec.template.spec.containers[?(@.name=="mgmt")].resources
+          destPath: .spec.sentinel.mgmt.resources
+        - srcPath: .spec.template.spec.containers[?(@.name=="proxy")].resources
+          destPath: .spec.sentinel.proxy.resources
+        - srcPath: .spec.template.spec.containers[?(@.name=="proxylog")].resources
+          destPath: .spec.sentinel.proxylog.resources
