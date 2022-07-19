@@ -1,4 +1,4 @@
-# This is a sample ORM CR for WebSphere Liberty Operator v1.0.0 - Application CR
+# This is a sample ORM CR for openLiberty Operator v0.8 - Application CR
 apiVersion: turbonomic.com/v1alpha1
 kind: OperatorResourceMapping
 metadata:
@@ -9,8 +9,8 @@ spec:
         kind: Deployment
         componentNames:
         #supply the name of the deployments created
-          - icetier1-app
+          - yourDeployment
       resourceMappingTemplates:
-      #replace app with the name of your container
+      #replace app with the name of your container. app is default
         - srcPath: .spec.template.spec.containers[?(@.name=="app")].resources
           destPath: .spec.resources
