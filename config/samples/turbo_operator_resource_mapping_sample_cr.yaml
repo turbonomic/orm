@@ -30,6 +30,7 @@ spec:
           - mediation-appinsights
           - mediation-aws
           - mediation-awsbilling
+          - mediation-awscloudbilling
           - mediation-awscost
           - mediation-awslambda
           - mediation-azure
@@ -42,18 +43,23 @@ spec:
           - mediation-compellent
           - mediation-datadog
           - mediation-dynatrace
-          - mediation-gcp
+          - mediation-flexera
+          - mediation-gcpproject
+          - mediation-gcpbilling
           - mediation-gcpcost
+          - mediation-gcpsa
           - mediation-hds
           - mediation-horizon
           - mediation-hpe3par
           - mediation-hyperflex
           - mediation-hyperv
+          - mediation-ibmstorage-flashsystem
           - mediation-instana
           - mediation-intersight
           - mediation-intersighthyperflex
           - mediation-intersightucs
           - mediation-istio
+          - mediation-jboss
           - mediation-jvm
           - mediation-mssql
           - mediation-mysql
@@ -70,6 +76,7 @@ spec:
           - mediation-scaleio
           - mediation-servicenow
           - mediation-snmp
+          - mediation-tanium
           - mediation-terraform
           - mediation-tetration
           - mediation-tomcat
@@ -82,6 +89,9 @@ spec:
           - mediation-vmax
           - mediation-vmm
           - mediation-vplex
+          - mediation-webhook
+          - mediation-weblogic
+          - mediation-websphere
           - mediation-wmi
           - mediation-xtremio
           - ml-datastore
