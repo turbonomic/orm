@@ -1,0 +1,12 @@
+apiVersion: devops.turbonomic.io/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  labels:
+    app.kubernetes.io/name: operatorresourcemapping
+    app.kubernetes.io/instance: operatorresourcemapping-sample
+    app.kubernetes.io/part-of: orm
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: orm
+  name: operatorresourcemapping-sample
+spec:
+  # TODO(user): Add fields here
