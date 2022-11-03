@@ -7,6 +7,27 @@ metadata:
     app.kubernetes.io/part-of: orm
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: orm
-  name: operatorresourcemapping-sample
+  name: sample-operator
 spec:
-  # TODO(user): Add fields here
+  operand:
+    apiVersion: yourgroup.org/v1alpha1
+    kind: yourkind
+  patterns:
+  - path: ".spec.template.spec.containers[?(@.name==container1)].resources"
+    source:
+      apiVersion: apps/v1
+      kind: Deployment
+      path: ".spec.template.spec.containers[?(@.name=container1)].resources"
+status:
+  mappings:
+  - path: ".spec.template.spec.containers[?(@.name==container1)].resources"
+    value:
+      limits:
+        cpu: 200m
+        memory: 800Mi
+      requests:
+        cpu: 50m
+        memory: 200Mi
+    mapped: false
+    message: "manually generated"
+    reason: "for test"

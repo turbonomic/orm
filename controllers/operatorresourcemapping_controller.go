@@ -24,7 +24,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/turbonomic/orm/api/v1alpha1"
 	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
+)
+
+var (
+	ctrlLog = ctrl.Log.WithName("controller")
 )
 
 // OperatorResourceMappingReconciler reconciles a OperatorResourceMapping object
@@ -49,7 +54,14 @@ type OperatorResourceMappingReconciler struct {
 func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	orm := &v1alpha1.OperatorResourceMapping{}
+	err := r.Get(context.TODO(), req.NamespacedName, orm)
+	if err != nil {
+		ctrlLog.Error(err, "reconciling "+req.String())
+		return ctrl.Result{}, err
+	}
+
+	ctrlLog.Info("reconciling", "operand", orm.Spec.Operand, "mappings", orm.Spec.Patterns, "Status", orm.Status.Mappings)
 
 	return ctrl.Result{}, nil
 }

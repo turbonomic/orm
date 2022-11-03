@@ -17,29 +17,75 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+
+type SourceLocation struct {
+	Path string `json:"path,omitempty"` // Path to the field inside the source resource
+
+	// Reference to the source object by name or by label
+
+	// if namespace is empty, use the operand namespace as default;
+	// if apiversion and kind are empty, se apps/Deployment as default
+	corev1.ObjectReference `json:",inline"`
+
+	// if ObjectReferene.name is provided use the name, otherwise, use this label selector to find target resource(s)
+	// if more than 1 resoures matching the selector, all of them are included
+	metav1.LabelSelector `json:",inline"`
+}
+
+type MappingPattern struct {
+	// path to the location in operand, also serves as key of this pattern
+	Path string `json:"path,omitempty"`
+
+	// indicates which value should be mapped
+	Source SourceLocation `json:"source,omitempty"`
+}
 
 // OperatorResourceMappingSpec defines the desired state of OperatorResourceMapping
 type OperatorResourceMappingSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of OperatorResourceMapping. Edit operatorresourcemapping_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Operand is the target to make actual changes
+	// if name and namespace are not provided, use same one as orm cr
+	Operand  corev1.ObjectReference `json:"operand"`
+	Patterns []MappingPattern       `json:"patterns,omitempty"`
+}
+
+type Mapping struct {
+	Path  string                `json:"path"`
+	Value *runtime.RawExtension `json:"value"`
+
+	// Status of the condition, one of True, False, Unknown.
+	Mapped v1.ConditionStatus `json:"mapped"`
+	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+	// The reason for the condition's last transition.
+	// +optional
+	Reason string `json:"reason,omitempty"`
+	// A human readable message indicating details about the transition.
+	// +optional
+	Message string `json:"message,omitempty"`
 }
 
 // OperatorResourceMappingStatus defines the observed state of OperatorResourceMapping
 type OperatorResourceMappingStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	Mappings []Mapping `json:"mappings"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:resource:path=operatorresourcemappings,scope=Namespaced
+//+kubebuilder:resource:path=operatorresourcemappings,shortName=orm;orms
 
 // OperatorResourceMapping is the Schema for the operatorresourcemappings API
 type OperatorResourceMapping struct {
