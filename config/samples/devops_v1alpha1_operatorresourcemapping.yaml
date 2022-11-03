@@ -17,6 +17,7 @@ spec:
     source:
       apiVersion: apps/v1
       kind: Deployment
+      name: yourdeploy
       path: ".spec.template.spec.containers[?(@.name=container1)].resources"
 status:
   mappings:

@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -64,7 +63,7 @@ type Mapping struct {
 	Value *runtime.RawExtension `json:"value"`
 
 	// Status of the condition, one of True, False, Unknown.
-	Mapped v1.ConditionStatus `json:"mapped"`
+	Mapped corev1.ConditionStatus `json:"mapped"`
 	// +optional
 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
 	// The reason for the condition's last transition.
