@@ -25,10 +25,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
+	"github.com/turbonomic/orm/registry"
 )
 
 var (
-	ctrlLog = ctrl.Log.WithName("controller")
+	ocLog = ctrl.Log.WithName("orm controller")
 )
 
 // OperatorResourceMappingReconciler reconciles a OperatorResourceMapping object
@@ -56,11 +57,23 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 	orm := &devopsv1alpha1.OperatorResourceMapping{}
 	err := r.Get(context.TODO(), req.NamespacedName, orm)
 	if err != nil {
-		ctrlLog.Error(err, "reconciling "+req.String())
+		ocLog.Error(err, "reconciling "+req.String())
 		return ctrl.Result{}, err
 	}
 
-	ctrlLog.Info("reconciling", "operand", orm.Spec.Operand, "mappings", orm.Spec.Patterns, "Status", orm.Status.Mappings)
+	ocLog.Info("reconciling", "operand", orm.Spec.Operand, "mappings", orm.Spec.Patterns, "Status", orm.Status.Mappings)
+
+	err = registry.GetOperandRegisry().CreateUpdateRegistryEntry(orm)
+	if err != nil {
+		ocLog.Error(err, "registering operator "+req.String()+" ... skipping")
+		return ctrl.Result{}, nil
+	}
+
+	err = registry.GetSourceRegisry().CreateUpdateRegistryEntries(orm)
+	if err != nil {
+		ocLog.Error(err, "registering sources of operator "+req.String()+" ... skipping")
+		return ctrl.Result{}, nil
+	}
 
 	return ctrl.Result{}, nil
 }

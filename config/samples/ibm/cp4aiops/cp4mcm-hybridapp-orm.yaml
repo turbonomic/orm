@@ -1,0 +1,16 @@
+apiVersion: devops.turbonomic.io/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  name: cp4mcm-hybridapp
+spec:
+  operand: # target same namespace by default
+    apiVersion: deploy.hybridapp.io/v1alpha1
+    kind: Operator
+  enforcement: once # none, once, always
+  patterns:
+  - operandPath: ".spec.core.placement.resources"
+    source:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: cp4mcm-hybridapp
+      path: ".spec.template.spec.containers[?(@.name=placement)].resources"

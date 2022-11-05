@@ -76,7 +76,7 @@ var (
 			},
 			Patterns: []devopsv1alpha1.MappingPattern{
 				{
-					Path: "destnation.path",
+					OperandPath: "destnation.path",
 					Source: devopsv1alpha1.SourceLocation{
 						Path: "source.path",
 						ObjectReference: corev1.ObjectReference{
@@ -144,8 +144,6 @@ var _ = BeforeSuite(func() {
 		Client: k8sClient,
 		Scheme: scheme.Scheme,
 	}
-	// err = rec.SetupWithManager(k8sManager)
-	// Expect(err).ToNot(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
 

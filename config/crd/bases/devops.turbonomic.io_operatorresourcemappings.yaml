@@ -40,6 +40,8 @@ spec:
             description: OperatorResourceMappingSpec defines the desired state of
               OperatorResourceMapping
             properties:
+              enforcement:
+                type: string
               operand:
                 description: Operand is the target to make actual changes if name
                   and namespace are not provided, use same one as orm cr
@@ -81,7 +83,7 @@ spec:
               patterns:
                 items:
                   properties:
-                    path:
+                    operandPath:
                       description: path to the location in operand, also serves as
                         key of this pattern
                       type: string
@@ -165,6 +167,9 @@ spec:
                           type: string
                       type: object
                       x-kubernetes-map-type: atomic
+                  required:
+                  - operandPath
+                  - source
                   type: object
                 type: array
             required:
@@ -190,7 +195,7 @@ spec:
                       description: A human readable message indicating details about
                         the transition.
                       type: string
-                    path:
+                    operandPath:
                       type: string
                     reason:
                       description: The reason for the condition's last transition.
@@ -200,7 +205,7 @@ spec:
                       x-kubernetes-preserve-unknown-fields: true
                   required:
                   - mapped
-                  - path
+                  - operandPath
                   - value
                   type: object
                 type: array

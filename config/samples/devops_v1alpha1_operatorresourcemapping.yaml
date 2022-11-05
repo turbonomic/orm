@@ -7,21 +7,30 @@ metadata:
     app.kubernetes.io/part-of: orm
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: orm
-  name: sample-operator
+  name: sample-orm
+  namespace: default
 spec:
-  operand:
+  operand: # target same namespace by default
     apiVersion: yourgroup.org/v1alpha1
     kind: yourkind
+    name: myoperand
+  enforcement: once # none, once, always
   patterns:
-  - path: ".spec.template.spec.containers[?(@.name==container1)].resources"
+  - operandPath: ".spec.template.spec.containers[?(@.name==container1)].resources"
     source:
       apiVersion: apps/v1
       kind: Deployment
       name: yourdeploy
       path: ".spec.template.spec.containers[?(@.name=container1)].resources"
+  - operandPath: ".spec.template.spec.containers[?(@.name==container2)].resources"
+    source:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: yourseconddeploy
+      path: ".spec.template.spec.containers[?(@.name=container2)].resources"
 status:
   mappings:
-  - path: ".spec.template.spec.containers[?(@.name==container1)].resources"
+  - operandPath: ".spec.template.spec.containers[?(@.name==container1)].resources"
     value:
       limits:
         cpu: 200m
@@ -29,6 +38,6 @@ status:
       requests:
         cpu: 50m
         memory: 200Mi
-    mapped: false
+    mapped: "true"
     message: "manually generated"
     reason: "for test"

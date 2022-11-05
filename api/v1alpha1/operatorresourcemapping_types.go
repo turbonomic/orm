@@ -41,11 +41,21 @@ type SourceLocation struct {
 
 type MappingPattern struct {
 	// path to the location in operand, also serves as key of this pattern
-	Path string `json:"path,omitempty"`
+	OperandPath string `json:"operandPath"`
 
 	// indicates which value should be mapped
-	Source SourceLocation `json:"source,omitempty"`
+	Source SourceLocation `json:"source"`
 }
+
+type EnforcementMode string
+
+const (
+	EnforcementModeNone   = "none"
+	EnforcementModeOnce   = "once"
+	EnforcementModeAlways = "always"
+)
+
+var EnforcementModeDefault = EnforcementModeOnce
 
 // OperatorResourceMappingSpec defines the desired state of OperatorResourceMapping
 type OperatorResourceMappingSpec struct {
@@ -54,18 +64,19 @@ type OperatorResourceMappingSpec struct {
 
 	// Operand is the target to make actual changes
 	// if name and namespace are not provided, use same one as orm cr
-	Operand  corev1.ObjectReference `json:"operand"`
-	Patterns []MappingPattern       `json:"patterns,omitempty"`
+	Operand         corev1.ObjectReference `json:"operand"`
+	EnforcementMode EnforcementMode        `json:"enforcement,omitempty"`
+	Patterns        []MappingPattern       `json:"patterns,omitempty"`
 }
 
 type Mapping struct {
-	Path  string                `json:"path"`
-	Value *runtime.RawExtension `json:"value"`
+	OperandPath string                `json:"operandPath"`
+	Value       *runtime.RawExtension `json:"value"`
 
 	// Status of the condition, one of True, False, Unknown.
 	Mapped corev1.ConditionStatus `json:"mapped"`
 	// +optional
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+	LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`
 	// The reason for the condition's last transition.
 	// +optional
 	Reason string `json:"reason,omitempty"`

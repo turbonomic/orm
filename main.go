@@ -33,6 +33,7 @@ import (
 
 	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/controllers"
+	"github.com/turbonomic/orm/registry"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -86,6 +87,11 @@ func main() {
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+
+	if err = registry.InitORMSchema(mgr.GetConfig()); err != nil {
+		setupLog.Error(err, "unable to init resource schema")
 		os.Exit(1)
 	}
 
