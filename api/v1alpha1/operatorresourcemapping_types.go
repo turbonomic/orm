@@ -50,9 +50,9 @@ type MappingPattern struct {
 type EnforcementMode string
 
 const (
-	EnforcementModeNone   = "none"
-	EnforcementModeOnce   = "once"
-	EnforcementModeAlways = "always"
+	EnforcementModeNone   EnforcementMode = "none"
+	EnforcementModeOnce   EnforcementMode = "once"
+	EnforcementModeAlways EnforcementMode = "always"
 )
 
 var EnforcementModeDefault = EnforcementModeOnce
@@ -85,11 +85,35 @@ type Mapping struct {
 	Message string `json:"message,omitempty"`
 }
 
+type ORMStatusType string
+
+const (
+	ORMTypeOK    ORMStatusType = "ok"
+	ORMTypeError ORMStatusType = "error"
+)
+
+type ORMStatusReason string
+
+const (
+	ORMStatusReasonOperandError ORMStatusReason = "OperandError"
+	ORMStatusReasonSourceError  ORMStatusReason = "SourceError"
+)
+
 // OperatorResourceMappingStatus defines the observed state of OperatorResourceMapping
 type OperatorResourceMappingStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Mappings []Mapping `json:"mappings"`
+
+	// +optional
+	Type ORMStatusType `json:"type,omitempty"`
+	// +optional
+	Reason string `json:"reason,omitempty"`
+	// A human readable message indicating details about the transition.
+	// +optional
+	Message string `json:"message,omitempty"`
+
+	// +optional
+	Mappings []Mapping `json:"mappings,omitempty"`
 }
 
 //+kubebuilder:object:root=true

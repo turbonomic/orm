@@ -18,13 +18,14 @@ package controllers
 
 import (
 	"context"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
+	"github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/registry"
 )
 
@@ -54,33 +55,61 @@ type OperatorResourceMappingReconciler struct {
 func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
-	orm := &devopsv1alpha1.OperatorResourceMapping{}
+	orm := &v1alpha1.OperatorResourceMapping{}
 	err := r.Get(context.TODO(), req.NamespacedName, orm)
 	if err != nil {
-		ocLog.Error(err, "reconciling "+req.String())
+		ocLog.Error(err, "reconcile getting "+req.String())
 		return ctrl.Result{}, err
 	}
 
 	ocLog.Info("reconciling", "operand", orm.Spec.Operand, "mappings", orm.Spec.Patterns, "Status", orm.Status.Mappings)
 
+	oldStatus := orm.Status.DeepCopy()
+
 	err = registry.GetOperandRegisry().CreateUpdateRegistryEntry(orm)
 	if err != nil {
 		ocLog.Error(err, "registering operator "+req.String()+" ... skipping")
+
+		orm.Status.Type = v1alpha1.ORMTypeError
+		orm.Status.Reason = string(v1alpha1.ORMStatusReasonOperandError)
+		orm.Status.Message = err.Error()
+		r.checkAndUpdateStatus(oldStatus, orm)
+		r.checkAndUpdateStatus(oldStatus, orm)
 		return ctrl.Result{}, nil
 	}
 
 	err = registry.GetSourceRegisry().CreateUpdateRegistryEntries(orm)
 	if err != nil {
 		ocLog.Error(err, "registering sources of operator "+req.String()+" ... skipping")
+
+		orm.Status.Type = v1alpha1.ORMTypeError
+		orm.Status.Reason = string(v1alpha1.ORMStatusReasonSourceError)
+		orm.Status.Message = err.Error()
+		r.checkAndUpdateStatus(oldStatus, orm)
 		return ctrl.Result{}, nil
 	}
 
+	orm.Status.Type = v1alpha1.ORMTypeOK
+	orm.Status.Reason = ""
+	orm.Status.Message = ""
+	r.checkAndUpdateStatus(oldStatus, orm)
+
 	return ctrl.Result{}, nil
+}
+
+func (r *OperatorResourceMappingReconciler) checkAndUpdateStatus(oldStatus *v1alpha1.OperatorResourceMappingStatus, orm *v1alpha1.OperatorResourceMapping) {
+	var err error
+	if !reflect.DeepEqual(orm.Status, *oldStatus) {
+		err = r.Status().Update(context.TODO(), orm, &client.UpdateOptions{})
+	}
+	if err != nil {
+		ocLog.Error(err, "failed to update orm status "+orm.Namespace+"/"+orm.Name)
+	}
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *OperatorResourceMappingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&devopsv1alpha1.OperatorResourceMapping{}).
+		For(&v1alpha1.OperatorResourceMapping{}).
 		Complete(r)
 }

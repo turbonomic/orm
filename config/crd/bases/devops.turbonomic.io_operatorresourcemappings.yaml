@@ -180,9 +180,6 @@ spec:
               of OperatorResourceMapping
             properties:
               mappings:
-                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
-                  of cluster Important: Run "make" to regenerate code after modifying
-                  this file'
                 items:
                   properties:
                     lastTransitionTime:
@@ -209,8 +206,14 @@ spec:
                   - value
                   type: object
                 type: array
-            required:
-            - mappings
+              message:
+                description: A human readable message indicating details about the
+                  transition.
+                type: string
+              reason:
+                type: string
+              type:
+                type: string
             type: object
         type: object
     served: true

@@ -17,18 +17,24 @@ limitations under the License.
 package registry
 
 import (
+	"context"
 	"errors"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 type Schema struct {
+	dynamic.Interface
 	config    *rest.Config
 	gvkGVRMap map[schema.GroupVersionKind]*schema.GroupVersionResource
+	ctx       context.Context
 }
 
 var (
@@ -39,13 +45,46 @@ var (
 )
 
 func InitORMSchema(config *rest.Config) error {
+	var err error
+
 	ormSchema.config = config
 
 	if config == nil {
 		return errors.New("Null Config for discovery")
 	}
 
-	return nil
+	ormSchema.ctx = context.TODO()
+	ormSchema.Interface, err = dynamic.NewForConfig(config)
+
+	return err
+}
+
+func (s *Schema) getOperandbyGVK(gvk schema.GroupVersionKind, req types.NamespacedName) (*unstructured.Unstructured, error) {
+
+	var err error
+	gvr := s.findGVRfromGVK(gvk)
+	if gvr == nil {
+		return nil, errors.New("Operator " + gvk.String() + "is not installed")
+	}
+
+	obj := &unstructured.Unstructured{}
+	obj, err = s.Resource(*gvr).Namespace(req.Namespace).Get(s.ctx, req.Name, metav1.GetOptions{})
+
+	return obj, err
+}
+
+func (s *Schema) updateOperand(gvk schema.GroupVersionKind, obj *unstructured.Unstructured) error {
+	var err error
+
+	gvr := s.findGVRfromGVK(gvk)
+	if gvr == nil {
+		return errors.New("Operator " + gvk.String() + "is not installed")
+	}
+
+	_, err = s.Resource(*gvr).Namespace(obj.GetNamespace()).Update(s.ctx, obj, metav1.UpdateOptions{})
+
+	return err
+
 }
 
 func (s *Schema) findGVRfromGVK(gvk schema.GroupVersionKind) *schema.GroupVersionResource {

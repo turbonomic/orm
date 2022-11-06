@@ -43,12 +43,29 @@ var (
 func (r *OperandRegistry) CreateUpdateRegistryEntry(op *v1alpha1.OperatorResourceMapping) error {
 
 	gvr := ormSchema.findGVRfromGVK(op.Spec.Operand.GroupVersionKind())
-	orLog.Info("operand details", "gvr", gvr)
 	if gvr == nil {
 		return errors.New("Operator " + op.Spec.Operand.GroupVersionKind().String() + " is not installed")
 	}
 
-	return nil
+	req := types.NamespacedName{}
+	req.Namespace = op.Spec.Operand.Namespace
+	if req.Namespace == "" {
+		req.Namespace = op.Namespace
+	}
+
+	req.Name = op.Spec.Operand.Name
+	if req.Name == "" {
+		req.Name = op.Name
+	}
+
+	obj, err := ormSchema.getOperandbyGVK(op.Spec.Operand.GroupVersionKind(), req)
+	if err != nil {
+		return err
+	}
+
+	err = ormSchema.updateOperand(op.Spec.Operand.GroupVersionKind(), obj)
+
+	return err
 }
 
 func (r *OperandRegistry) DeleteRegistryEntry(op *v1alpha1.OperatorResourceMapping) error {
