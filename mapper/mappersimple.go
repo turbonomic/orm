@@ -17,26 +17,38 @@ limitations under the License.
 package mapper
 
 import (
-	"context"
+	"errors"
 
+	"github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/registry"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 var (
 	msLog = ctrl.Log.WithName("mapper simple")
+
+	mp *SimpleMapper
 )
 
 // OperatorResourceMappingReconciler reconciles a OperatorResourceMapping object
 type SimpleMapper struct {
-	registry registry.SourceRegistry
+	reg *registry.Registry
 }
 
-func (e *SimpleMapper) Start(ctx context.Context) error {
+func (m *SimpleMapper) CreateUpdateSourceRegistryEntries(op *v1alpha1.OperatorResourceMapping) error {
 	return nil
 }
 
-// SetupWithManager sets up the controller with the Manager.
-func (r *SimpleMapper) SetupWithManager(mgr ctrl.Manager) error {
-	return nil
+func GetMapper(r *registry.Registry) (*SimpleMapper, error) {
+	if r == nil {
+		return nil, errors.New("Null registry for enforcer")
+	}
+
+	if mp == nil {
+		mp = &SimpleMapper{}
+	}
+
+	mp.reg = r
+
+	return mp, nil
 }

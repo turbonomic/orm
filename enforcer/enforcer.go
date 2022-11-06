@@ -17,26 +17,107 @@ limitations under the License.
 package enforcer
 
 import (
-	"context"
+	"errors"
+	"strings"
 
+	"github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/registry"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 type Enforcer struct {
-	registry registry.OperandRegistry
+	reg *registry.Registry
 }
 
 var (
 	eLog = ctrl.Log.WithName("enforcer")
+
+	enforcer *Enforcer
 )
 
-func (e *Enforcer) Start(ctx context.Context) error {
-	return nil
+func (e *Enforcer) CreateUpdateOperandRegistryEntry(orm *v1alpha1.OperatorResourceMapping) error {
+
+	req := types.NamespacedName{}
+	req.Namespace = orm.Spec.Operand.Namespace
+	if req.Namespace == "" {
+		req.Namespace = orm.Namespace
+	}
+
+	req.Name = orm.Spec.Operand.Name
+	if req.Name == "" {
+		req.Name = orm.Name
+	}
+
+	obj, err := e.reg.GetResourceWithGVK(orm.Spec.Operand.GroupVersionKind(), req)
+	if err != nil {
+		return err
+	}
+
+	if orm.Spec.EnforcementMode != v1alpha1.EnforcementModeNone {
+		err = e.doMappings(orm, obj)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = e.reg.UpdateResourceWithGVK(orm.Spec.Operand.GroupVersionKind(), obj)
+
+	return err
 }
 
-// SetupWithManager sets up the controller with the Manager.
-func (e *Enforcer) SetupWithManager(mgr ctrl.Manager) error {
+func (e *Enforcer) doMappings(orm *v1alpha1.OperatorResourceMapping, obj *unstructured.Unstructured) error {
+	var err error
 
-	return mgr.Add(e)
+	if orm.Status.Mappings == nil {
+		return nil
+	}
+
+	for n, m := range orm.Status.Mappings {
+		fields := strings.Split(m.OperandPath, ".")
+		value, err := runtime.DefaultUnstructuredConverter.ToUnstructured(m.Value)
+		if err != nil {
+			e.updateMappingStatus(orm, n, err)
+			return err
+		}
+
+		err = unstructured.SetNestedField(obj.Object, value, fields...)
+		if err != nil {
+			e.updateMappingStatus(orm, n, err)
+			return err
+		}
+
+		e.updateMappingStatus(orm, n, err)
+	}
+
+	return err
+}
+
+func (e *Enforcer) updateMappingStatus(orm *v1alpha1.OperatorResourceMapping, n int, err error) {
+	if err == nil {
+		orm.Status.Mappings[n].Mapped = corev1.ConditionTrue
+		orm.Status.Mappings[n].Reason = ""
+		orm.Status.Mappings[n].Message = ""
+	} else {
+		orm.Status.Mappings[n].Mapped = corev1.ConditionFalse
+		orm.Status.Mappings[n].Reason = string(v1alpha1.ORMStatusReasonOperandError)
+		orm.Status.Mappings[n].Message = err.Error()
+	}
+}
+
+func GetEnforcer(r *registry.Registry) (*Enforcer, error) {
+	if r == nil {
+		return nil, errors.New("Null registry for enforcer")
+	}
+
+	if enforcer == nil {
+		enforcer = &Enforcer{}
+	}
+
+	enforcer.reg = r
+
+	return enforcer, nil
 }

@@ -33,6 +33,8 @@ import (
 
 	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/controllers"
+	"github.com/turbonomic/orm/enforcer"
+	"github.com/turbonomic/orm/mapper"
 	"github.com/turbonomic/orm/registry"
 	//+kubebuilder:scaffold:imports
 )
@@ -90,14 +92,32 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = registry.InitORMSchema(mgr.GetConfig()); err != nil {
-		setupLog.Error(err, "unable to init resource schema")
+	var reg *registry.Registry
+	reg, err = registry.GetORMRegistry(mgr.GetConfig())
+	if err != nil {
+		setupLog.Error(err, "unable to init registry")
+		os.Exit(1)
+	}
+
+	var ef *enforcer.Enforcer
+	ef, err = enforcer.GetEnforcer(reg)
+	if err != nil {
+		setupLog.Error(err, "unable to init enforcer")
+		os.Exit(1)
+	}
+
+	var mp *mapper.SimpleMapper
+	mp, err = mapper.GetMapper(reg)
+	if err != nil {
+		setupLog.Error(err, "unable to init mapper")
 		os.Exit(1)
 	}
 
 	if err = (&controllers.OperatorResourceMappingReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Enforcer: ef,
+		Mapper:   mp,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OperatorResourceMapping")
 		os.Exit(1)

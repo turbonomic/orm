@@ -16,23 +16,8 @@ limitations under the License.
 
 package registry
 
-import (
-	"github.com/turbonomic/orm/api/v1alpha1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
-)
+import "k8s.io/client-go/dynamic/dynamicinformer"
 
-type SourceRegistryEntry struct {
+type Informer struct {
+	dynamicinformer.DynamicSharedInformerFactory
 }
-
-type sourceModeRegistry map[types.NamespacedName]v1alpha1.EnforcementMode
-type SourceRegistry map[schema.GroupVersionResource]sourceModeRegistry
-
-var (
-	sourceRegistry = SourceRegistry{}
-)
-
-var (
-	srLog = ctrl.Log.WithName("source regisry")
-)

@@ -17,22 +17,43 @@ limitations under the License.
 package registry
 
 import (
-	"github.com/turbonomic/orm/api/v1alpha1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"context"
+	"errors"
+
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 )
 
-type SourceRegistryEntry struct {
+type Registry struct {
+	cfg *rest.Config
+	ctx context.Context
+
+	OperandRegistry
+	SourceRegistry
+	Schema
+	Client
+	Informer
 }
 
-type sourceModeRegistry map[types.NamespacedName]v1alpha1.EnforcementMode
-type SourceRegistry map[schema.GroupVersionResource]sourceModeRegistry
-
 var (
-	sourceRegistry = SourceRegistry{}
+	r *Registry
 )
 
-var (
-	srLog = ctrl.Log.WithName("source regisry")
-)
+func GetORMRegistry(config *rest.Config) (*Registry, error) {
+	var err error
+
+	if r == nil {
+		r = &Registry{}
+	}
+
+	r.cfg = config
+
+	if r.cfg == nil {
+		return nil, errors.New("Null Config for discovery")
+	}
+
+	r.ctx = context.TODO()
+	r.Client.Interface, err = dynamic.NewForConfig(config)
+
+	return r, err
+}

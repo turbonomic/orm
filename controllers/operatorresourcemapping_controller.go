@@ -26,7 +26,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/turbonomic/orm/api/v1alpha1"
-	"github.com/turbonomic/orm/registry"
+	"github.com/turbonomic/orm/enforcer"
+	"github.com/turbonomic/orm/mapper"
 )
 
 var (
@@ -37,6 +38,9 @@ var (
 type OperatorResourceMappingReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+
+	Enforcer *enforcer.Enforcer
+	Mapper   *mapper.SimpleMapper
 }
 
 //+kubebuilder:rbac:groups=devops.turbonomic.io,resources=operatorresourcemappings,verbs=get;list;watch;create;update;patch;delete
@@ -66,7 +70,7 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 
 	oldStatus := orm.Status.DeepCopy()
 
-	err = registry.GetOperandRegisry().CreateUpdateRegistryEntry(orm)
+	err = r.Enforcer.CreateUpdateOperandRegistryEntry(orm)
 	if err != nil {
 		ocLog.Error(err, "registering operator "+req.String()+" ... skipping")
 
@@ -78,7 +82,7 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 		return ctrl.Result{}, nil
 	}
 
-	err = registry.GetSourceRegisry().CreateUpdateRegistryEntries(orm)
+	err = r.Mapper.CreateUpdateSourceRegistryEntries(orm)
 	if err != nil {
 		ocLog.Error(err, "registering sources of operator "+req.String()+" ... skipping")
 
