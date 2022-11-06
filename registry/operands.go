@@ -18,8 +18,12 @@ package registry
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/turbonomic/orm/api/v1alpha1"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -40,32 +44,78 @@ var (
 	orLog = ctrl.Log.WithName("operand registry")
 )
 
-func (r *OperandRegistry) CreateUpdateRegistryEntry(op *v1alpha1.OperatorResourceMapping) error {
+func (r *OperandRegistry) CreateUpdateRegistryEntry(orm *v1alpha1.OperatorResourceMapping) error {
 
-	gvr := ormSchema.findGVRfromGVK(op.Spec.Operand.GroupVersionKind())
+	gvr := ormSchema.findGVRfromGVK(orm.Spec.Operand.GroupVersionKind())
 	if gvr == nil {
-		return errors.New("Operator " + op.Spec.Operand.GroupVersionKind().String() + " is not installed")
+		return errors.New("Operator " + orm.Spec.Operand.GroupVersionKind().String() + " is not installed")
 	}
 
 	req := types.NamespacedName{}
-	req.Namespace = op.Spec.Operand.Namespace
+	req.Namespace = orm.Spec.Operand.Namespace
 	if req.Namespace == "" {
-		req.Namespace = op.Namespace
+		req.Namespace = orm.Namespace
 	}
 
-	req.Name = op.Spec.Operand.Name
+	req.Name = orm.Spec.Operand.Name
 	if req.Name == "" {
-		req.Name = op.Name
+		req.Name = orm.Name
 	}
 
-	obj, err := ormSchema.getOperandbyGVK(op.Spec.Operand.GroupVersionKind(), req)
+	obj, err := ormSchema.getOperandbyGVK(orm.Spec.Operand.GroupVersionKind(), req)
 	if err != nil {
 		return err
 	}
 
-	err = ormSchema.updateOperand(op.Spec.Operand.GroupVersionKind(), obj)
+	if orm.Spec.EnforcementMode != v1alpha1.EnforcementModeNone {
+		err = r.doMappings(orm, obj)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = ormSchema.updateOperand(orm.Spec.Operand.GroupVersionKind(), obj)
 
 	return err
+}
+
+func (r *OperandRegistry) doMappings(orm *v1alpha1.OperatorResourceMapping, obj *unstructured.Unstructured) error {
+	var err error
+
+	if orm.Status.Mappings == nil {
+		return nil
+	}
+
+	for n, m := range orm.Status.Mappings {
+		fields := strings.Split(m.OperandPath, ".")
+		value, err := runtime.DefaultUnstructuredConverter.ToUnstructured(m.Value)
+		if err != nil {
+			r.updateMappingStatus(orm, n, err)
+			return err
+		}
+
+		err = unstructured.SetNestedField(obj.Object, value, fields...)
+		if err != nil {
+			r.updateMappingStatus(orm, n, err)
+			return err
+		}
+
+		r.updateMappingStatus(orm, n, err)
+	}
+
+	return err
+}
+
+func (r *OperandRegistry) updateMappingStatus(orm *v1alpha1.OperatorResourceMapping, n int, err error) {
+	if err == nil {
+		orm.Status.Mappings[n].Mapped = v1.ConditionTrue
+		orm.Status.Mappings[n].Reason = ""
+		orm.Status.Mappings[n].Message = ""
+	} else {
+		orm.Status.Mappings[n].Mapped = v1.ConditionFalse
+		orm.Status.Mappings[n].Reason = string(v1alpha1.ORMStatusReasonOperandError)
+		orm.Status.Mappings[n].Message = err.Error()
+	}
 }
 
 func (r *OperandRegistry) DeleteRegistryEntry(op *v1alpha1.OperatorResourceMapping) error {
