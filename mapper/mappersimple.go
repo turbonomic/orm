@@ -77,7 +77,40 @@ func (m *SimpleMapper) CreateUpdateSourceRegistryEntries(orm *v1alpha1.OperatorR
 					}
 
 					orm := &v1alpha1.OperatorResourceMapping{}
-					err = m.reg.OrmClient.Get(context.TODO(), k, orm)
+					err = m.reg.OrmClient.Get(context.TODO(), se.ORM, orm)
+					if err != nil {
+						msLog.Error(err, "watching")
+					}
+
+					mfs := obj.GetManagedFields()
+					if len(mfs) == 0 {
+						msLog.Info("no managed fields", "gvk", obj.GroupVersionKind(), "key", k)
+					}
+
+					mgr := mfs[0].Manager
+					t := mfs[0].Time
+					for _, mf := range obj.GetManagedFields() {
+						if t.Before(mf.Time) {
+							mgr = mf.Manager
+							t = mf.Time
+						}
+					}
+
+					allowedmgrs := orm.Spec.Operand.OtherManagers
+					if allowedmgrs == nil || len(allowedmgrs) == 0 {
+						allowedmgrs = v1alpha1.DefaultOtherManagers
+					}
+
+					found := false
+					for _, om := range allowedmgrs {
+						if mgr == om {
+							found = true
+							break
+						}
+					}
+					if !found {
+						return
+					}
 
 					mapitem := v1alpha1.Mapping{}
 					mapitem.OperandPath = se.OperandPath
@@ -134,7 +167,7 @@ func (m *SimpleMapper) mapOnce() error {
 	return nil
 }
 
-func GetMapper(r *registry.Registry) (*SimpleMapper, error) {
+func GetSimpleMapper(r *registry.Registry) (*SimpleMapper, error) {
 	if r == nil {
 		return nil, errors.New("Null registry for enforcer")
 	}

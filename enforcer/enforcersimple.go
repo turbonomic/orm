@@ -29,17 +29,17 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-type Enforcer struct {
+type SimpleEnforcer struct {
 	reg *registry.Registry
 }
 
 var (
 	eLog = ctrl.Log.WithName("enforcer")
 
-	enforcer *Enforcer
+	enforcer *SimpleEnforcer
 )
 
-func (e *Enforcer) CreateUpdateOperandRegistryEntry(orm *v1alpha1.OperatorResourceMapping) error {
+func (e *SimpleEnforcer) CreateUpdateOperandRegistryEntry(orm *v1alpha1.OperatorResourceMapping) error {
 	if orm == nil {
 		return nil
 	}
@@ -72,7 +72,7 @@ func (e *Enforcer) CreateUpdateOperandRegistryEntry(orm *v1alpha1.OperatorResour
 	return err
 }
 
-func (e *Enforcer) enforceOnce(orm *v1alpha1.OperatorResourceMapping, obj *unstructured.Unstructured) error {
+func (e *SimpleEnforcer) enforceOnce(orm *v1alpha1.OperatorResourceMapping, obj *unstructured.Unstructured) error {
 	var err error
 
 	if orm.Status.Mappings == nil {
@@ -113,7 +113,7 @@ func (e *Enforcer) enforceOnce(orm *v1alpha1.OperatorResourceMapping, obj *unstr
 	return err
 }
 
-func (e *Enforcer) updateMappingStatus(orm *v1alpha1.OperatorResourceMapping, n int, err error) {
+func (e *SimpleEnforcer) updateMappingStatus(orm *v1alpha1.OperatorResourceMapping, n int, err error) {
 	if err == nil {
 		orm.Status.Mappings[n].Mapped = corev1.ConditionTrue
 		orm.Status.Mappings[n].Reason = ""
@@ -125,13 +125,13 @@ func (e *Enforcer) updateMappingStatus(orm *v1alpha1.OperatorResourceMapping, n 
 	}
 }
 
-func GetEnforcer(r *registry.Registry) (*Enforcer, error) {
+func GetSimpleEnforcer(r *registry.Registry) (*SimpleEnforcer, error) {
 	if r == nil {
 		return nil, errors.New("Null registry for enforcer")
 	}
 
 	if enforcer == nil {
-		enforcer = &Enforcer{}
+		enforcer = &SimpleEnforcer{}
 	}
 
 	enforcer.reg = r

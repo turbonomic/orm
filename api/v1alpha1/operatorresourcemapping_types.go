@@ -57,6 +57,20 @@ const (
 
 var EnforcementModeDefault = EnforcementModeOnce
 
+var (
+	DefaultOtherManagers = []string{
+		"kubectl-edit",
+		"kube-controller-manager",
+	}
+)
+
+type Operand struct {
+	corev1.ObjectReference `json:",inline"`
+	// Managers outside original operator controller, by default: kubectl-edit
+	// +optional
+	OtherManagers []string `json:"otherManagers,omitempty"`
+}
+
 // OperatorResourceMappingSpec defines the desired state of OperatorResourceMapping
 type OperatorResourceMappingSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -64,9 +78,9 @@ type OperatorResourceMappingSpec struct {
 
 	// Operand is the target to make actual changes
 	// if name and namespace are not provided, use same one as orm cr
-	Operand         corev1.ObjectReference `json:"operand"`
-	EnforcementMode EnforcementMode        `json:"enforcement,omitempty"`
-	Patterns        []MappingPattern       `json:"patterns,omitempty"`
+	Operand         Operand          `json:"operand"`
+	EnforcementMode EnforcementMode  `json:"enforcement,omitempty"`
+	Patterns        []MappingPattern `json:"patterns,omitempty"`
 }
 
 type Mapping struct {

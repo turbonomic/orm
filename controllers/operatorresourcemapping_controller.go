@@ -39,7 +39,7 @@ type OperatorResourceMappingReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
-	Enforcer *enforcer.Enforcer
+	Enforcer *enforcer.SimpleEnforcer
 	Mapper   *mapper.SimpleMapper
 }
 

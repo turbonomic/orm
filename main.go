@@ -99,15 +99,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	var ef *enforcer.Enforcer
-	ef, err = enforcer.GetEnforcer(reg)
+	var ef *enforcer.SimpleEnforcer
+	ef, err = enforcer.GetSimpleEnforcer(reg)
 	if err != nil {
 		setupLog.Error(err, "unable to init enforcer")
 		os.Exit(1)
 	}
 
 	var mp *mapper.SimpleMapper
-	mp, err = mapper.GetMapper(reg)
+	mp, err = mapper.GetSimpleMapper(reg)
 	if err != nil {
 		setupLog.Error(err, "unable to init mapper")
 		os.Exit(1)

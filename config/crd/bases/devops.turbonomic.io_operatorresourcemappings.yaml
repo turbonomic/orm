@@ -71,6 +71,12 @@ spec:
                   namespace:
                     description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
                     type: string
+                  otherManagers:
+                    description: 'Managers outside original operator controller, by
+                      default: kubectl-edit'
+                    items:
+                      type: string
+                    type: array
                   resourceVersion:
                     description: 'Specific resourceVersion to which this reference
                       is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
