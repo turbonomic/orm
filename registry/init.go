@@ -19,14 +19,19 @@ package registry
 import (
 	"context"
 	"errors"
+	"time"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Registry struct {
-	cfg *rest.Config
-	ctx context.Context
+	cfg    *rest.Config
+	ctx    context.Context
+	scheme *runtime.Scheme
 
 	OperandRegistry
 	SourceRegistry
@@ -36,10 +41,13 @@ type Registry struct {
 }
 
 var (
+	resync = 10 * time.Minute
+	stopCh chan struct{}
+
 	r *Registry
 )
 
-func GetORMRegistry(config *rest.Config) (*Registry, error) {
+func GetORMRegistry(config *rest.Config, scheme *runtime.Scheme) (*Registry, error) {
 	var err error
 
 	if r == nil {
@@ -47,13 +55,23 @@ func GetORMRegistry(config *rest.Config) (*Registry, error) {
 	}
 
 	r.cfg = config
-
 	if r.cfg == nil {
 		return nil, errors.New("Null Config for discovery")
 	}
+	r.scheme = scheme
 
 	r.ctx = context.TODO()
 	r.Client.Interface, err = dynamic.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	r.OrmClient, err = client.New(config, client.Options{Scheme: r.scheme})
+	if err != nil {
+		return nil, err
+	}
+
+	r.DynamicSharedInformerFactory = dynamicinformer.NewDynamicSharedInformerFactory(r.Client, resync)
+	r.Informer.Start(r.ctx.Done())
 
 	return r, err
 }

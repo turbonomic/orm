@@ -93,7 +93,7 @@ func main() {
 	}
 
 	var reg *registry.Registry
-	reg, err = registry.GetORMRegistry(mgr.GetConfig())
+	reg, err = registry.GetORMRegistry(mgr.GetConfig(), mgr.GetScheme())
 	if err != nil {
 		setupLog.Error(err, "unable to init registry")
 		os.Exit(1)

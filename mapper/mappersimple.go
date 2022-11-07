@@ -17,10 +17,16 @@ limitations under the License.
 package mapper
 
 import (
+	"context"
 	"errors"
+	"strings"
 
 	"github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/registry"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -35,7 +41,96 @@ type SimpleMapper struct {
 	reg *registry.Registry
 }
 
-func (m *SimpleMapper) CreateUpdateSourceRegistryEntries(op *v1alpha1.OperatorResourceMapping) error {
+func (m *SimpleMapper) CreateUpdateSourceRegistryEntries(orm *v1alpha1.OperatorResourceMapping) error {
+
+	var err error
+
+	if orm == nil {
+		return nil
+	}
+
+	if orm.Spec.Patterns == nil || len(orm.Spec.Patterns) == 0 {
+		return nil
+	}
+
+	for _, p := range orm.Spec.Patterns {
+		var exists bool
+		exists, err = m.reg.RegisterSource(p.OperandPath, p.Source.ObjectReference, p.Source.Path,
+			types.NamespacedName{Name: orm.Name, Namespace: orm.Namespace})
+		if err != nil {
+			return err
+		}
+
+		if !exists {
+			m.reg.WatchResourceWithGVK(p.Source.GroupVersionKind(), cache.ResourceEventHandlerFuncs{
+				UpdateFunc: func(old, new interface{}) {
+					obj := new.(*unstructured.Unstructured)
+
+					k := types.NamespacedName{
+						Namespace: obj.GetNamespace(),
+						Name:      obj.GetName(),
+					}
+
+					se := m.reg.RetriveSource(obj.GroupVersionKind(), k)
+					if se == nil {
+						return
+					}
+
+					orm := &v1alpha1.OperatorResourceMapping{}
+					err = m.reg.OrmClient.Get(context.TODO(), k, orm)
+
+					mapitem := v1alpha1.Mapping{}
+					mapitem.OperandPath = se.OperandPath
+
+					fields := strings.Split(se.SourcePath, ".")
+					lastField := fields[len(fields)-1]
+					valueInObj, found, err := unstructured.NestedFieldCopy(obj.Object, fields...)
+
+					valueMap := make(map[string]interface{})
+					valueMap[lastField] = valueInObj
+					if err != nil || !found {
+						msLog.Error(err, "parsing src", "fields", fields, "actual", obj.Object["metadata"])
+						return
+					}
+
+					valueObj := &unstructured.Unstructured{
+						Object: valueMap,
+					}
+					mapitem.Value = &runtime.RawExtension{
+						Object: valueObj,
+					}
+
+					added := false
+					for n, mp := range orm.Status.Mappings {
+						if mp.OperandPath == mapitem.OperandPath {
+							mapitem.DeepCopyInto(&(orm.Status.Mappings[n]))
+							added = true
+							break
+						}
+					}
+
+					if !added {
+						orm.Status.Mappings = append(orm.Status.Mappings, mapitem)
+					}
+
+					err = m.reg.OrmClient.Status().Update(context.TODO(), orm)
+					if err != nil {
+						st := orm.Status.DeepCopy()
+						err = m.reg.OrmClient.Get(context.TODO(), k, orm)
+						st.DeepCopyInto(&orm.Status)
+						err = m.reg.OrmClient.Status().Update(context.TODO(), orm)
+						if err != nil {
+							msLog.Error(err, "retry status")
+						}
+					}
+				}})
+		}
+	}
+
+	return nil
+}
+
+func (m *SimpleMapper) mapOnce() error {
 	return nil
 }
 

@@ -23,14 +23,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-type RegistryEntry struct {
+type registryEntry struct {
 	ORM             types.NamespacedName
 	EnforcementMode v1alpha1.EnforcementMode
 	Mappings        []v1alpha1.Mapping
 }
 
-type operandModeRegistry map[types.NamespacedName]v1alpha1.EnforcementMode
-type OperandRegistry map[schema.GroupVersionResource]operandModeRegistry
+type operandGVRRegistry map[types.NamespacedName]registryEntry
+type OperandRegistry map[schema.GroupVersionResource]operandGVRRegistry
 
 var (
 	orLog = ctrl.Log.WithName("operand registry")

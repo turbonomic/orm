@@ -16,8 +16,27 @@ limitations under the License.
 
 package registry
 
-import "k8s.io/client-go/dynamic/dynamicinformer"
+import (
+	"errors"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/tools/cache"
+)
 
 type Informer struct {
 	dynamicinformer.DynamicSharedInformerFactory
+}
+
+func (i *Informer) WatchResourceWithGVK(gvk schema.GroupVersionKind, handler cache.ResourceEventHandler) error {
+
+	gvr := r.findGVRfromGVK(gvk)
+	if gvr == nil {
+		return errors.New("Source resource " + gvk.String() + "is not installed")
+	}
+
+	i.ForResource(*gvr).Informer().AddEventHandler(handler)
+
+	i.Start(r.ctx.Done())
+	return nil
 }

@@ -40,6 +40,9 @@ var (
 )
 
 func (e *Enforcer) CreateUpdateOperandRegistryEntry(orm *v1alpha1.OperatorResourceMapping) error {
+	if orm == nil {
+		return nil
+	}
 
 	req := types.NamespacedName{}
 	req.Namespace = orm.Spec.Operand.Namespace
@@ -58,7 +61,7 @@ func (e *Enforcer) CreateUpdateOperandRegistryEntry(orm *v1alpha1.OperatorResour
 	}
 
 	if orm.Spec.EnforcementMode != v1alpha1.EnforcementModeNone {
-		err = e.doMappings(orm, obj)
+		err = e.enforceOnce(orm, obj)
 		if err != nil {
 			return err
 		}
@@ -69,7 +72,7 @@ func (e *Enforcer) CreateUpdateOperandRegistryEntry(orm *v1alpha1.OperatorResour
 	return err
 }
 
-func (e *Enforcer) doMappings(orm *v1alpha1.OperatorResourceMapping, obj *unstructured.Unstructured) error {
+func (e *Enforcer) enforceOnce(orm *v1alpha1.OperatorResourceMapping, obj *unstructured.Unstructured) error {
 	var err error
 
 	if orm.Status.Mappings == nil {
@@ -84,7 +87,21 @@ func (e *Enforcer) doMappings(orm *v1alpha1.OperatorResourceMapping, obj *unstru
 			return err
 		}
 
-		err = unstructured.SetNestedField(obj.Object, value, fields...)
+		var valueInObj interface{}
+		for _, v := range value {
+			valueInObj = v
+		}
+
+		key := fields[len(fields)-1]
+		fields = fields[0 : len(fields)-1]
+		valueUp, found, err := unstructured.NestedFieldCopy(obj.Object, fields...)
+		if err != nil || !found {
+
+		}
+
+		valueMapUp := valueUp.(map[string]interface{})
+		valueMapUp[key] = valueInObj
+		err = unstructured.SetNestedField(obj.Object, valueMapUp, fields...)
 		if err != nil {
 			e.updateMappingStatus(orm, n, err)
 			return err
