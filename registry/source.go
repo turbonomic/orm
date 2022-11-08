@@ -25,15 +25,21 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-type SourceRegistryEntry struct {
-	OperandPath string
-	SourcePath  string
-	ORM         types.NamespacedName
+// operandPath as key, sourcePath as value
+type PatternMap map[string]string
+
+// namespacedname of ORM as key, in case 1 source maps to more than 1 ORM
+type SourceORMEntry map[types.NamespacedName]PatternMap
+
+type sourceObjectRef struct {
+	schema.GroupVersionResource
+	types.NamespacedName
 }
 
-type sourceGVRRegistry map[types.NamespacedName]SourceRegistryEntry
+// object groupversionkind + namespacedname as key
 type SourceRegistry struct {
-	registry map[schema.GroupVersionResource]sourceGVRRegistry
+	// groupversionkind of source resource as key
+	registry map[sourceObjectRef]SourceORMEntry
 }
 
 var (
@@ -43,7 +49,7 @@ var (
 func (sr *SourceRegistry) RegisterSource(op string, sobj corev1.ObjectReference, sp string, orm types.NamespacedName) (bool, error) {
 
 	if sr.registry == nil {
-		sr.registry = make(map[schema.GroupVersionResource]sourceGVRRegistry)
+		sr.registry = make(map[sourceObjectRef]SourceORMEntry)
 	}
 
 	gvr := r.findGVRfromGVK(sobj.GroupVersionKind())
@@ -52,39 +58,36 @@ func (sr *SourceRegistry) RegisterSource(op string, sobj corev1.ObjectReference,
 	}
 
 	var exists bool
-	var gvrReg sourceGVRRegistry
-
-	if gvrReg, exists = sr.registry[*gvr]; !exists {
-		gvrReg = make(map[types.NamespacedName]SourceRegistryEntry)
+	sref := sourceObjectRef{
+		GroupVersionResource: *gvr,
+		NamespacedName: types.NamespacedName{
+			Namespace: sobj.Namespace,
+			Name:      sobj.Name,
+		},
 	}
 
-	skey := types.NamespacedName{
-		Namespace: sobj.Namespace,
-		Name:      sobj.Name,
-	}
-	if skey.Namespace == "" {
-		skey.Namespace = orm.Namespace
+	if sref.Namespace == "" {
+		sref.Namespace = orm.Namespace
 	}
 
-	entry, ok := gvrReg[skey]
+	var ormEntry SourceORMEntry
+	if ormEntry, exists = sr.registry[sref]; !exists {
+		ormEntry = make(map[types.NamespacedName]PatternMap)
+	}
+
+	pm, ok := ormEntry[orm]
 	if !ok {
-		entry = SourceRegistryEntry{}
+		pm = make(map[string]string)
 	}
 
-	entry.OperandPath = op
-	entry.SourcePath = sp
-	entry.ORM = orm
-
-	gvrReg[skey] = entry
-
-	sr.registry[*gvr] = gvrReg
+	pm[op] = sp
+	ormEntry[orm] = pm
+	sr.registry[sref] = ormEntry
 
 	return exists, nil
 }
 
-func (sr *SourceRegistry) RetriveSource(gvk schema.GroupVersionKind, key types.NamespacedName) *SourceRegistryEntry {
-	var exists bool
-
+func (sr *SourceRegistry) RetriveORMEntryForResource(gvk schema.GroupVersionKind, key types.NamespacedName) SourceORMEntry {
 	if sr.registry == nil {
 		return nil
 	}
@@ -94,13 +97,10 @@ func (sr *SourceRegistry) RetriveSource(gvk schema.GroupVersionKind, key types.N
 		return nil
 	}
 
-	var gvrReg sourceGVRRegistry
-	if gvrReg, exists = sr.registry[*gvr]; !exists {
-		return nil
+	sref := sourceObjectRef{
+		GroupVersionResource: *gvr,
+		NamespacedName:       key,
 	}
 
-	if entry, ok := gvrReg[key]; ok {
-		return &entry
-	}
-	return nil
+	return sr.registry[sref]
 }

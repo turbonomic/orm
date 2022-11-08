@@ -13,10 +13,10 @@ spec:
       apiVersion: apps/v1
       kind: Deployment
       name: cp4mcm-hybridapp
-      path: "spec.template.spec.containers[?(@.name=placement)].resources"
+      path: .spec.template.spec.containers[?(@.name=="placement")].resources
   - operandPath: "spec.replicas"
     source:
       apiVersion: apps/v1
       kind: Deployment
       name: cp4mcm-hybridapp
-      path: "spec.replicas"
+      path: ".spec.replicas"

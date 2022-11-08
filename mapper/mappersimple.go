@@ -19,10 +19,12 @@ package mapper
 import (
 	"context"
 	"errors"
+	"reflect"
 	"strings"
 
 	"github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/registry"
+	"github.com/turbonomic/orm/util"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -53,6 +55,7 @@ func (m *SimpleMapper) CreateUpdateSourceRegistryEntries(orm *v1alpha1.OperatorR
 		return nil
 	}
 
+	var srcObj *unstructured.Unstructured
 	for _, p := range orm.Spec.Patterns {
 		var exists bool
 		exists, err = m.reg.RegisterSource(p.OperandPath, p.Source.ObjectReference, p.Source.Path,
@@ -61,110 +64,155 @@ func (m *SimpleMapper) CreateUpdateSourceRegistryEntries(orm *v1alpha1.OperatorR
 			return err
 		}
 
+		k := types.NamespacedName{Namespace: p.Source.Namespace, Name: p.Source.Name}
+		if k.Namespace == "" {
+			k.Namespace = orm.Namespace
+		}
+		srcObj, err = m.reg.GetResourceWithGVK(p.Source.GroupVersionKind(), k)
+
+		if err != nil {
+			msLog.Error(err, "creating entry for ", "source", p.Source)
+			return err
+		}
+		m.mapOnce(srcObj, orm, false)
+
 		if !exists {
 			m.reg.WatchResourceWithGVK(p.Source.GroupVersionKind(), cache.ResourceEventHandlerFuncs{
 				UpdateFunc: func(old, new interface{}) {
 					obj := new.(*unstructured.Unstructured)
 
-					k := types.NamespacedName{
-						Namespace: obj.GetNamespace(),
-						Name:      obj.GetName(),
-					}
-
-					se := m.reg.RetriveSource(obj.GroupVersionKind(), k)
-					if se == nil {
-						return
-					}
-
-					orm := &v1alpha1.OperatorResourceMapping{}
-					err = m.reg.OrmClient.Get(context.TODO(), se.ORM, orm)
-					if err != nil {
-						msLog.Error(err, "watching")
-					}
-
-					mfs := obj.GetManagedFields()
-					if len(mfs) == 0 {
-						msLog.Info("no managed fields", "gvk", obj.GroupVersionKind(), "key", k)
-					}
-
-					mgr := mfs[0].Manager
-					t := mfs[0].Time
-					for _, mf := range obj.GetManagedFields() {
-						if t.Before(mf.Time) {
-							mgr = mf.Manager
-							t = mf.Time
-						}
-					}
-
-					allowedmgrs := orm.Spec.Operand.OtherManagers
-					if allowedmgrs == nil || len(allowedmgrs) == 0 {
-						allowedmgrs = v1alpha1.DefaultOtherManagers
-					}
-
-					found := false
-					for _, om := range allowedmgrs {
-						if mgr == om {
-							found = true
-							break
-						}
-					}
-					if !found {
-						return
-					}
-
-					mapitem := v1alpha1.Mapping{}
-					mapitem.OperandPath = se.OperandPath
-
-					fields := strings.Split(se.SourcePath, ".")
-					lastField := fields[len(fields)-1]
-					valueInObj, found, err := unstructured.NestedFieldCopy(obj.Object, fields...)
-
-					valueMap := make(map[string]interface{})
-					valueMap[lastField] = valueInObj
-					if err != nil || !found {
-						msLog.Error(err, "parsing src", "fields", fields, "actual", obj.Object["metadata"])
-						return
-					}
-
-					valueObj := &unstructured.Unstructured{
-						Object: valueMap,
-					}
-					mapitem.Value = &runtime.RawExtension{
-						Object: valueObj,
-					}
-
-					added := false
-					for n, mp := range orm.Status.Mappings {
-						if mp.OperandPath == mapitem.OperandPath {
-							mapitem.DeepCopyInto(&(orm.Status.Mappings[n]))
-							added = true
-							break
-						}
-					}
-
-					if !added {
-						orm.Status.Mappings = append(orm.Status.Mappings, mapitem)
-					}
-
-					err = m.reg.OrmClient.Status().Update(context.TODO(), orm)
-					if err != nil {
-						st := orm.Status.DeepCopy()
-						err = m.reg.OrmClient.Get(context.TODO(), k, orm)
-						st.DeepCopyInto(&orm.Status)
-						err = m.reg.OrmClient.Status().Update(context.TODO(), orm)
-						if err != nil {
-							msLog.Error(err, "retry status")
-						}
-					}
+					var orm *v1alpha1.OperatorResourceMapping
+					m.mapOnce(obj, orm, true)
 				}})
 		}
+
 	}
 
 	return nil
 }
 
-func (m *SimpleMapper) mapOnce() error {
-	return nil
+// assuming 1 source only serves 1 orm for poc
+func (m *SimpleMapper) mapOnce(obj *unstructured.Unstructured, ormIn *v1alpha1.OperatorResourceMapping, update bool) {
+	var err error
+
+	orgStatus := v1alpha1.OperatorResourceMappingStatus{}
+	if ormIn != nil {
+		ormIn.Status.DeepCopyInto(&orgStatus)
+	}
+
+	k := types.NamespacedName{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}
+
+	re := m.reg.RetriveORMEntryForResource(obj.GroupVersionKind(), k)
+	if re == nil {
+		return
+	}
+
+	for ormk, pm := range re {
+
+		orm := &v1alpha1.OperatorResourceMapping{}
+		err = m.reg.OrmClient.Get(context.TODO(), ormk, orm)
+		if err != nil {
+			msLog.Error(err, "watching")
+		}
+		orm.Status.DeepCopyInto(&orgStatus)
+
+		var mgr string
+
+		mfs := obj.GetManagedFields()
+		if len(mfs) == 0 {
+			msLog.Info("no managed fields", "gvk", obj.GroupVersionKind(), "key", k)
+		}
+
+		mgr = mfs[0].Manager
+		t := mfs[0].Time
+		for _, mf := range obj.GetManagedFields() {
+			if t.Before(mf.Time) {
+				mgr = mf.Manager
+				t = mf.Time
+			}
+		}
+
+		allowedmgrs := orm.Spec.Operand.OtherManagers
+		if allowedmgrs == nil || len(allowedmgrs) == 0 {
+			allowedmgrs = v1alpha1.DefaultOtherManagers
+		}
+
+		found := false
+		for _, om := range allowedmgrs {
+			if mgr == om {
+				found = true
+				break
+			}
+		}
+		if !found {
+			continue
+		}
+
+		for op, sp := range pm {
+
+			mapitem := v1alpha1.Mapping{}
+			mapitem.OperandPath = op
+
+			fields := strings.Split(sp, ".")
+			lastField := fields[len(fields)-1]
+			valueInObj, found, err := util.NestedField(obj, lastField, sp)
+
+			valueMap := make(map[string]interface{})
+			valueMap[lastField] = valueInObj
+			if err != nil || !found {
+				msLog.Error(err, "parsing src", "fields", fields, "actual", obj.Object["metadata"])
+				return
+			}
+
+			valueObj := &unstructured.Unstructured{
+				Object: valueMap,
+			}
+			mapitem.Value = &runtime.RawExtension{
+				Object: valueObj,
+			}
+
+			added := false
+			for n, mp := range orm.Status.Mappings {
+				if mp.OperandPath == mapitem.OperandPath {
+					mapitem.DeepCopyInto(&(orm.Status.Mappings[n]))
+					added = true
+					break
+				}
+			}
+
+			if !added {
+				orm.Status.Mappings = append(orm.Status.Mappings, mapitem)
+			}
+		}
+
+		if update && !reflect.DeepEqual(orgStatus, orm.Status) {
+			m.updateORMStatus(orm)
+		}
+	}
+
+	return
+}
+
+func (m *SimpleMapper) updateORMStatus(orm *v1alpha1.OperatorResourceMapping) {
+	k := types.NamespacedName{
+		Namespace: orm.GetNamespace(),
+		Name:      orm.GetName(),
+	}
+
+	err := m.reg.OrmClient.Status().Update(context.TODO(), orm)
+	if err != nil {
+		st := orm.Status.DeepCopy()
+		err = m.reg.OrmClient.Get(context.TODO(), k, orm)
+		st.DeepCopyInto(&orm.Status)
+		err = m.reg.OrmClient.Status().Update(context.TODO(), orm)
+		if err != nil {
+			msLog.Error(err, "retry status")
+		}
+	}
+
 }
 
 func GetSimpleMapper(r *registry.Registry) (*SimpleMapper, error) {
