@@ -8,15 +8,15 @@ spec:
     kind: Operator
   enforcement: once # none, once, always
   patterns:
-  - operandPath: "spec.core.placement.resources"
+  - operandPath: .spec.core.placement.resources
     source:
       apiVersion: apps/v1
       kind: Deployment
       name: cp4mcm-hybridapp
       path: .spec.template.spec.containers[?(@.name=="placement")].resources
-  - operandPath: "spec.replicas"
+  - operandPath: .spec.replicas
     source:
       apiVersion: apps/v1
       kind: Deployment
       name: cp4mcm-hybridapp
-      path: ".spec.replicas"
+      path: .spec.replicas

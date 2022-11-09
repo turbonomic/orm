@@ -18,10 +18,10 @@ package enforcer
 
 import (
 	"errors"
-	"strings"
 
 	"github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/registry"
+	"github.com/turbonomic/orm/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -59,10 +59,10 @@ func (e *SimpleEnforcer) CreateUpdateOperandRegistryEntry(orm *v1alpha1.Operator
 	if err != nil {
 		return err
 	}
-
 	if orm.Spec.EnforcementMode != v1alpha1.EnforcementModeNone {
 		err = e.enforceOnce(orm, obj)
 		if err != nil {
+			eLog.Error(err, "enforce out")
 			return err
 		}
 	}
@@ -80,7 +80,7 @@ func (e *SimpleEnforcer) enforceOnce(orm *v1alpha1.OperatorResourceMapping, obj 
 	}
 
 	for n, m := range orm.Status.Mappings {
-		fields := strings.Split(m.OperandPath, ".")
+		//		fields := strings.Split(m.OperandPath, ".")
 		value, err := runtime.DefaultUnstructuredConverter.ToUnstructured(m.Value)
 		if err != nil {
 			e.updateMappingStatus(orm, n, err)
@@ -92,16 +92,7 @@ func (e *SimpleEnforcer) enforceOnce(orm *v1alpha1.OperatorResourceMapping, obj 
 			valueInObj = v
 		}
 
-		key := fields[len(fields)-1]
-		fields = fields[0 : len(fields)-1]
-		valueUp, found, err := unstructured.NestedFieldCopy(obj.Object, fields...)
-		if err != nil || !found {
-
-		}
-
-		valueMapUp := valueUp.(map[string]interface{})
-		valueMapUp[key] = valueInObj
-		err = unstructured.SetNestedField(obj.Object, valueMapUp, fields...)
+		err = util.SetNestedField(obj.Object, valueInObj, m.OperandPath)
 		if err != nil {
 			e.updateMappingStatus(orm, n, err)
 			return err

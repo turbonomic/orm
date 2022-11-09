@@ -74,15 +74,16 @@ func (m *SimpleMapper) CreateUpdateSourceRegistryEntries(orm *v1alpha1.OperatorR
 			msLog.Error(err, "creating entry for ", "source", p.Source)
 			return err
 		}
-		m.mapOnce(srcObj, orm, false)
+		pm := make(map[string]string)
+		pm[p.OperandPath] = p.Source.Path
+		m.mapOnceForOneORM(srcObj, orm, pm)
 
 		if !exists {
 			m.reg.WatchResourceWithGVK(p.Source.GroupVersionKind(), cache.ResourceEventHandlerFuncs{
 				UpdateFunc: func(old, new interface{}) {
 					obj := new.(*unstructured.Unstructured)
 
-					var orm *v1alpha1.OperatorResourceMapping
-					m.mapOnce(obj, orm, true)
+					m.mapOnce(obj)
 				}})
 		}
 
@@ -91,14 +92,10 @@ func (m *SimpleMapper) CreateUpdateSourceRegistryEntries(orm *v1alpha1.OperatorR
 	return nil
 }
 
-// assuming 1 source only serves 1 orm for poc
-func (m *SimpleMapper) mapOnce(obj *unstructured.Unstructured, ormIn *v1alpha1.OperatorResourceMapping, update bool) {
+func (m *SimpleMapper) mapOnce(obj *unstructured.Unstructured) {
 	var err error
 
-	orgStatus := v1alpha1.OperatorResourceMappingStatus{}
-	if ormIn != nil {
-		ormIn.Status.DeepCopyInto(&orgStatus)
-	}
+	var orgStatus v1alpha1.OperatorResourceMappingStatus
 
 	k := types.NamespacedName{
 		Namespace: obj.GetNamespace(),
@@ -119,77 +116,85 @@ func (m *SimpleMapper) mapOnce(obj *unstructured.Unstructured, ormIn *v1alpha1.O
 		}
 		orm.Status.DeepCopyInto(&orgStatus)
 
-		var mgr string
+		m.mapOnceForOneORM(obj, orm, pm)
 
-		mfs := obj.GetManagedFields()
-		if len(mfs) == 0 {
-			msLog.Info("no managed fields", "gvk", obj.GroupVersionKind(), "key", k)
+		if !reflect.DeepEqual(orgStatus, orm.Status) {
+			m.updateORMStatus(orm)
 		}
 
-		mgr = mfs[0].Manager
-		t := mfs[0].Time
-		for _, mf := range obj.GetManagedFields() {
-			if t.Before(mf.Time) {
-				mgr = mf.Manager
-				t = mf.Time
-			}
+	}
+
+}
+
+// assuming 1 source only serves 1 orm for poc
+func (m *SimpleMapper) mapOnceForOneORM(obj *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping, pm registry.PatternMap) {
+
+	var mgr string
+
+	mfs := obj.GetManagedFields()
+	if len(mfs) == 0 {
+		msLog.Info("no managed fields", "gvk", obj.GroupVersionKind())
+	}
+
+	mgr = mfs[0].Manager
+	t := mfs[0].Time
+	for _, mf := range obj.GetManagedFields() {
+		if t.Before(mf.Time) {
+			mgr = mf.Manager
+			t = mf.Time
+		}
+	}
+
+	allowedmgrs := orm.Spec.Operand.OtherManagers
+	if allowedmgrs == nil || len(allowedmgrs) == 0 {
+		allowedmgrs = v1alpha1.DefaultOtherManagers
+	}
+
+	found := false
+	for _, om := range allowedmgrs {
+		if mgr == om {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return
+	}
+
+	for op, sp := range pm {
+
+		mapitem := v1alpha1.Mapping{}
+		mapitem.OperandPath = op
+
+		fields := strings.Split(sp, ".")
+		lastField := fields[len(fields)-1]
+		valueInObj, found, err := util.NestedField(obj, lastField, sp)
+
+		valueMap := make(map[string]interface{})
+		valueMap[lastField] = valueInObj
+		if err != nil || !found {
+			msLog.Error(err, "parsing src", "fields", fields, "actual", obj.Object["metadata"])
+			return
 		}
 
-		allowedmgrs := orm.Spec.Operand.OtherManagers
-		if allowedmgrs == nil || len(allowedmgrs) == 0 {
-			allowedmgrs = v1alpha1.DefaultOtherManagers
+		valueObj := &unstructured.Unstructured{
+			Object: valueMap,
+		}
+		mapitem.Value = &runtime.RawExtension{
+			Object: valueObj,
 		}
 
-		found := false
-		for _, om := range allowedmgrs {
-			if mgr == om {
-				found = true
+		added := false
+		for n, mp := range orm.Status.Mappings {
+			if mp.OperandPath == mapitem.OperandPath {
+				mapitem.DeepCopyInto(&(orm.Status.Mappings[n]))
+				added = true
 				break
 			}
 		}
-		if !found {
-			continue
-		}
 
-		for op, sp := range pm {
-
-			mapitem := v1alpha1.Mapping{}
-			mapitem.OperandPath = op
-
-			fields := strings.Split(sp, ".")
-			lastField := fields[len(fields)-1]
-			valueInObj, found, err := util.NestedField(obj, lastField, sp)
-
-			valueMap := make(map[string]interface{})
-			valueMap[lastField] = valueInObj
-			if err != nil || !found {
-				msLog.Error(err, "parsing src", "fields", fields, "actual", obj.Object["metadata"])
-				return
-			}
-
-			valueObj := &unstructured.Unstructured{
-				Object: valueMap,
-			}
-			mapitem.Value = &runtime.RawExtension{
-				Object: valueObj,
-			}
-
-			added := false
-			for n, mp := range orm.Status.Mappings {
-				if mp.OperandPath == mapitem.OperandPath {
-					mapitem.DeepCopyInto(&(orm.Status.Mappings[n]))
-					added = true
-					break
-				}
-			}
-
-			if !added {
-				orm.Status.Mappings = append(orm.Status.Mappings, mapitem)
-			}
-		}
-
-		if update && !reflect.DeepEqual(orgStatus, orm.Status) {
-			m.updateORMStatus(orm)
+		if !added {
+			orm.Status.Mappings = append(orm.Status.Mappings, mapitem)
 		}
 	}
 

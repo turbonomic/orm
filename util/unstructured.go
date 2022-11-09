@@ -47,12 +47,39 @@ func NestedField(obj *unstructured.Unstructured, name, path string) (interface{}
 	}
 	// The input path refers to a unique field, we can assume to have only one result or none.
 	value := results[0][0].Interface()
+
 	return value, true, nil
+}
+
+func SetNestedField(obj interface{}, value interface{}, path string) error {
+
+	loc := strings.LastIndex(path, ".")
+	uppath := path[:loc]
+	lastfield := path[loc+1:]
+
+	j := jsonpath.New(lastfield).AllowMissingKeys(true)
+	template := fmt.Sprintf("{%s}", uppath)
+	err := j.Parse(template)
+	if err != nil {
+		return err
+	}
+	results, err := j.FindResults(obj)
+	if err != nil {
+		return err
+	}
+	if len(results) == 0 || len(results[0]) == 0 {
+		return nil
+	}
+	// The input path refers to a unique field, we can assume to have only one result or none.
+	parent := results[0][0].Interface().(map[string]interface{})
+	parent[lastfield] = value
+
+	return nil
 }
 
 // Set nested field in an unstructured object. Certain field in the given fields could be the key
 // of a map of the index of a slice.
-func SetNestedField(obj interface{}, value interface{}, fields ...string) error {
+func OldSetNestedField(obj interface{}, value interface{}, fields ...string) error {
 	m := obj
 
 	for i, field := range fields[:len(fields)-1] {
@@ -72,16 +99,18 @@ func SetNestedField(obj interface{}, value interface{}, fields ...string) error 
 			}
 		} else if mSlice, ok := m.([]interface{}); ok {
 			sliceInd, err := strconv.Atoi(field)
-			if err != nil {
-				return fmt.Errorf("value cannot be set to the slice path %v because field %v is not integer", JSONPath(fields[:i+1]), field)
-			}
-			if sliceInd < len(mSlice) {
-				m = mSlice[sliceInd]
-			} else if sliceInd == len(mSlice) {
-				mSlice = append(mSlice, make(map[string]interface{}))
-				m = mSlice[len(mSlice)-1]
+			// direct index
+			if err == nil {
+				if sliceInd < len(mSlice) {
+					m = mSlice[sliceInd]
+				} else if sliceInd == len(mSlice) {
+					mSlice = append(mSlice, make(map[string]interface{}))
+					m = mSlice[len(mSlice)-1]
+				} else {
+					return fmt.Errorf("value cannot be set to the slice path %v because index %v exceeds the slice length %v", JSONPath(fields[:i+1]), field, len(mSlice))
+				}
 			} else {
-				return fmt.Errorf("value cannot be set to the slice path %v because index %v exceeds the slice length %v", JSONPath(fields[:i+1]), field, len(mSlice))
+				// pattern
 			}
 
 		} else {

@@ -1,0 +1,23 @@
+apiVersion: devops.turbonomic.io/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  name: fake
+spec:
+  operand: # target same namespace by default
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ormoperand
+  enforcement: none # none, once, always
+  patterns:
+  - operandPath: .spec.replicas
+    source:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: ormsource
+      path: .spec.replicas
+  - operandPath: .spec.template.spec.containers[?(@.name=="nginx")].resources
+    source:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: ormsource
+      path: .spec.template.spec.containers[?(@.name=="nginx")].resources
