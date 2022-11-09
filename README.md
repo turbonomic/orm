@@ -24,7 +24,107 @@ ORM works at operand basis, user defines which operand holds the source of truet
 
 ## QuickStart
 
-ORM leverages operator sdk to create/build project, follow the standard operator sdk approach to run it locally or generate images to deploy to a target cluster with right RBAC settings.
+ORM leverages operator sdk to create/build project, follow the standard operator sdk approach to run it locally or generate images to deploy to a target cluster with right RBAC settings. 
+
+Here are the instructions to run it locally outside cluster with our testing resources. 
+
+Step 0. Prerequisite - ensure you have CLI access your target kubernetes cluster
+
+Step 1. Clone the repository
+
+```script
+mkdir turbonomic
+cd turbonomic
+git clone https://github.com/turbonomic/orm.git
+```
+
+Step 2. Install CRD
+
+```script
+cd orm
+kubectl apply -f ./config/crd/bases/devops.turbonomic.io_operatorresourcemappings.yaml
+```
+
+Step 3. Start Controller with your outstanding access to kubernetes cluster
+
+```script
+% make run
+
+test -s /Users/kuan/Workspace/src/github.com/kuanf/orm/bin/controller-gen || GOBIN=/Users/kuan/Workspace/src/github.com/kuanf/orm/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.10.0
+/Users/kuan/Workspace/src/github.com/kuanf/orm/bin/controller-gen rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+/Users/kuan/Workspace/src/github.com/kuanf/orm/bin/controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
+go fmt ./...
+go vet ./...
+go run ./main.go
+1.6680114457816792e+09  INFO    controller-runtime.metrics    Metrics server is starting to listen    {"addr": ":8080"}
+1.668011446468928e+09   INFO    setup   starting manager
+1.6680114464695108e+09  INFO    Starting server {"path": "/metrics", "kind": "metrics", "addr": "[::]:8080"}
+1.6680114464695098e+09  INFO    Starting server {"kind": "health probe", "addr": "[::]:8081"}
+1.668011446469908e+09   INFO    Starting EventSource {"controller": "operatorresourcemapping", "controllerGroup": "devops.turbonomic.io", "controllerKind": "OperatorResourceMapping", "source": "kind source: *v1alpha1.OperatorResourceMapping"}
+1.66801144647004e+09    INFO    Starting Controller  {"controller": "operatorresourcemapping", "controllerGroup": "devops.turbonomic.io", "controllerKind": "OperatorResourceMapping"}
+1.668011446671689e+09   INFO    Starting workers     {"controller": "operatorresourcemapping", "controllerGroup": "devops.turbonomic.io", "controllerKind": "OperatorResourceMapping", "worker count": 1}
+1
+
+...
+```
+
+Step 4 Try our fake operator test resources 
+
+Previous console is occupied by controller running in foreground. You need another one for the commands in this step.
+
+The fake operator test makes a deployment (ormoperand) follows the changes un replicas and container resources from another deployment (ormsource). It consists of 3 resources as follow:
+
+```scripts
+kubectl applly -f ./test/fake/.
+
+deployment.apps/ormoperand created
+operatorresourcemapping.devops.turbonomic.io/fake created
+deployment.apps/ormsource created
+```
+
+After the resources are applied, you'll find the orm status already updated with values from ormsource deployment. 
+
+```yaml
+status:
+  mappings:
+  - mapped: ""
+    operandPath: .spec.template.spec.containers[?(@.name=="nginx")].resources
+    value:
+      resources:
+        limits:
+          cpu: 200m
+          memory: 900Mi
+        requests:
+          cpu: 50m
+          memory: 200Mi
+  - mapped: ""
+    operandPath: .spec.replicas
+    value:
+      replicas: 3
+  type: ok
+
+```
+
+When you change the ormsource deployment, the status in orm CR follows.
+
+At this point of time, the enforcement mode in orm is set to none, so nothing happens to the ormoperand deployment. But after you change the mode to `once` everytime you change the pod replicas and/or container resources in ormsource, the ormoperand follows.
+
+```yaml
+apiVersion: devops.turbonomic.io/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  name: fake
+  namespace: default
+...
+spec:
+  enforcement: none
+  operand:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ormoperand
+...
+```
+
 
 ## Architecture
 
@@ -51,3 +151,7 @@ fill the ORM CR
 ### Extensions
 
 Mapper and Enforcer could be extended for complex or simply production use cases. Mapper could talk with 3rd party "brain" to decide what to be changed; wihle Enforcer could be repurposed to chase the source of trueth and take actions other than updating a resource in kubernetes.
+
+## Next Step
+
+Now you understand the architecture of ORM and tried our test resources, go ahead create your own ORM for your operators
