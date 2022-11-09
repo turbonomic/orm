@@ -72,10 +72,10 @@ Step 4 Try our fake operator test resources
 
 Previous console is occupied by controller running in foreground. You need another one for the commands in this step.
 
-The fake operator test makes a deployment (ormoperand) follows the changes un replicas and container resources from another deployment (ormsource). It consists of 3 resources as follow:
+The fake operator test makes a deployment (ormoperand) follows the changes of replicas and container resources from another deployment (ormsource). It consists of 3 resources as follow:
 
 ```scripts
-kubectl applly -f ./test/fake/.
+kubectl apply -f ./test/fake/.
 
 deployment.apps/ormoperand created
 operatorresourcemapping.devops.turbonomic.io/fake created
@@ -107,7 +107,7 @@ status:
 
 When you change the ormsource deployment, the status in orm CR follows.
 
-At this point of time, the enforcement mode in orm is set to none, so nothing happens to the ormoperand deployment. But after you change the mode to `once` everytime you change the pod replicas and/or container resources in ormsource, the ormoperand follows.
+At this point of time, the enforcement mode in orm is set to `none`, so nothing happens to the ormoperand deployment. But after you change the mode to `once`, everytime you change the pod replicas and/or container resources in ormsource, the ormoperand follows.
 
 ```yaml
 apiVersion: devops.turbonomic.io/v1alpha1
@@ -117,7 +117,7 @@ metadata:
   namespace: default
 ...
 spec:
-  enforcement: none
+  enforcement: none # none/once
   operand:
     apiVersion: apps/v1
     kind: Deployment
