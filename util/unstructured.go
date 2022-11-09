@@ -18,7 +18,6 @@ package util
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -75,64 +74,4 @@ func SetNestedField(obj interface{}, value interface{}, path string) error {
 	parent[lastfield] = value
 
 	return nil
-}
-
-// Set nested field in an unstructured object. Certain field in the given fields could be the key
-// of a map of the index of a slice.
-func OldSetNestedField(obj interface{}, value interface{}, fields ...string) error {
-	m := obj
-
-	for i, field := range fields[:len(fields)-1] {
-		if mMap, ok := m.(map[string]interface{}); ok {
-			if val, ok := mMap[field]; ok {
-				if valMap, ok := val.(map[string]interface{}); ok {
-					m = valMap
-				} else if valSlice, ok := val.([]interface{}); ok {
-					m = valSlice
-				} else {
-					return fmt.Errorf("value cannot be set because %v is not a map[string]interface{} or a slice []interface{}", JSONPath(fields[:i+1]))
-				}
-			} else {
-				newVal := make(map[string]interface{})
-				mMap[field] = newVal
-				m = newVal
-			}
-		} else if mSlice, ok := m.([]interface{}); ok {
-			sliceInd, err := strconv.Atoi(field)
-			// direct index
-			if err == nil {
-				if sliceInd < len(mSlice) {
-					m = mSlice[sliceInd]
-				} else if sliceInd == len(mSlice) {
-					mSlice = append(mSlice, make(map[string]interface{}))
-					m = mSlice[len(mSlice)-1]
-				} else {
-					return fmt.Errorf("value cannot be set to the slice path %v because index %v exceeds the slice length %v", JSONPath(fields[:i+1]), field, len(mSlice))
-				}
-			} else {
-				// pattern
-			}
-
-		} else {
-			return fmt.Errorf("value cannot be set because %v is not a map[string]interface{} or a slice []interface{}", JSONPath(fields[:i+1]))
-		}
-	}
-	lastField := fields[len(fields)-1]
-	if mMap, ok := m.(map[string]interface{}); ok {
-		mMap[lastField] = value
-	} else if mSlice, ok := m.([]interface{}); ok {
-		sliceInd, err := strconv.Atoi(lastField)
-		if err != nil {
-			return fmt.Errorf("value cannot be set to the slice because last field %v in path %v is not integer", lastField, fields)
-		}
-		mSlice[sliceInd] = value
-	} else {
-		return fmt.Errorf("value cannot be set because %v is not a map[string]interface{} or a slice []interface{}", JSONPath(fields))
-	}
-	return nil
-}
-
-// JSONPath construct JSON-Path from given slice of fields.
-func JSONPath(fields []string) string {
-	return "." + strings.Join(fields, ".")
 }

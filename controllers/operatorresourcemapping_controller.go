@@ -70,6 +70,20 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 
 	oldStatus := orm.Status.DeepCopy()
 
+	// remove outdated mapping entries in status
+	orm.Status = v1alpha1.OperatorResourceMappingStatus{}
+	for _, m := range oldStatus.Mappings {
+		valid := false
+		for _, p := range orm.Spec.Patterns {
+			if p.OperandPath == m.OperandPath {
+				valid = true
+			}
+		}
+		if valid {
+			orm.Status.Mappings = append(orm.Status.Mappings, m)
+		}
+	}
+
 	err = r.Enforcer.CreateUpdateOperandRegistryEntry(orm)
 	if err != nil {
 		ocLog.Error(err, "registering operator "+req.String()+" ... skipping")
@@ -96,6 +110,7 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 	orm.Status.Type = v1alpha1.ORMTypeOK
 	orm.Status.Reason = ""
 	orm.Status.Message = ""
+
 	r.checkAndUpdateStatus(oldStatus, orm)
 
 	return ctrl.Result{}, nil
