@@ -75,7 +75,7 @@ var (
 					APIVersion: "testgroup.testorg/v1alpha1",
 					Kind:       "TestOperatorKind",
 				},
-				OtherManagers: []string{},
+				AllowedManagers: []string{},
 			},
 			Mappings: devopsv1alpha1.MappingPatterns{
 				Patterns: []devopsv1alpha1.Pattern{

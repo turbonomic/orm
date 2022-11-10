@@ -5,7 +5,7 @@ metadata:
   labels:
     app: ormoperand
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: ormoperand
@@ -15,7 +15,41 @@ spec:
         app: ormoperand
     spec:
       containers:
-      - name: nginx
-        image: nginx:1.14.2
+      - name: workload-0001
+        image: alpine:latest
+        command:
+        - /bin/sh
+        args:
+        - -c
+        - while sleep 3600; do :; done
         ports:
-        - containerPort: 80
+        - containerPort: 81
+          protocol: TCP
+        - containerPort: 10001
+          protocol: UDP
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+          requests:
+            cpu: 50m
+            memory: 50Mi
+      - name: workload-0002
+        image: alpine:latest
+        command:
+        - /bin/sh
+        args:
+        - -c
+        - while sleep 3600; do :; done
+        ports:
+        - containerPort: 82
+          protocol: TCP
+        - containerPort: 10002
+          protocol: UDP
+        resources:
+          limits:
+            cpu: 200m
+            memory: 200Mi
+          requests:
+            cpu: 50m
+            memory: 50Mi

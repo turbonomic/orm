@@ -16,7 +16,12 @@ spec:
     spec:
       containers:
       - name: workload-0002
-        image: nginx:1.14.2
+        image: alpine:latest
+        command:
+        - /bin/sh
+        args:
+        - -c
+        - while sleep 3600; do :; done
         ports:
         - containerPort: 82
           protocol: TCP
@@ -28,4 +33,4 @@ spec:
             memory: 200Mi
           requests:
             cpu: 50m
-            memory: 100Mi
+            memory: 50Mi

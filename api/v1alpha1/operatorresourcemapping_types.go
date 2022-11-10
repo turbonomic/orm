@@ -48,8 +48,8 @@ type Pattern struct {
 }
 
 type MappingPatterns struct {
-	Patterns   []Pattern           `json:"patterns,omitempty"`
-	Components map[string][]string `json:"components,omitempty"`
+	Patterns []Pattern           `json:"patterns,omitempty"`
+	Lists    map[string][]string `json:"lists,omitempty"`
 }
 
 type EnforcementMode string
@@ -63,7 +63,7 @@ const (
 var EnforcementModeDefault = EnforcementModeOnce
 
 var (
-	DefaultOtherManagers = []string{
+	DefaultAllowedManagers = []string{
 		"kubectl-edit",
 		"kube-controller-manager",
 	}
@@ -73,7 +73,7 @@ type Operand struct {
 	corev1.ObjectReference `json:",inline"`
 	// Managers outside original operator controller, by default: kubectl-edit
 	// +optional
-	OtherManagers []string `json:"otherManagers,omitempty"`
+	AllowedManagers []string `json:"allowedManagers,omitempty"`
 }
 
 // OperatorResourceMappingSpec defines the desired state of OperatorResourceMapping

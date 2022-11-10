@@ -8,7 +8,7 @@ spec:
     kind: Operator
   enforcement: once # none, once, always
   mappings:
-    components:
+    lists:
       containers:
       - "placement"
       - "deployable"

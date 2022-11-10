@@ -45,9 +45,9 @@ type SimpleMapper struct {
 
 func (m *SimpleMapper) buildAllPatterns(orm *v1alpha1.OperatorResourceMapping) []v1alpha1.Pattern {
 	allpatterns := orm.Spec.Mappings.Patterns
-	if orm.Spec.Mappings.Components != nil && len(orm.Spec.Mappings.Components) > 0 {
+	if orm.Spec.Mappings.Lists != nil && len(orm.Spec.Mappings.Lists) > 0 {
 		var prevpatterns []v1alpha1.Pattern
-		for name, list := range orm.Spec.Mappings.Components {
+		for name, list := range orm.Spec.Mappings.Lists {
 			prevpatterns = allpatterns
 			allpatterns = []v1alpha1.Pattern{}
 			for _, p := range prevpatterns {
@@ -196,9 +196,9 @@ func (m *SimpleMapper) mapOnceForOneORM(obj *unstructured.Unstructured, orm *v1a
 			}
 		}
 
-		allowedmgrs := orm.Spec.Operand.OtherManagers
+		allowedmgrs := orm.Spec.Operand.AllowedManagers
 		if allowedmgrs == nil || len(allowedmgrs) == 0 {
-			allowedmgrs = v1alpha1.DefaultOtherManagers
+			allowedmgrs = v1alpha1.DefaultAllowedManagers
 		}
 
 		found := false

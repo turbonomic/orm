@@ -59,8 +59,8 @@ func (in *MappingPatterns) DeepCopyInto(out *MappingPatterns) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.Components != nil {
-		in, out := &in.Components, &out.Components
+	if in.Lists != nil {
+		in, out := &in.Lists, &out.Lists
 		*out = make(map[string][]string, len(*in))
 		for key, val := range *in {
 			var outVal []string
@@ -90,8 +90,8 @@ func (in *MappingPatterns) DeepCopy() *MappingPatterns {
 func (in *Operand) DeepCopyInto(out *Operand) {
 	*out = *in
 	out.ObjectReference = in.ObjectReference
-	if in.OtherManagers != nil {
-		in, out := &in.OtherManagers, &out.OtherManagers
+	if in.AllowedManagers != nil {
+		in, out := &in.AllowedManagers, &out.AllowedManagers
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
