@@ -39,12 +39,17 @@ type SourceLocation struct {
 	metav1.LabelSelector `json:",inline"`
 }
 
-type MappingPattern struct {
+type Pattern struct {
 	// path to the location in operand, also serves as key of this pattern
 	OperandPath string `json:"operandPath"`
 
 	// indicates which value should be mapped
 	Source SourceLocation `json:"source"`
+}
+
+type MappingPatterns struct {
+	Patterns   []Pattern           `json:"patterns,omitempty"`
+	Components map[string][]string `json:"components,omitempty"`
 }
 
 type EnforcementMode string
@@ -78,9 +83,9 @@ type OperatorResourceMappingSpec struct {
 
 	// Operand is the target to make actual changes
 	// if name and namespace are not provided, use same one as orm cr
-	Operand         Operand          `json:"operand"`
-	EnforcementMode EnforcementMode  `json:"enforcement,omitempty"`
-	Patterns        []MappingPattern `json:"patterns,omitempty"`
+	Operand         Operand         `json:"operand"`
+	EnforcementMode EnforcementMode `json:"enforcement,omitempty"`
+	Mappings        MappingPatterns `json:"mappings,omitempty"`
 }
 
 type Mapping struct {

@@ -66,22 +66,20 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 		return ctrl.Result{}, err
 	}
 
-	ocLog.Info("reconciling", "operand", orm.Spec.Operand, "mappings", orm.Spec.Patterns, "Status", orm.Status.Mappings)
+	ocLog.Info("reconciling", "operand", orm.Spec.Operand, "mappings", orm.Spec.Mappings, "Status", orm.Status.Mappings)
 
 	oldStatus := orm.Status.DeepCopy()
-
-	// remove outdated mapping entries in status
 	orm.Status = v1alpha1.OperatorResourceMappingStatus{}
-	for _, m := range oldStatus.Mappings {
-		valid := false
-		for _, p := range orm.Spec.Patterns {
-			if p.OperandPath == m.OperandPath {
-				valid = true
-			}
-		}
-		if valid {
-			orm.Status.Mappings = append(orm.Status.Mappings, m)
-		}
+
+	err = r.Mapper.CreateUpdateSourceRegistryEntries(orm)
+	if err != nil {
+		ocLog.Error(err, "registering sources of operator "+req.String()+" ... skipping")
+
+		orm.Status.Type = v1alpha1.ORMTypeError
+		orm.Status.Reason = string(v1alpha1.ORMStatusReasonSourceError)
+		orm.Status.Message = err.Error()
+		r.checkAndUpdateStatus(oldStatus, orm)
+		return ctrl.Result{}, nil
 	}
 
 	err = r.Enforcer.CreateUpdateOperandRegistryEntry(orm)
@@ -92,17 +90,6 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 		orm.Status.Reason = string(v1alpha1.ORMStatusReasonOperandError)
 		orm.Status.Message = err.Error()
 		r.checkAndUpdateStatus(oldStatus, orm)
-		r.checkAndUpdateStatus(oldStatus, orm)
-		return ctrl.Result{}, nil
-	}
-
-	err = r.Mapper.CreateUpdateSourceRegistryEntries(orm)
-	if err != nil {
-		ocLog.Error(err, "registering sources of operator "+req.String()+" ... skipping")
-
-		orm.Status.Type = v1alpha1.ORMTypeError
-		orm.Status.Reason = string(v1alpha1.ORMStatusReasonSourceError)
-		orm.Status.Message = err.Error()
 		r.checkAndUpdateStatus(oldStatus, orm)
 		return ctrl.Result{}, nil
 	}

@@ -7,16 +7,22 @@ spec:
     apiVersion: deploy.hybridapp.io/v1alpha1
     kind: Operator
   enforcement: once # none, once, always
-  patterns:
-  - operandPath: .spec.core.placement.resources
-    source:
-      apiVersion: apps/v1
-      kind: Deployment
-      name: cp4mcm-hybridapp
-      path: .spec.template.spec.containers[?(@.name=="placement")].resources
-  - operandPath: .spec.replicas
-    source:
-      apiVersion: apps/v1
-      kind: Deployment
-      name: cp4mcm-hybridapp
-      path: .spec.replicas
+  mappings:
+    components:
+      containers:
+      - "placement"
+      - "deployable"
+    patterns:
+    - operandPath: .spec.core.{{containers}}.resources
+      source:
+        apiVersion: apps/v1
+        kind: Deployment
+        path: .spec.template.spec.containers[?(@.name=="{{containers}}")].resources
+        matchLabels:
+          app: cp4mcm-hybridapp
+    - operandPath: .spec.replicas
+      source:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: cp4mcm-hybridapp
+        path: .spec.replicas

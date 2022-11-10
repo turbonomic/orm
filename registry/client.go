@@ -24,12 +24,40 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Client struct {
 	dynamic.Interface
 	OrmClient client.Client
+}
+
+var (
+	rcLog = ctrl.Log.WithName("client")
+)
+
+func (c *Client) GetResourceListWithGVKWithSelector(gvk schema.GroupVersionKind, req types.NamespacedName, selector *metav1.LabelSelector) ([]unstructured.Unstructured, error) {
+
+	var err error
+	gvr := r.findGVRfromGVK(gvk)
+	if gvr == nil {
+		return nil, errors.New("Operator " + gvk.String() + "is not installed")
+	}
+
+	ls, err := metav1.LabelSelectorAsSelector(selector)
+	if err != nil {
+		return nil, err
+	}
+
+	list, err := r.Resource(*gvr).Namespace(req.Namespace).List(r.ctx, metav1.ListOptions{
+		LabelSelector: ls.String(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return list.Items, nil
 }
 
 func (c *Client) GetResourceWithGVK(gvk schema.GroupVersionKind, req types.NamespacedName) (*unstructured.Unstructured, error) {

@@ -77,15 +77,17 @@ var (
 				},
 				OtherManagers: []string{},
 			},
-			Patterns: []devopsv1alpha1.MappingPattern{
-				{
-					OperandPath: "destnation.path",
-					Source: devopsv1alpha1.SourceLocation{
-						Path: "source.path",
-						ObjectReference: corev1.ObjectReference{
-							APIVersion: "apps/v1",
-							Kind:       "Deployment",
-							Name:       "testdeploy",
+			Mappings: devopsv1alpha1.MappingPatterns{
+				Patterns: []devopsv1alpha1.Pattern{
+					{
+						OperandPath: "destnation.path",
+						Source: devopsv1alpha1.SourceLocation{
+							Path: "source.path",
+							ObjectReference: corev1.ObjectReference{
+								APIVersion: "apps/v1",
+								Kind:       "Deployment",
+								Name:       "testdeploy",
+							},
 						},
 					},
 				},
@@ -104,7 +106,7 @@ var _ = Describe("ORMController", func() {
 
 	It("can recocile orm", func() {
 		Expect(k8sClient).NotTo(BeNil())
-		Expect(testorm.Spec.Patterns).NotTo(BeNil())
+		Expect(testorm.Spec.Mappings.Patterns).NotTo(BeNil())
 		err := k8sClient.Create(ctx, testorm)
 		Expect(err).NotTo(HaveOccurred())
 

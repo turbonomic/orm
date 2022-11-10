@@ -87,6 +87,21 @@ func (sr *SourceRegistry) RegisterSource(op string, sobj corev1.ObjectReference,
 	return exists, nil
 }
 
+func (sr *SourceRegistry) CleanupRegistryForORM(orm types.NamespacedName) {
+	if sr.registry == nil {
+		return
+	}
+
+	for _, ormEntry := range sr.registry {
+		if _, exists := ormEntry[orm]; exists {
+			delete(ormEntry, orm)
+		}
+	}
+
+	return
+
+}
+
 func (sr *SourceRegistry) RetriveORMEntryForResource(gvk schema.GroupVersionKind, key types.NamespacedName) SourceORMEntry {
 	if sr.registry == nil {
 		return nil

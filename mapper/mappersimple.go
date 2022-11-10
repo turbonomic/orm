@@ -43,6 +43,30 @@ type SimpleMapper struct {
 	reg *registry.Registry
 }
 
+func (m *SimpleMapper) buildAllPatterns(orm *v1alpha1.OperatorResourceMapping) []v1alpha1.Pattern {
+	allpatterns := orm.Spec.Mappings.Patterns
+	if orm.Spec.Mappings.Components != nil && len(orm.Spec.Mappings.Components) > 0 {
+		var prevpatterns []v1alpha1.Pattern
+		for name, list := range orm.Spec.Mappings.Components {
+			prevpatterns = allpatterns
+			allpatterns = []v1alpha1.Pattern{}
+			for _, p := range prevpatterns {
+				if strings.Index(p.OperandPath, "{{"+name+"}}") == -1 {
+					allpatterns = append(allpatterns, p)
+				} else {
+					for _, c := range list {
+						newp := p.DeepCopy()
+						newp.OperandPath = strings.ReplaceAll(p.OperandPath, "{{"+name+"}}", c)
+						newp.Source.Path = strings.ReplaceAll(p.Source.Path, "{{"+name+"}}", c)
+						allpatterns = append(allpatterns, *newp)
+					}
+				}
+			}
+		}
+	}
+	return allpatterns
+}
+
 func (m *SimpleMapper) CreateUpdateSourceRegistryEntries(orm *v1alpha1.OperatorResourceMapping) error {
 
 	var err error
@@ -51,33 +75,56 @@ func (m *SimpleMapper) CreateUpdateSourceRegistryEntries(orm *v1alpha1.OperatorR
 		return nil
 	}
 
-	if orm.Spec.Patterns == nil || len(orm.Spec.Patterns) == 0 {
+	m.reg.CleanupRegistryForORM(types.NamespacedName{
+		Namespace: orm.Namespace,
+		Name:      orm.Name,
+	})
+
+	if orm.Spec.Mappings.Patterns == nil || len(orm.Spec.Mappings.Patterns) == 0 {
 		return nil
 	}
 
-	var srcObj *unstructured.Unstructured
-	for _, p := range orm.Spec.Patterns {
-		var exists bool
-		exists, err = m.reg.RegisterSource(p.OperandPath, p.Source.ObjectReference, p.Source.Path,
-			types.NamespacedName{Name: orm.Name, Namespace: orm.Namespace})
-		if err != nil {
-			return err
-		}
+	allpatterns := m.buildAllPatterns(orm)
 
+	var srcObj *unstructured.Unstructured
+	for _, p := range allpatterns {
 		k := types.NamespacedName{Namespace: p.Source.Namespace, Name: p.Source.Name}
 		if k.Namespace == "" {
 			k.Namespace = orm.Namespace
 		}
-		srcObj, err = m.reg.GetResourceWithGVK(p.Source.GroupVersionKind(), k)
 
-		if err != nil {
-			msLog.Error(err, "creating entry for ", "source", p.Source)
-			return err
+		var srcObjs []unstructured.Unstructured
+		if k.Name != "" {
+			srcObj, err = m.reg.GetResourceWithGVK(p.Source.GroupVersionKind(), k)
+			if err != nil {
+				msLog.Error(err, "creating entry for ", "source", p.Source)
+				return err
+			}
+			srcObjs = append(srcObjs, *srcObj)
+		} else {
+			srcObjs, err = m.reg.GetResourceListWithGVKWithSelector(p.Source.GroupVersionKind(), k, &p.Source.LabelSelector)
+			if err != nil {
+				msLog.Error(err, "listing resource", "source", p.Source)
+			}
 		}
-		pm := make(map[string]string)
-		pm[p.OperandPath] = p.Source.Path
-		m.mapOnceForOneORM(srcObj, orm, pm)
 
+		var exists bool
+
+		for _, srcObj := range srcObjs {
+			objref := p.Source.ObjectReference.DeepCopy()
+			objref.Namespace = srcObj.GetNamespace()
+			objref.Name = srcObj.GetName()
+			exists, err = m.reg.RegisterSource(p.OperandPath, *objref,
+				p.Source.Path,
+				types.NamespacedName{Name: orm.Name, Namespace: orm.Namespace})
+			if err != nil {
+				return err
+			}
+
+			pm := make(map[string]string)
+			pm[p.OperandPath] = p.Source.Path
+			m.mapOnceForOneORM(&srcObj, orm, pm, true)
+		}
 		if !exists {
 			m.reg.WatchResourceWithGVK(p.Source.GroupVersionKind(), cache.ResourceEventHandlerFuncs{
 				UpdateFunc: func(old, new interface{}) {
@@ -116,7 +163,7 @@ func (m *SimpleMapper) mapOnce(obj *unstructured.Unstructured) {
 		}
 		orm.Status.DeepCopyInto(&orgStatus)
 
-		m.mapOnceForOneORM(obj, orm, pm)
+		m.mapOnceForOneORM(obj, orm, pm, false)
 
 		if !reflect.DeepEqual(orgStatus, orm.Status) {
 			m.updateORMStatus(orm)
@@ -126,39 +173,40 @@ func (m *SimpleMapper) mapOnce(obj *unstructured.Unstructured) {
 
 }
 
-// assuming 1 source only serves 1 orm for poc
-func (m *SimpleMapper) mapOnceForOneORM(obj *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping, pm registry.PatternMap) {
+func (m *SimpleMapper) mapOnceForOneORM(obj *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping, pm registry.PatternMap, force bool) {
 
 	var mgr string
 
-	mfs := obj.GetManagedFields()
-	if len(mfs) == 0 {
-		msLog.Info("no managed fields", "gvk", obj.GroupVersionKind())
-	}
-
-	mgr = mfs[0].Manager
-	t := mfs[0].Time
-	for _, mf := range obj.GetManagedFields() {
-		if t.Before(mf.Time) {
-			mgr = mf.Manager
-			t = mf.Time
+	if !force {
+		mfs := obj.GetManagedFields()
+		if len(mfs) == 0 {
+			msLog.Info("no managed fields", "gvk", obj.GroupVersionKind())
 		}
-	}
 
-	allowedmgrs := orm.Spec.Operand.OtherManagers
-	if allowedmgrs == nil || len(allowedmgrs) == 0 {
-		allowedmgrs = v1alpha1.DefaultOtherManagers
-	}
-
-	found := false
-	for _, om := range allowedmgrs {
-		if mgr == om {
-			found = true
-			break
+		mgr = mfs[0].Manager
+		t := mfs[0].Time
+		for _, mf := range obj.GetManagedFields() {
+			if t.Before(mf.Time) {
+				mgr = mf.Manager
+				t = mf.Time
+			}
 		}
-	}
-	if !found {
-		return
+
+		allowedmgrs := orm.Spec.Operand.OtherManagers
+		if allowedmgrs == nil || len(allowedmgrs) == 0 {
+			allowedmgrs = v1alpha1.DefaultOtherManagers
+		}
+
+		found := false
+		for _, om := range allowedmgrs {
+			if mgr == om {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return
+		}
 	}
 
 	for op, sp := range pm {
@@ -172,9 +220,13 @@ func (m *SimpleMapper) mapOnceForOneORM(obj *unstructured.Unstructured, orm *v1a
 
 		valueMap := make(map[string]interface{})
 		valueMap[lastField] = valueInObj
-		if err != nil || !found {
+
+		if err != nil {
 			msLog.Error(err, "parsing src", "fields", fields, "actual", obj.Object["metadata"])
 			return
+		}
+		if !found {
+			continue
 		}
 
 		valueObj := &unstructured.Unstructured{
@@ -184,16 +236,16 @@ func (m *SimpleMapper) mapOnceForOneORM(obj *unstructured.Unstructured, orm *v1a
 			Object: valueObj,
 		}
 
-		added := false
+		exists := false
 		for n, mp := range orm.Status.Mappings {
 			if mp.OperandPath == mapitem.OperandPath {
 				mapitem.DeepCopyInto(&(orm.Status.Mappings[n]))
-				added = true
+				exists = true
 				break
 			}
 		}
 
-		if !added {
+		if !exists {
 			orm.Status.Mappings = append(orm.Status.Mappings, mapitem)
 		}
 	}
