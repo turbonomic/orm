@@ -67,6 +67,10 @@ func (m *SimpleMapper) buildAllPatterns(orm *v1alpha1.OperatorResourceMapping) [
 	return allpatterns
 }
 
+func (m *SimpleMapper) DeleteSourceRegistryEntriesForORM(key types.NamespacedName) {
+	m.reg.CleanupRegistryForORM(key)
+}
+
 func (m *SimpleMapper) CreateUpdateSourceRegistryEntries(orm *v1alpha1.OperatorResourceMapping) error {
 
 	var err error

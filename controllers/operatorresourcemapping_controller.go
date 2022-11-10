@@ -20,6 +20,7 @@ import (
 	"context"
 	"reflect"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -61,6 +62,12 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 
 	orm := &v1alpha1.OperatorResourceMapping{}
 	err := r.Get(context.TODO(), req.NamespacedName, orm)
+
+	if errors.IsNotFound(err) {
+		r.Mapper.DeleteSourceRegistryEntriesForORM(req.NamespacedName)
+		return ctrl.Result{}, nil
+	}
+
 	if err != nil {
 		ocLog.Error(err, "reconcile getting "+req.String())
 		return ctrl.Result{}, err

@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ormsource
+  labels:
+    app: ormsource
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ormsource
+  template:
+    metadata:
+      labels:
+        app: ormsource
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+            cpu: 200m
+            memory: 300Mi
+          requests:
+            cpu: 50m
+            memory: 200Mi

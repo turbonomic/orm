@@ -68,17 +68,17 @@ go run ./main.go
 ...
 ```
 
-Step 4 Try our fake operator test resources 
+Step 4 Try our `solo` test resources 
 
 Previous console is occupied by controller running in foreground. You need another one for the commands in this step.
 
-The fake operator test makes a deployment (ormoperand) follows the changes of replicas and container resources from another deployment (ormsource). It consists of 3 resources as follow:
+The `solo` test case intends to work without any operator. It makes a deployment (ormoperand) follows the changes in `replicas` and container `resources` from another deployment (ormsource). It consists of 3 resources as follow:
 
 ```scripts
-kubectl apply -f ./test/fake/.
+kubectl apply -f ./test/solo/.
 
 deployment.apps/ormoperand created
-operatorresourcemapping.devops.turbonomic.io/fake created
+operatorresourcemapping.devops.turbonomic.io/solo created
 deployment.apps/ormsource created
 ```
 
@@ -113,7 +113,7 @@ At this point of time, the enforcement mode in orm is set to `none`, so nothing 
 apiVersion: devops.turbonomic.io/v1alpha1
 kind: OperatorResourceMapping
 metadata:
-  name: fake
+  name: solo
   namespace: default
 ...
 spec:

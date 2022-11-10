@@ -1,7 +1,7 @@
 apiVersion: devops.turbonomic.io/v1alpha1
 kind: OperatorResourceMapping
 metadata:
-  name: fake
+  name: solo
 spec:
   operand: # target same namespace by default
     apiVersion: apps/v1
