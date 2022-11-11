@@ -47,7 +47,7 @@ var (
 	r *Registry
 )
 
-func GetORMRegistry(config *rest.Config, scheme *runtime.Scheme) (*Registry, error) {
+func GetORMRegistry(config *rest.Config, scheme *runtime.Scheme, startInformers bool) (*Registry, error) {
 	var err error
 
 	if r == nil {
@@ -71,7 +71,9 @@ func GetORMRegistry(config *rest.Config, scheme *runtime.Scheme) (*Registry, err
 	}
 
 	r.DynamicSharedInformerFactory = dynamicinformer.NewDynamicSharedInformerFactory(r.Client, resync)
-	r.Informer.Start(r.ctx.Done())
+	if startInformers {
+		r.Informer.Start(r.ctx.Done())
+	}
 
 	return r, err
 }

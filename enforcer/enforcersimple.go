@@ -80,7 +80,6 @@ func (e *SimpleEnforcer) enforceOnce(orm *v1alpha1.OperatorResourceMapping, obj 
 	}
 
 	for n, m := range orm.Status.Mappings {
-		//		fields := strings.Split(m.OperandPath, ".")
 		value, err := runtime.DefaultUnstructuredConverter.ToUnstructured(m.Value)
 		if err != nil {
 			e.updateMappingStatus(orm, n, err)

@@ -43,17 +43,26 @@ type SimpleMapper struct {
 	reg *registry.Registry
 }
 
-func (m *SimpleMapper) buildAllPatterns(orm *v1alpha1.OperatorResourceMapping) []v1alpha1.Pattern {
+func (m *SimpleMapper) BuildAllPatterns(orm *v1alpha1.OperatorResourceMapping) []v1alpha1.Pattern {
 	allpatterns := orm.Spec.Mappings.Patterns
 	if orm.Spec.Mappings.Lists != nil && len(orm.Spec.Mappings.Lists) > 0 {
 		var prevpatterns []v1alpha1.Pattern
-		for name, list := range orm.Spec.Mappings.Lists {
+		for name, speclist := range orm.Spec.Mappings.Lists {
 			prevpatterns = allpatterns
 			allpatterns = []v1alpha1.Pattern{}
+			var loc int
 			for _, p := range prevpatterns {
-				if strings.Index(p.OperandPath, "{{"+name+"}}") == -1 {
+				loc = strings.Index(p.OperandPath, "{{"+name+"}}")
+				if loc == -1 {
 					allpatterns = append(allpatterns, p)
 				} else {
+					list := speclist
+					if len(list) == 1 && list[0] == "*" {
+						tmpp := p.DeepCopy()
+						tmpp.OperandPath = strings.ReplaceAll(p.OperandPath, "{{"+name+"}}", list[0])
+						tmpp.Source.Path = strings.ReplaceAll(p.Source.Path, "{{"+name+"}}", list[0])
+						//TODO: replace list with the names got from source, need to retreive all source objs
+					}
 					for _, c := range list {
 						newp := p.DeepCopy()
 						newp.OperandPath = strings.ReplaceAll(p.OperandPath, "{{"+name+"}}", c)
@@ -88,7 +97,7 @@ func (m *SimpleMapper) CreateUpdateSourceRegistryEntries(orm *v1alpha1.OperatorR
 		return nil
 	}
 
-	allpatterns := m.buildAllPatterns(orm)
+	allpatterns := m.BuildAllPatterns(orm)
 
 	var srcObj *unstructured.Unstructured
 	for _, p := range allpatterns {
@@ -97,6 +106,7 @@ func (m *SimpleMapper) CreateUpdateSourceRegistryEntries(orm *v1alpha1.OperatorR
 			k.Namespace = orm.Namespace
 		}
 
+		// TODO: avoid to retrieve same source repeatedly
 		var srcObjs []unstructured.Unstructured
 		if k.Name != "" {
 			srcObj, err = m.reg.GetResourceWithGVK(p.Source.GroupVersionKind(), k)
@@ -127,6 +137,7 @@ func (m *SimpleMapper) CreateUpdateSourceRegistryEntries(orm *v1alpha1.OperatorR
 
 			pm := make(map[string]string)
 			pm[p.OperandPath] = p.Source.Path
+
 			m.mapOnceForOneORM(&srcObj, orm, pm, true)
 		}
 		if !exists {
