@@ -40,8 +40,8 @@ type OperatorResourceMappingReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
-	Enforcer *enforcer.SimpleEnforcer
-	Mapper   *mapper.SimpleMapper
+	Enforcer enforcer.Enforcer
+	Mapper   mapper.Mapper
 }
 
 //+kubebuilder:rbac:groups=devops.turbonomic.io,resources=operatorresourcemappings,verbs=get;list;watch;create;update;patch;delete
@@ -64,7 +64,8 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 	err := r.Get(context.TODO(), req.NamespacedName, orm)
 
 	if errors.IsNotFound(err) {
-		r.Mapper.DeleteSourceRegistryEntriesForORM(req.NamespacedName)
+		r.Mapper.CleanupORM(req.NamespacedName)
+		r.Enforcer.CleanupORM(req.NamespacedName)
 		return ctrl.Result{}, nil
 	}
 
@@ -78,7 +79,7 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 	oldStatus := orm.Status.DeepCopy()
 	orm.Status = v1alpha1.OperatorResourceMappingStatus{}
 
-	err = r.Mapper.CreateUpdateSourceRegistryEntries(orm)
+	err = r.Mapper.MapORM(orm)
 	if err != nil {
 		ocLog.Error(err, "registering sources of operator "+req.String()+" ... skipping")
 
@@ -89,14 +90,13 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 		return ctrl.Result{}, nil
 	}
 
-	err = r.Enforcer.CreateUpdateOperandRegistryEntry(orm)
+	err = r.Enforcer.EnforceORM(orm)
 	if err != nil {
 		ocLog.Error(err, "registering operator "+req.String()+" ... skipping")
 
 		orm.Status.Type = v1alpha1.ORMTypeError
 		orm.Status.Reason = string(v1alpha1.ORMStatusReasonOperandError)
 		orm.Status.Message = err.Error()
-		r.checkAndUpdateStatus(oldStatus, orm)
 		r.checkAndUpdateStatus(oldStatus, orm)
 		return ctrl.Result{}, nil
 	}
@@ -122,6 +122,18 @@ func (r *OperatorResourceMappingReconciler) checkAndUpdateStatus(oldStatus *v1al
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *OperatorResourceMappingReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	var err error
+
+	if err = r.Mapper.SetupWithManager(mgr); err != nil {
+		ocLog.Error(err, "unable to setup mapper with manager", "mapper", r.Mapper)
+		return err
+	}
+
+	if err = r.Enforcer.SetupWithManager(mgr); err != nil {
+		ocLog.Error(err, "unable to setup enforcer with manager", "enforcer", r.Enforcer)
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.OperatorResourceMapping{}).
 		Complete(r)

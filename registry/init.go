@@ -37,7 +37,7 @@ type Registry struct {
 	SourceRegistry
 	Schema
 	Client
-	Informer
+	InformerFactory
 }
 
 var (
@@ -47,7 +47,12 @@ var (
 	r *Registry
 )
 
-func GetORMRegistry(config *rest.Config, scheme *runtime.Scheme, startInformers bool) (*Registry, error) {
+func (r *Registry) Start(ctx context.Context) {
+	r.ctx = ctx
+	r.InformerFactory.Start(r.ctx.Done())
+}
+
+func GetORMRegistry(config *rest.Config, scheme *runtime.Scheme) (*Registry, error) {
 	var err error
 
 	if r == nil {
@@ -71,9 +76,5 @@ func GetORMRegistry(config *rest.Config, scheme *runtime.Scheme, startInformers 
 	}
 
 	r.DynamicSharedInformerFactory = dynamicinformer.NewDynamicSharedInformerFactory(r.Client, resync)
-	if startInformers {
-		r.Informer.Start(r.ctx.Done())
-	}
-
 	return r, err
 }

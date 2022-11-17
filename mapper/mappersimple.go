@@ -18,7 +18,6 @@ package mapper
 
 import (
 	"context"
-	"errors"
 	"reflect"
 	"strings"
 
@@ -28,8 +27,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 var (
@@ -43,44 +45,11 @@ type SimpleMapper struct {
 	reg *registry.Registry
 }
 
-func (m *SimpleMapper) BuildAllPatterns(orm *v1alpha1.OperatorResourceMapping) []v1alpha1.Pattern {
-	allpatterns := orm.Spec.Mappings.Patterns
-	if orm.Spec.Mappings.Lists != nil && len(orm.Spec.Mappings.Lists) > 0 {
-		var prevpatterns []v1alpha1.Pattern
-		for name, speclist := range orm.Spec.Mappings.Lists {
-			prevpatterns = allpatterns
-			allpatterns = []v1alpha1.Pattern{}
-			var loc int
-			for _, p := range prevpatterns {
-				loc = strings.Index(p.OperandPath, "{{"+name+"}}")
-				if loc == -1 {
-					allpatterns = append(allpatterns, p)
-				} else {
-					list := speclist
-					if len(list) == 1 && list[0] == "*" {
-						tmpp := p.DeepCopy()
-						tmpp.OperandPath = strings.ReplaceAll(p.OperandPath, "{{"+name+"}}", list[0])
-						tmpp.Source.Path = strings.ReplaceAll(p.Source.Path, "{{"+name+"}}", list[0])
-						//TODO: replace list with the names got from source, need to retreive all source objs
-					}
-					for _, c := range list {
-						newp := p.DeepCopy()
-						newp.OperandPath = strings.ReplaceAll(p.OperandPath, "{{"+name+"}}", c)
-						newp.Source.Path = strings.ReplaceAll(p.Source.Path, "{{"+name+"}}", c)
-						allpatterns = append(allpatterns, *newp)
-					}
-				}
-			}
-		}
-	}
-	return allpatterns
-}
-
-func (m *SimpleMapper) DeleteSourceRegistryEntriesForORM(key types.NamespacedName) {
+func (m *SimpleMapper) CleanupORM(key types.NamespacedName) {
 	m.reg.CleanupRegistryForORM(key)
 }
 
-func (m *SimpleMapper) CreateUpdateSourceRegistryEntries(orm *v1alpha1.OperatorResourceMapping) error {
+func (m *SimpleMapper) MapORM(orm *v1alpha1.OperatorResourceMapping) error {
 
 	var err error
 
@@ -97,7 +66,7 @@ func (m *SimpleMapper) CreateUpdateSourceRegistryEntries(orm *v1alpha1.OperatorR
 		return nil
 	}
 
-	allpatterns := m.BuildAllPatterns(orm)
+	allpatterns := BuildAllPatterns(orm)
 
 	var srcObj *unstructured.Unstructured
 	for _, p := range allpatterns {
@@ -287,16 +256,22 @@ func (m *SimpleMapper) updateORMStatus(orm *v1alpha1.OperatorResourceMapping) {
 
 }
 
-func GetSimpleMapper(r *registry.Registry) (*SimpleMapper, error) {
-	if r == nil {
-		return nil, errors.New("Null registry for enforcer")
-	}
+func (m *SimpleMapper) Start(context.Context) error {
+	return nil
+}
+
+func (m *SimpleMapper) SetupWithManager(mgr manager.Manager) error {
+	return mgr.Add(m)
+}
+
+func GetSimpleMapper(config *rest.Config, scheme *runtime.Scheme) (Mapper, error) {
+	var err error
 
 	if mp == nil {
 		mp = &SimpleMapper{}
 	}
 
-	mp.reg = r
+	mp.reg, err = registry.GetORMRegistry(config, scheme)
 
-	return mp, nil
+	return mp, err
 }

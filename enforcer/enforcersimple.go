@@ -17,7 +17,7 @@ limitations under the License.
 package enforcer
 
 import (
-	"errors"
+	"context"
 
 	"github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/registry"
@@ -26,7 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 type SimpleEnforcer struct {
@@ -39,7 +41,7 @@ var (
 	enforcer *SimpleEnforcer
 )
 
-func (e *SimpleEnforcer) CreateUpdateOperandRegistryEntry(orm *v1alpha1.OperatorResourceMapping) error {
+func (e *SimpleEnforcer) EnforceORM(orm *v1alpha1.OperatorResourceMapping) error {
 	if orm == nil {
 		return nil
 	}
@@ -115,16 +117,28 @@ func (e *SimpleEnforcer) updateMappingStatus(orm *v1alpha1.OperatorResourceMappi
 	}
 }
 
-func GetSimpleEnforcer(r *registry.Registry) (*SimpleEnforcer, error) {
-	if r == nil {
-		return nil, errors.New("Null registry for enforcer")
-	}
+func (m *SimpleEnforcer) CleanupORM(key types.NamespacedName) {
+	return
+}
+
+func (m *SimpleEnforcer) Start(ctx context.Context) error {
+	m.reg.Start(ctx)
+
+	return nil
+}
+
+func (m *SimpleEnforcer) SetupWithManager(mgr manager.Manager) error {
+	return mgr.Add(m)
+}
+
+func GetSimpleEnforcer(config *rest.Config, scheme *runtime.Scheme) (Enforcer, error) {
+	var err error
 
 	if enforcer == nil {
 		enforcer = &SimpleEnforcer{}
 	}
 
-	enforcer.reg = r
+	enforcer.reg, err = registry.GetORMRegistry(config, scheme)
 
-	return enforcer, nil
+	return enforcer, err
 }

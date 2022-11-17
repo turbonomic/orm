@@ -24,11 +24,11 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type Informer struct {
+type InformerFactory struct {
 	dynamicinformer.DynamicSharedInformerFactory
 }
 
-func (i *Informer) WatchResourceWithGVK(gvk schema.GroupVersionKind, handler cache.ResourceEventHandler) error {
+func (i *InformerFactory) WatchResourceWithGVK(gvk schema.GroupVersionKind, handler cache.ResourceEventHandler) error {
 
 	gvr := r.findGVRfromGVK(gvk)
 	if gvr == nil {

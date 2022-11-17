@@ -35,7 +35,6 @@ import (
 	"github.com/turbonomic/orm/controllers"
 	"github.com/turbonomic/orm/enforcer"
 	"github.com/turbonomic/orm/mapper"
-	"github.com/turbonomic/orm/registry"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -92,22 +91,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	var reg *registry.Registry
-	reg, err = registry.GetORMRegistry(mgr.GetConfig(), mgr.GetScheme(), true)
-	if err != nil {
-		setupLog.Error(err, "unable to init registry")
-		os.Exit(1)
-	}
-
-	var ef *enforcer.SimpleEnforcer
-	ef, err = enforcer.GetSimpleEnforcer(reg)
+	ef, err := enforcer.GetSimpleEnforcer(mgr.GetConfig(), mgr.GetScheme())
 	if err != nil {
 		setupLog.Error(err, "unable to init enforcer")
 		os.Exit(1)
 	}
-
-	var mp *mapper.SimpleMapper
-	mp, err = mapper.GetSimpleMapper(reg)
+	mp, err := mapper.GetSimpleMapper(mgr.GetConfig(), mgr.GetScheme())
 	if err != nil {
 		setupLog.Error(err, "unable to init mapper")
 		os.Exit(1)
