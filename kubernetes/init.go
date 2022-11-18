@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package registry
+package kubernetes
 
 import (
 	"context"
@@ -25,16 +25,15 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type Registry struct {
+type Toolbox struct {
 	cfg    *rest.Config
 	ctx    context.Context
 	scheme *runtime.Scheme
 
-	OperandRegistry
-	SourceRegistry
 	Schema
 	Client
 	InformerFactory
@@ -44,19 +43,21 @@ var (
 	resync = 10 * time.Minute
 	stopCh chan struct{}
 
-	r *Registry
+	r *Toolbox
+
+	setupLog = ctrl.Log.WithName("init")
 )
 
-func (r *Registry) Start(ctx context.Context) {
+func (r *Toolbox) Start(ctx context.Context) {
 	r.ctx = ctx
 	r.InformerFactory.Start(r.ctx.Done())
 }
 
-func GetORMRegistry(config *rest.Config, scheme *runtime.Scheme) (*Registry, error) {
+func GetToolbox(config *rest.Config, scheme *runtime.Scheme) (*Toolbox, error) {
 	var err error
 
 	if r == nil {
-		r = &Registry{}
+		r = &Toolbox{}
 	}
 
 	r.cfg = config
@@ -75,6 +76,8 @@ func GetORMRegistry(config *rest.Config, scheme *runtime.Scheme) (*Registry, err
 		return nil, err
 	}
 
-	r.DynamicSharedInformerFactory = dynamicinformer.NewDynamicSharedInformerFactory(r.Client, resync)
+	r.InformerFactory = InformerFactory{}
+	r.InformerFactory.DynamicSharedInformerFactory = dynamicinformer.NewDynamicSharedInformerFactory(r.Client, resync)
+
 	return r, err
 }

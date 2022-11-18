@@ -20,8 +20,9 @@ import (
 	"context"
 
 	"github.com/turbonomic/orm/api/v1alpha1"
-	"github.com/turbonomic/orm/registry"
+	"github.com/turbonomic/orm/kubernetes"
 	"github.com/turbonomic/orm/util"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,7 +33,7 @@ import (
 )
 
 type SimpleEnforcer struct {
-	reg *registry.Registry
+	reg *kubernetes.Toolbox
 }
 
 var (
@@ -138,7 +139,7 @@ func GetSimpleEnforcer(config *rest.Config, scheme *runtime.Scheme) (Enforcer, e
 		enforcer = &SimpleEnforcer{}
 	}
 
-	enforcer.reg, err = registry.GetORMRegistry(config, scheme)
+	enforcer.reg, err = kubernetes.GetToolbox(config, scheme)
 
 	return enforcer, err
 }

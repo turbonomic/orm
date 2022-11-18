@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package registry
+package kubernetes
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,7 +34,7 @@ var (
 	sLog = ctrl.Log.WithName("schema")
 )
 
-func (s *Schema) findGVRfromGVK(gvk schema.GroupVersionKind) *schema.GroupVersionResource {
+func (s *Schema) FindGVRfromGVK(gvk schema.GroupVersionKind) *schema.GroupVersionResource {
 	if s.gvkGVRMap == nil || s.gvkGVRMap[gvk] == nil {
 		s.discoverSchemaMappings()
 	}

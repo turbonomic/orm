@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package registry
+package mapper
 
 import (
 	"errors"
@@ -23,6 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	"github.com/turbonomic/orm/kubernetes"
 )
 
 // operandPath as key, sourcePath as value
@@ -40,6 +42,7 @@ type sourceObjectRef struct {
 type SourceRegistry struct {
 	// groupversionkind of source resource as key
 	registry map[sourceObjectRef]SourceORMEntry
+	kubernetes.Toolbox
 }
 
 var (
@@ -52,7 +55,7 @@ func (sr *SourceRegistry) RegisterSource(op string, sobj corev1.ObjectReference,
 		sr.registry = make(map[sourceObjectRef]SourceORMEntry)
 	}
 
-	gvr := r.findGVRfromGVK(sobj.GroupVersionKind())
+	gvr := sr.FindGVRfromGVK(sobj.GroupVersionKind())
 	if gvr == nil {
 		return false, errors.New("Source resource " + sobj.GroupVersionKind().String() + "is not installed")
 	}
@@ -107,7 +110,7 @@ func (sr *SourceRegistry) RetriveORMEntryForResource(gvk schema.GroupVersionKind
 		return nil
 	}
 
-	gvr := r.findGVRfromGVK(gvk)
+	gvr := sr.FindGVRfromGVK(gvk)
 	if gvr == nil {
 		return nil
 	}

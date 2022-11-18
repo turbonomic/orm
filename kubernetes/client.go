@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package registry
+package kubernetes
 
 import (
 	"errors"
@@ -40,7 +40,7 @@ var (
 func (c *Client) GetResourceListWithGVKWithSelector(gvk schema.GroupVersionKind, req types.NamespacedName, selector *metav1.LabelSelector) ([]unstructured.Unstructured, error) {
 
 	var err error
-	gvr := r.findGVRfromGVK(gvk)
+	gvr := r.FindGVRfromGVK(gvk)
 	if gvr == nil {
 		return nil, errors.New("Operator " + gvk.String() + "is not installed")
 	}
@@ -63,7 +63,7 @@ func (c *Client) GetResourceListWithGVKWithSelector(gvk schema.GroupVersionKind,
 func (c *Client) GetResourceWithGVK(gvk schema.GroupVersionKind, req types.NamespacedName) (*unstructured.Unstructured, error) {
 
 	var err error
-	gvr := r.findGVRfromGVK(gvk)
+	gvr := r.FindGVRfromGVK(gvk)
 	if gvr == nil {
 		return nil, errors.New("Operator " + gvk.String() + "is not installed")
 	}
@@ -77,7 +77,7 @@ func (c *Client) GetResourceWithGVK(gvk schema.GroupVersionKind, req types.Names
 func (c *Client) UpdateResourceWithGVK(gvk schema.GroupVersionKind, obj *unstructured.Unstructured) error {
 	var err error
 
-	gvr := r.findGVRfromGVK(gvk)
+	gvr := r.FindGVRfromGVK(gvk)
 	if gvr == nil {
 		return errors.New("Operator " + gvk.String() + "is not installed")
 	}

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package registry
+package kubernetes
 
 import (
 	"errors"
@@ -22,6 +22,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
+	ctrl "sigs.k8s.io/controller-runtime"
+)
+
+var (
+	iLog = ctrl.Log.WithName("informer")
 )
 
 type InformerFactory struct {
@@ -30,7 +35,7 @@ type InformerFactory struct {
 
 func (i *InformerFactory) WatchResourceWithGVK(gvk schema.GroupVersionKind, handler cache.ResourceEventHandler) error {
 
-	gvr := r.findGVRfromGVK(gvk)
+	gvr := r.FindGVRfromGVK(gvk)
 	if gvr == nil {
 		return errors.New("Source resource " + gvk.String() + "is not installed")
 	}

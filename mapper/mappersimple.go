@@ -22,8 +22,9 @@ import (
 	"strings"
 
 	"github.com/turbonomic/orm/api/v1alpha1"
-	"github.com/turbonomic/orm/registry"
+	"github.com/turbonomic/orm/kubernetes"
 	"github.com/turbonomic/orm/util"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -42,11 +43,13 @@ var (
 
 // OperatorResourceMappingReconciler reconciles a OperatorResourceMapping object
 type SimpleMapper struct {
-	reg *registry.Registry
+	SourceRegistry
+
+	tools *kubernetes.Toolbox
 }
 
 func (m *SimpleMapper) CleanupORM(key types.NamespacedName) {
-	m.reg.CleanupRegistryForORM(key)
+	m.CleanupRegistryForORM(key)
 }
 
 func (m *SimpleMapper) MapORM(orm *v1alpha1.OperatorResourceMapping) error {
@@ -57,7 +60,7 @@ func (m *SimpleMapper) MapORM(orm *v1alpha1.OperatorResourceMapping) error {
 		return nil
 	}
 
-	m.reg.CleanupRegistryForORM(types.NamespacedName{
+	m.CleanupRegistryForORM(types.NamespacedName{
 		Namespace: orm.Namespace,
 		Name:      orm.Name,
 	})
@@ -78,14 +81,14 @@ func (m *SimpleMapper) MapORM(orm *v1alpha1.OperatorResourceMapping) error {
 		// TODO: avoid to retrieve same source repeatedly
 		var srcObjs []unstructured.Unstructured
 		if k.Name != "" {
-			srcObj, err = m.reg.GetResourceWithGVK(p.Source.GroupVersionKind(), k)
+			srcObj, err = m.GetResourceWithGVK(p.Source.GroupVersionKind(), k)
 			if err != nil {
 				msLog.Error(err, "creating entry for ", "source", p.Source)
 				return err
 			}
 			srcObjs = append(srcObjs, *srcObj)
 		} else {
-			srcObjs, err = m.reg.GetResourceListWithGVKWithSelector(p.Source.GroupVersionKind(), k, &p.Source.LabelSelector)
+			srcObjs, err = m.GetResourceListWithGVKWithSelector(p.Source.GroupVersionKind(), k, &p.Source.LabelSelector)
 			if err != nil {
 				msLog.Error(err, "listing resource", "source", p.Source)
 			}
@@ -97,7 +100,7 @@ func (m *SimpleMapper) MapORM(orm *v1alpha1.OperatorResourceMapping) error {
 			objref := p.Source.ObjectReference.DeepCopy()
 			objref.Namespace = srcObj.GetNamespace()
 			objref.Name = srcObj.GetName()
-			exists, err = m.reg.RegisterSource(p.OperandPath, *objref,
+			exists, err = m.RegisterSource(p.OperandPath, *objref,
 				p.Source.Path,
 				types.NamespacedName{Name: orm.Name, Namespace: orm.Namespace})
 			if err != nil {
@@ -109,8 +112,9 @@ func (m *SimpleMapper) MapORM(orm *v1alpha1.OperatorResourceMapping) error {
 
 			m.mapOnceForOneORM(&srcObj, orm, pm, true)
 		}
+
 		if !exists {
-			m.reg.WatchResourceWithGVK(p.Source.GroupVersionKind(), cache.ResourceEventHandlerFuncs{
+			m.tools.WatchResourceWithGVK(p.Source.GroupVersionKind(), cache.ResourceEventHandlerFuncs{
 				UpdateFunc: func(old, new interface{}) {
 					obj := new.(*unstructured.Unstructured)
 
@@ -133,7 +137,7 @@ func (m *SimpleMapper) mapOnce(obj *unstructured.Unstructured) {
 		Name:      obj.GetName(),
 	}
 
-	re := m.reg.RetriveORMEntryForResource(obj.GroupVersionKind(), k)
+	re := m.RetriveORMEntryForResource(obj.GroupVersionKind(), k)
 	if re == nil {
 		return
 	}
@@ -141,7 +145,7 @@ func (m *SimpleMapper) mapOnce(obj *unstructured.Unstructured) {
 	for ormk, pm := range re {
 
 		orm := &v1alpha1.OperatorResourceMapping{}
-		err = m.reg.OrmClient.Get(context.TODO(), ormk, orm)
+		err = m.tools.OrmClient.Get(context.TODO(), ormk, orm)
 		if err != nil {
 			msLog.Error(err, "watching")
 		}
@@ -157,7 +161,7 @@ func (m *SimpleMapper) mapOnce(obj *unstructured.Unstructured) {
 
 }
 
-func (m *SimpleMapper) mapOnceForOneORM(obj *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping, pm registry.PatternMap, force bool) {
+func (m *SimpleMapper) mapOnceForOneORM(obj *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping, pm PatternMap, force bool) {
 
 	var mgr string
 
@@ -243,12 +247,12 @@ func (m *SimpleMapper) updateORMStatus(orm *v1alpha1.OperatorResourceMapping) {
 		Name:      orm.GetName(),
 	}
 
-	err := m.reg.OrmClient.Status().Update(context.TODO(), orm)
+	err := m.tools.OrmClient.Status().Update(context.TODO(), orm)
 	if err != nil {
 		st := orm.Status.DeepCopy()
-		err = m.reg.OrmClient.Get(context.TODO(), k, orm)
+		err = m.tools.OrmClient.Get(context.TODO(), k, orm)
 		st.DeepCopyInto(&orm.Status)
-		err = m.reg.OrmClient.Status().Update(context.TODO(), orm)
+		err = m.tools.OrmClient.Status().Update(context.TODO(), orm)
 		if err != nil {
 			msLog.Error(err, "retry status")
 		}
@@ -271,7 +275,7 @@ func GetSimpleMapper(config *rest.Config, scheme *runtime.Scheme) (Mapper, error
 		mp = &SimpleMapper{}
 	}
 
-	mp.reg, err = registry.GetORMRegistry(config, scheme)
+	mp.tools, err = kubernetes.GetToolbox(config, scheme)
 
 	return mp, err
 }
