@@ -24,9 +24,9 @@ import (
 
 func BuildAllPatterns(orm *v1alpha1.OperatorResourceMapping) []v1alpha1.Pattern {
 	allpatterns := orm.Spec.Mappings.Patterns
-	if orm.Spec.Mappings.Lists != nil && len(orm.Spec.Mappings.Lists) > 0 {
+	if orm.Spec.Mappings.Parameters != nil && len(orm.Spec.Mappings.Parameters) > 0 {
 		var prevpatterns []v1alpha1.Pattern
-		for name, speclist := range orm.Spec.Mappings.Lists {
+		for name, speclist := range orm.Spec.Mappings.Parameters {
 			prevpatterns = allpatterns
 			allpatterns = []v1alpha1.Pattern{}
 			var loc int

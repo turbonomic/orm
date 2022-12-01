@@ -78,11 +78,11 @@ func (e *SimpleEnforcer) EnforceORM(orm *v1alpha1.OperatorResourceMapping) error
 func (e *SimpleEnforcer) enforceOnce(orm *v1alpha1.OperatorResourceMapping, obj *unstructured.Unstructured) error {
 	var err error
 
-	if orm.Status.Mappings == nil {
+	if orm.Status.MappedPatterns == nil {
 		return nil
 	}
 
-	for n, m := range orm.Status.Mappings {
+	for n, m := range orm.Status.MappedPatterns {
 		value, err := runtime.DefaultUnstructuredConverter.ToUnstructured(m.Value)
 		if err != nil {
 			e.updateMappingStatus(orm, n, err)
@@ -108,13 +108,13 @@ func (e *SimpleEnforcer) enforceOnce(orm *v1alpha1.OperatorResourceMapping, obj 
 
 func (e *SimpleEnforcer) updateMappingStatus(orm *v1alpha1.OperatorResourceMapping, n int, err error) {
 	if err == nil {
-		orm.Status.Mappings[n].Mapped = corev1.ConditionTrue
-		orm.Status.Mappings[n].Reason = ""
-		orm.Status.Mappings[n].Message = ""
+		orm.Status.MappedPatterns[n].Mapped = corev1.ConditionTrue
+		orm.Status.MappedPatterns[n].Reason = ""
+		orm.Status.MappedPatterns[n].Message = ""
 	} else {
-		orm.Status.Mappings[n].Mapped = corev1.ConditionFalse
-		orm.Status.Mappings[n].Reason = string(v1alpha1.ORMStatusReasonOperandError)
-		orm.Status.Mappings[n].Message = err.Error()
+		orm.Status.MappedPatterns[n].Mapped = corev1.ConditionFalse
+		orm.Status.MappedPatterns[n].Reason = string(v1alpha1.ORMStatusReasonOperandError)
+		orm.Status.MappedPatterns[n].Message = err.Error()
 	}
 }
 

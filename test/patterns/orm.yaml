@@ -9,7 +9,7 @@ spec:
     name: ormoperand
   enforcement: none # none, once
   mappings:
-    lists:
+    parameters:
       containers:
       - "workload-0001"
       - "workload-0002"

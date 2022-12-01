@@ -44,7 +44,7 @@ spec:
                 type: string
               mappings:
                 properties:
-                  lists:
+                  parameters:
                     additionalProperties:
                       items:
                         type: string
@@ -149,12 +149,6 @@ spec:
                 description: Operand is the target to make actual changes if name
                   and namespace are not provided, use same one as orm cr
                 properties:
-                  allowedManagers:
-                    description: 'Managers outside original operator controller, by
-                      default: kubectl-edit'
-                    items:
-                      type: string
-                    type: array
                   apiVersion:
                     description: API version of the referent.
                     type: string
@@ -196,7 +190,7 @@ spec:
             description: OperatorResourceMappingStatus defines the observed state
               of OperatorResourceMapping
             properties:
-              mappings:
+              mappedPatterns:
                 items:
                   properties:
                     lastTransitionTime:
@@ -229,7 +223,7 @@ spec:
                 type: string
               reason:
                 type: string
-              type:
+              state:
                 type: string
             type: object
         type: object

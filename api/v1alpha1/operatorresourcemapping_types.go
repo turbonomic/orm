@@ -48,8 +48,8 @@ type Pattern struct {
 }
 
 type MappingPatterns struct {
-	Patterns []Pattern           `json:"patterns,omitempty"`
-	Lists    map[string][]string `json:"lists,omitempty"`
+	Patterns   []Pattern           `json:"patterns,omitempty"`
+	Parameters map[string][]string `json:"parameters,omitempty"`
 }
 
 type EnforcementMode string
@@ -62,20 +62,6 @@ const (
 
 var EnforcementModeDefault = EnforcementModeOnce
 
-var (
-	DefaultAllowedManagers = []string{
-		"kubectl-edit",
-		"kube-controller-manager",
-	}
-)
-
-type Operand struct {
-	corev1.ObjectReference `json:",inline"`
-	// Managers outside original operator controller, by default: kubectl-edit
-	// +optional
-	AllowedManagers []string `json:"allowedManagers,omitempty"`
-}
-
 // OperatorResourceMappingSpec defines the desired state of OperatorResourceMapping
 type OperatorResourceMappingSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -83,9 +69,9 @@ type OperatorResourceMappingSpec struct {
 
 	// Operand is the target to make actual changes
 	// if name and namespace are not provided, use same one as orm cr
-	Operand         Operand         `json:"operand"`
-	EnforcementMode EnforcementMode `json:"enforcement,omitempty"`
-	Mappings        MappingPatterns `json:"mappings,omitempty"`
+	Operand         corev1.ObjectReference `json:"operand"`
+	EnforcementMode EnforcementMode        `json:"enforcement,omitempty"`
+	Mappings        MappingPatterns        `json:"mappings,omitempty"`
 }
 
 type Mapping struct {
@@ -124,7 +110,7 @@ type OperatorResourceMappingStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// +optional
-	Type ORMStatusType `json:"type,omitempty"`
+	State ORMStatusType `json:"state,omitempty"`
 	// +optional
 	Reason string `json:"reason,omitempty"`
 	// A human readable message indicating details about the transition.
@@ -132,7 +118,7 @@ type OperatorResourceMappingStatus struct {
 	Message string `json:"message,omitempty"`
 
 	// +optional
-	Mappings []Mapping `json:"mappings,omitempty"`
+	MappedPatterns []Mapping `json:"mappedPatterns,omitempty"`
 }
 
 //+kubebuilder:object:root=true

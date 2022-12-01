@@ -74,34 +74,38 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 		return ctrl.Result{}, err
 	}
 
-	ocLog.Info("reconciling", "operand", orm.Spec.Operand, "mappings", orm.Spec.Mappings, "Status", orm.Status.Mappings)
+	ocLog.Info("reconciling", "operand", orm.Spec.Operand, "mappings", orm.Spec.Mappings, "Status", orm.Status.MappedPatterns)
 
 	oldStatus := orm.Status.DeepCopy()
 	orm.Status = v1alpha1.OperatorResourceMappingStatus{}
 
-	err = r.Mapper.MapORM(orm)
-	if err != nil {
-		ocLog.Error(err, "registering sources of operator "+req.String()+" ... skipping")
+	if r.Mapper != nil {
+		err = r.Mapper.MapORM(orm)
+		if err != nil {
+			ocLog.Error(err, "registering sources of operator "+req.String()+" ... skipping")
 
-		orm.Status.Type = v1alpha1.ORMTypeError
-		orm.Status.Reason = string(v1alpha1.ORMStatusReasonSourceError)
-		orm.Status.Message = err.Error()
-		r.checkAndUpdateStatus(oldStatus, orm)
-		return ctrl.Result{}, nil
+			orm.Status.State = v1alpha1.ORMTypeError
+			orm.Status.Reason = string(v1alpha1.ORMStatusReasonSourceError)
+			orm.Status.Message = err.Error()
+			r.checkAndUpdateStatus(oldStatus, orm)
+			return ctrl.Result{}, nil
+		}
 	}
 
-	err = r.Enforcer.EnforceORM(orm)
-	if err != nil {
-		ocLog.Error(err, "registering operator "+req.String()+" ... skipping")
+	if r.Enforcer != nil {
+		err = r.Enforcer.EnforceORM(orm)
+		if err != nil {
+			ocLog.Error(err, "registering operator "+req.String()+" ... skipping")
 
-		orm.Status.Type = v1alpha1.ORMTypeError
-		orm.Status.Reason = string(v1alpha1.ORMStatusReasonOperandError)
-		orm.Status.Message = err.Error()
-		r.checkAndUpdateStatus(oldStatus, orm)
-		return ctrl.Result{}, nil
+			orm.Status.State = v1alpha1.ORMTypeError
+			orm.Status.Reason = string(v1alpha1.ORMStatusReasonOperandError)
+			orm.Status.Message = err.Error()
+			r.checkAndUpdateStatus(oldStatus, orm)
+			return ctrl.Result{}, nil
+		}
 	}
 
-	orm.Status.Type = v1alpha1.ORMTypeOK
+	orm.Status.State = v1alpha1.ORMTypeOK
 	orm.Status.Reason = ""
 	orm.Status.Message = ""
 

@@ -70,12 +70,9 @@ var (
 			Namespace: req.Namespace,
 		},
 		Spec: devopsv1alpha1.OperatorResourceMappingSpec{
-			Operand: devopsv1alpha1.Operand{
-				ObjectReference: corev1.ObjectReference{
-					APIVersion: "testgroup.testorg/v1alpha1",
-					Kind:       "TestOperatorKind",
-				},
-				AllowedManagers: []string{},
+			Operand: corev1.ObjectReference{
+				APIVersion: "testgroup.testorg/v1alpha1",
+				Kind:       "TestOperatorKind",
 			},
 			Mappings: devopsv1alpha1.MappingPatterns{
 				Patterns: []devopsv1alpha1.Pattern{

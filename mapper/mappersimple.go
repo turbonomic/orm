@@ -36,6 +36,8 @@ import (
 )
 
 var (
+	annoAllowedManager = "devops.turbonomic.io/allowed-managers"
+
 	msLog = ctrl.Log.WithName("mapper simple")
 
 	mp *SimpleMapper
@@ -163,15 +165,13 @@ func (m *SimpleMapper) mapOnce(obj *unstructured.Unstructured) {
 
 func (m *SimpleMapper) mapOnceForOneORM(obj *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping, pm PatternMap, force bool) {
 
-	var mgr string
-
 	if !force {
 		mfs := obj.GetManagedFields()
 		if len(mfs) == 0 {
 			msLog.Info("no managed fields", "gvk", obj.GroupVersionKind())
 		}
 
-		mgr = mfs[0].Manager
+		mgr := mfs[0].Manager
 		t := mfs[0].Time
 		for _, mf := range obj.GetManagedFields() {
 			if t.Before(mf.Time) {
@@ -180,20 +180,24 @@ func (m *SimpleMapper) mapOnceForOneORM(obj *unstructured.Unstructured, orm *v1a
 			}
 		}
 
-		allowedmgrs := orm.Spec.Operand.AllowedManagers
-		if allowedmgrs == nil || len(allowedmgrs) == 0 {
-			allowedmgrs = v1alpha1.DefaultAllowedManagers
+		var allowedmgrs []string
+		objanno := obj.GetAnnotations()
+		if objanno != nil {
+			mgrsstr := objanno[annoAllowedManager]
+			allowedmgrs = strings.Split(strings.TrimSpace(mgrsstr), ",")
 		}
 
-		found := false
-		for _, om := range allowedmgrs {
-			if mgr == om {
-				found = true
-				break
+		if len(allowedmgrs) > 0 && allowedmgrs[0] != "" {
+			found := false
+			for _, om := range allowedmgrs {
+				if mgr == om {
+					found = true
+					break
+				}
 			}
-		}
-		if !found {
-			return
+			if !found {
+				return
+			}
 		}
 	}
 
@@ -225,16 +229,16 @@ func (m *SimpleMapper) mapOnceForOneORM(obj *unstructured.Unstructured, orm *v1a
 		}
 
 		exists := false
-		for n, mp := range orm.Status.Mappings {
+		for n, mp := range orm.Status.MappedPatterns {
 			if mp.OperandPath == mapitem.OperandPath {
-				mapitem.DeepCopyInto(&(orm.Status.Mappings[n]))
+				mapitem.DeepCopyInto(&(orm.Status.MappedPatterns[n]))
 				exists = true
 				break
 			}
 		}
 
 		if !exists {
-			orm.Status.Mappings = append(orm.Status.Mappings, mapitem)
+			orm.Status.MappedPatterns = append(orm.Status.MappedPatterns, mapitem)
 		}
 	}
 
