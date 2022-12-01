@@ -1,0 +1,16 @@
+# This is a sample ORM CR for openLiberty Operator v0.8 - Application CR
+apiVersion: turbonomic.com/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  name: openlibertyapplications.apps.openliberty.io
+spec:
+  resourceMappings:
+    - srcResourceSpec:
+        kind: Deployment
+        componentNames:
+        #supply the name of the deployments created
+          - yourDeployment
+      resourceMappingTemplates:
+      #replace app with the name of your container. app is default
+        - srcPath: .spec.template.spec.containers[?(@.name=="app")].resources
+          destPath: .spec.resources

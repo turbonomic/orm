@@ -18,11 +18,16 @@ package controllers
 
 import (
 	"context"
+	"reflect"
+	"strconv"
+	"strings"
 
 	"github.com/turbonomic/orm/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -56,8 +61,11 @@ var (
 func (r *CompatibilityReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
-	orm := &v1alpha1.OperatorResourceMapping{}
-	err := r.Get(context.TODO(), req.NamespacedName, orm)
+	ormv1Obj := &unstructured.Unstructured{}
+	ormv1Obj.SetAPIVersion("turbonomic.com/v1alpha1")
+	ormv1Obj.SetKind("OperatorResourceMapping")
+
+	err := r.Get(context.TODO(), req.NamespacedName, ormv1Obj)
 
 	if errors.IsNotFound(err) {
 		return ctrl.Result{}, nil
@@ -68,7 +76,9 @@ func (r *CompatibilityReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	ocLog.Info("reconciling", "operand", orm.Spec.Operand, "mappings", orm.Spec.Mappings, "Status", orm.Status.MappedPatterns)
+	ocLog.Info("reconciling ormv1", "object", req.NamespacedName)
+
+	r.compatibilityCheck(ormv1Obj)
 
 	return ctrl.Result{}, nil
 }
@@ -82,4 +92,149 @@ func (c *CompatibilityReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(ormv1Obj).
 		Complete(c)
+}
+
+func (c *CompatibilityReconciler) compatibilityCheck(ormv1Obj *unstructured.Unstructured) (ctrl.Result, error) {
+
+	if ormv1Obj == nil {
+		return ctrl.Result{}, nil
+	}
+
+	req := types.NamespacedName{
+		Namespace: ormv1Obj.GetNamespace(),
+		Name:      ormv1Obj.GetName(),
+	}
+
+	orm := &v1alpha1.OperatorResourceMapping{}
+	err := c.Get(context.TODO(), req, orm)
+
+	if err != nil && !errors.IsNotFound(err) {
+		ocLog.Error(err, "reconcile getting "+req.String())
+		return ctrl.Result{}, err
+	}
+
+	if errors.IsNotFound(err) {
+		err = c.createNewCompatibleORMv2(ormv1Obj)
+	} else {
+		err = c.updateCompatibleORMv2(ormv1Obj, orm)
+	}
+
+	if err != nil {
+		ccLog.Error(err, "updating orm")
+	}
+
+	return ctrl.Result{}, err
+}
+
+func (c *CompatibilityReconciler) createNewCompatibleORMv2(ormv1Obj *unstructured.Unstructured) error {
+	var err error
+	var neworm *v1alpha1.OperatorResourceMapping
+
+	neworm, err = c.constructCompatibleORMv2(ormv1Obj)
+
+	err = c.Create(context.TODO(), neworm)
+
+	if err != nil {
+		ccLog.Error(err, "creating new orm")
+	}
+
+	return err
+}
+
+func (c *CompatibilityReconciler) updateCompatibleORMv2(ormv1Obj *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping) error {
+	var err error
+	var neworm *v1alpha1.OperatorResourceMapping
+
+	neworm, err = c.constructCompatibleORMv2(ormv1Obj)
+	if err != nil {
+		return err
+	}
+
+	if !reflect.DeepEqual(neworm.Spec, orm.Spec) {
+		neworm.Spec.DeepCopyInto(&orm.Spec)
+
+		err = c.Update(context.TODO(), orm)
+	}
+
+	return err
+}
+
+var (
+	mappingsPath  = []string{"spec", "resourceMappings"}
+	templatePath  = []string{"resourceMappingTemplates"}
+	parameterPath = []string{"srcResourceSpec", parameterKey}
+	srcKindPath   = []string{"srcResourceSpec", "kind"}
+	parameterKey  = "componentNames"
+	parameterStr  = "{{.componentName}}"
+	dstPathKey    = "destPath"
+	srcPathKey    = "srcPath"
+)
+
+func (c *CompatibilityReconciler) constructCompatibleORMv2(ormv1Obj *unstructured.Unstructured) (*v1alpha1.OperatorResourceMapping, error) {
+
+	orm := &v1alpha1.OperatorResourceMapping{}
+
+	orm.Name = ormv1Obj.GetName()
+	orm.Namespace = ormv1Obj.GetNamespace()
+
+	mappings, found, err := unstructured.NestedSlice(ormv1Obj.Object, mappingsPath...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !found || len(mappings) == 0 {
+		return orm, nil
+	}
+
+	var templates []interface{}
+	var parameterName string
+	for n, mapping := range mappings {
+		var paramList []string
+		paramList, found, err = unstructured.NestedStringSlice(mapping.(map[string]interface{}), parameterPath...)
+		if err != nil {
+			return orm, err
+		}
+
+		var srcKind string
+		srcKind, found, err = unstructured.NestedString(mapping.(map[string]interface{}), srcKindPath...)
+
+		if err != nil {
+			return orm, err
+		}
+
+		if len(paramList) > 0 {
+			parameterName = parameterKey + "-" + strconv.Itoa(n)
+			if orm.Spec.Mappings.Parameters == nil {
+				orm.Spec.Mappings.Parameters = make(map[string][]string)
+			}
+			orm.Spec.Mappings.Parameters[parameterName] = paramList
+		}
+
+		templates, found, err = unstructured.NestedSlice(mapping.(map[string]interface{}), templatePath...)
+		if err != nil {
+			return orm, err
+		}
+
+		var opPathStr, srcPathStr string
+		for _, template := range templates {
+			opPathStr = template.(map[string]interface{})[dstPathKey].(string)
+			opPathStr = strings.ReplaceAll(opPathStr, parameterStr, "{{"+parameterName+"}}")
+			srcPathStr = template.(map[string]interface{})[dstPathKey].(string)
+			srcPathStr = strings.ReplaceAll(srcPathStr, parameterStr, "{{"+parameterName+"}}")
+			pattern := v1alpha1.Pattern{
+				OperandPath: opPathStr,
+				Source: v1alpha1.SourceLocation{
+					Path: srcPathStr,
+					ObjectReference: corev1.ObjectReference{
+						Kind:       srcKind,
+						APIVersion: "apps/v1",
+					},
+				},
+			}
+			orm.Spec.Mappings.Patterns = append(orm.Spec.Mappings.Patterns, pattern)
+		}
+	}
+
+	return orm, nil
 }

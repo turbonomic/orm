@@ -74,7 +74,7 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 		return ctrl.Result{}, err
 	}
 
-	ocLog.Info("reconciling", "operand", orm.Spec.Operand, "mappings", orm.Spec.Mappings, "Status", orm.Status.MappedPatterns)
+	ocLog.Info("reconciling orm", "object", req.NamespacedName)
 
 	oldStatus := orm.Status.DeepCopy()
 	orm.Status = v1alpha1.OperatorResourceMappingStatus{}
