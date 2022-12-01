@@ -108,7 +108,15 @@ func main() {
 		Enforcer: ef,
 		Mapper:   mp,
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "OperatorResourceMapping")
+		setupLog.Error(err, "unable to create orm controller", "controller", "OperatorResourceMapping")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.CompatibilityReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create compatibility controller", "controller", "OperatorResourceMapping")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

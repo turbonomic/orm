@@ -31,3 +31,17 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - turbonomic.com
+  resources:
+  - operatorresourcemappings
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - turbonomic.com
+  resources:
+  - operatorresourcemappings/status
+  verbs:
+  - get
