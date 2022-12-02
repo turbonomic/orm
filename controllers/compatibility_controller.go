@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/turbonomic/orm/api/v1alpha1"
+	"github.com/turbonomic/orm/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -36,6 +37,8 @@ import (
 type CompatibilityReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+
+	tools *kubernetes.Toolbox
 }
 
 var (
@@ -85,9 +88,16 @@ func (r *CompatibilityReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 // SetupWithManager sets up the controller with the Manager.
 func (c *CompatibilityReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	var err error
+
 	ormv1Obj := &unstructured.Unstructured{}
 	ormv1Obj.SetAPIVersion("turbonomic.com/v1alpha1")
 	ormv1Obj.SetKind("OperatorResourceMapping")
+
+	c.tools, err = kubernetes.GetToolbox(mgr.GetConfig(), mgr.GetScheme())
+	if err != nil {
+		return err
+	}
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(ormv1Obj).
@@ -150,6 +160,8 @@ func (c *CompatibilityReconciler) updateCompatibleORMv2(ormv1Obj *unstructured.U
 		return err
 	}
 
+	neworm.Spec.EnforcementMode = orm.Spec.EnforcementMode
+
 	if !reflect.DeepEqual(neworm.Spec, orm.Spec) {
 		neworm.Spec.DeepCopyInto(&orm.Spec)
 
@@ -187,8 +199,13 @@ func (c *CompatibilityReconciler) constructCompatibleORMv2(ormv1Obj *unstructure
 		return orm, nil
 	}
 
+	gvk, _ := c.tools.FindGVKForResource(ormv1Obj.GetName())
+	orm.Spec.Operand.APIVersion, orm.Spec.Operand.Kind = gvk.ToAPIVersionAndKind()
+	orm.Spec.EnforcementMode = v1alpha1.EnforcementModeNone
+
 	var templates []interface{}
 	var parameterName string
+
 	for n, mapping := range mappings {
 		var paramList []string
 		paramList, found, err = unstructured.NestedStringSlice(mapping.(map[string]interface{}), parameterPath...)

@@ -58,7 +58,7 @@ func (e *SimpleEnforcer) EnforceORM(orm *v1alpha1.OperatorResourceMapping) error
 		req.Name = orm.Name
 	}
 
-	obj, err := e.reg.GetResourceWithGVK(orm.Spec.Operand.GroupVersionKind(), req)
+	obj, err := e.reg.SearchResourceWithGVK(orm.Spec.Operand.GroupVersionKind(), req)
 	if err != nil {
 		return err
 	}
@@ -68,9 +68,8 @@ func (e *SimpleEnforcer) EnforceORM(orm *v1alpha1.OperatorResourceMapping) error
 			eLog.Error(err, "enforce out")
 			return err
 		}
+		err = e.reg.UpdateResourceWithGVK(orm.Spec.Operand.GroupVersionKind(), obj)
 	}
-
-	err = e.reg.UpdateResourceWithGVK(orm.Spec.Operand.GroupVersionKind(), obj)
 
 	return err
 }

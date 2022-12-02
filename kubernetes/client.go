@@ -60,6 +60,26 @@ func (c *Client) GetResourceListWithGVKWithSelector(gvk schema.GroupVersionKind,
 	return list.Items, nil
 }
 
+// Search resource within the namespace of req
+// Return the resource matches name or anyone exists
+func (c *Client) SearchResourceWithGVK(gvk schema.GroupVersionKind, req types.NamespacedName) (*unstructured.Unstructured, error) {
+	objects, err := c.GetResourceListWithGVKWithSelector(gvk, req, &metav1.LabelSelector{})
+
+	if err != nil || len(objects) == 0 {
+		return nil, err
+	}
+
+	obj := &objects[0]
+	for _, o := range objects {
+		if o.GetName() == req.Name {
+			obj = &o
+			break
+		}
+	}
+
+	return obj, nil
+}
+
 func (c *Client) GetResourceWithGVK(gvk schema.GroupVersionKind, req types.NamespacedName) (*unstructured.Unstructured, error) {
 
 	var err error
@@ -79,7 +99,11 @@ func (c *Client) UpdateResourceWithGVK(gvk schema.GroupVersionKind, obj *unstruc
 
 	gvr := r.FindGVRfromGVK(gvk)
 	if gvr == nil {
-		return errors.New("Operator " + gvk.String() + "is not installed")
+		return errors.New("Resource " + gvk.String() + "is not installed")
+	}
+
+	if obj == nil {
+		return errors.New("Target resource is not available: " + gvk.String())
 	}
 
 	_, err = c.Resource(*gvr).Namespace(obj.GetNamespace()).Update(r.ctx, obj, metav1.UpdateOptions{})

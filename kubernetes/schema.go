@@ -17,6 +17,8 @@ limitations under the License.
 package kubernetes
 
 import (
+	"strings"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
@@ -33,6 +35,51 @@ var (
 
 	sLog = ctrl.Log.WithName("schema")
 )
+
+func (s *Schema) FindGVKForResource(resource string) (*schema.GroupVersionKind, bool) {
+	var gvk *schema.GroupVersionKind
+	var found bool
+
+	if s.gvkGVRMap == nil {
+		s.discoverSchemaMappings()
+	}
+
+	loc := strings.Index(resource, ".")
+	if loc == -1 {
+		return s.bestEffortForGvkForMissingResource(resource), false
+	}
+
+	res := resource[:loc]
+	group := resource[loc+1:]
+
+	found = false
+	for k, gvr := range s.gvkGVRMap {
+		if gvr.Resource == res && gvr.Group == group {
+			found = true
+			gvk = &k
+			break
+		}
+	}
+
+	if !found {
+		gvk = s.bestEffortForGvkForMissingResource(resource)
+	}
+
+	return gvk, found
+}
+
+func (s *Schema) bestEffortForGvkForMissingResource(resource string) *schema.GroupVersionKind {
+	var gvk schema.GroupVersionKind
+
+	loc := strings.Index(resource, ".")
+	if loc == -1 {
+		gvk.Kind = resource
+	} else {
+		gvk.Kind = resource[:loc]
+		gvk.Group = resource[loc+1:]
+	}
+	return &gvk
+}
 
 func (s *Schema) FindGVRfromGVK(gvk schema.GroupVersionKind) *schema.GroupVersionResource {
 	if s.gvkGVRMap == nil || s.gvkGVRMap[gvk] == nil {
