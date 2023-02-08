@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ormsource-0002
+  name: ormsource-patterns-0002
   labels:
-    app: ormsource
+    app: ormsource-patterns
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ormsource-0002
+      app: ormsource-patterns-0002
   template:
     metadata:
       labels:
-        app: ormsource-0002
+        app: ormsource-patterns-0002
     spec:
       containers:
       - name: workload-0002

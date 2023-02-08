@@ -19,12 +19,11 @@ package mapper
 import (
 	"errors"
 
+	"github.com/turbonomic/orm/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-
-	"github.com/turbonomic/orm/kubernetes"
 )
 
 // operandPath as key, sourcePath as value
@@ -42,7 +41,6 @@ type sourceObjectRef struct {
 type SourceRegistry struct {
 	// groupversionkind of source resource as key
 	registry map[sourceObjectRef]SourceORMEntry
-	kubernetes.Toolbox
 }
 
 var (
@@ -55,7 +53,7 @@ func (sr *SourceRegistry) RegisterSource(op string, sobj corev1.ObjectReference,
 		sr.registry = make(map[sourceObjectRef]SourceORMEntry)
 	}
 
-	gvr := sr.FindGVRfromGVK(sobj.GroupVersionKind())
+	gvr := kubernetes.Toolbox.FindGVRfromGVK(sobj.GroupVersionKind())
 	if gvr == nil {
 		return false, errors.New("Source resource " + sobj.GroupVersionKind().String() + "is not installed")
 	}
@@ -110,7 +108,7 @@ func (sr *SourceRegistry) RetriveORMEntryForResource(gvk schema.GroupVersionKind
 		return nil
 	}
 
-	gvr := sr.FindGVRfromGVK(gvk)
+	gvr := kubernetes.Toolbox.FindGVRfromGVK(gvk)
 	if gvr == nil {
 		return nil
 	}

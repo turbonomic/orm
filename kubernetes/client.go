@@ -40,7 +40,7 @@ var (
 func (c *Client) GetResourceListWithGVKWithSelector(gvk schema.GroupVersionKind, req types.NamespacedName, selector *metav1.LabelSelector) ([]unstructured.Unstructured, error) {
 
 	var err error
-	gvr := r.FindGVRfromGVK(gvk)
+	gvr := Toolbox.FindGVRfromGVK(gvk)
 	if gvr == nil {
 		return nil, errors.New("Operator " + gvk.String() + "is not installed")
 	}
@@ -50,7 +50,7 @@ func (c *Client) GetResourceListWithGVKWithSelector(gvk schema.GroupVersionKind,
 		return nil, err
 	}
 
-	list, err := r.Resource(*gvr).Namespace(req.Namespace).List(r.ctx, metav1.ListOptions{
+	list, err := Toolbox.Resource(*gvr).Namespace(req.Namespace).List(Toolbox.ctx, metav1.ListOptions{
 		LabelSelector: ls.String(),
 	})
 	if err != nil {
@@ -83,13 +83,13 @@ func (c *Client) SearchResourceWithGVK(gvk schema.GroupVersionKind, req types.Na
 func (c *Client) GetResourceWithGVK(gvk schema.GroupVersionKind, req types.NamespacedName) (*unstructured.Unstructured, error) {
 
 	var err error
-	gvr := r.FindGVRfromGVK(gvk)
+	gvr := Toolbox.FindGVRfromGVK(gvk)
 	if gvr == nil {
 		return nil, errors.New("Operator " + gvk.String() + "is not installed")
 	}
 
 	obj := &unstructured.Unstructured{}
-	obj, err = r.Resource(*gvr).Namespace(req.Namespace).Get(r.ctx, req.Name, metav1.GetOptions{})
+	obj, err = Toolbox.Resource(*gvr).Namespace(req.Namespace).Get(Toolbox.ctx, req.Name, metav1.GetOptions{})
 
 	return obj, err
 }
@@ -97,7 +97,7 @@ func (c *Client) GetResourceWithGVK(gvk schema.GroupVersionKind, req types.Names
 func (c *Client) UpdateResourceWithGVK(gvk schema.GroupVersionKind, obj *unstructured.Unstructured) error {
 	var err error
 
-	gvr := r.FindGVRfromGVK(gvk)
+	gvr := Toolbox.FindGVRfromGVK(gvk)
 	if gvr == nil {
 		return errors.New("Resource " + gvk.String() + "is not installed")
 	}
@@ -106,7 +106,7 @@ func (c *Client) UpdateResourceWithGVK(gvk schema.GroupVersionKind, obj *unstruc
 		return errors.New("Target resource is not available: " + gvk.String())
 	}
 
-	_, err = c.Resource(*gvr).Namespace(obj.GetNamespace()).Update(r.ctx, obj, metav1.UpdateOptions{})
+	_, err = c.Resource(*gvr).Namespace(obj.GetNamespace()).Update(Toolbox.ctx, obj, metav1.UpdateOptions{})
 
 	return err
 

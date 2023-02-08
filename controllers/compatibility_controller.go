@@ -22,8 +22,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/turbonomic/orm/api/v1alpha1"
-	"github.com/turbonomic/orm/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -32,13 +30,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
+	"github.com/turbonomic/orm/kubernetes"
 )
 
 type CompatibilityReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
-
-	tools *kubernetes.Toolbox
 }
 
 var (
@@ -94,7 +93,6 @@ func (c *CompatibilityReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	ormv1Obj.SetAPIVersion("turbonomic.com/v1alpha1")
 	ormv1Obj.SetKind("OperatorResourceMapping")
 
-	c.tools, err = kubernetes.GetToolbox(mgr.GetConfig(), mgr.GetScheme())
 	if err != nil {
 		return err
 	}
@@ -115,7 +113,7 @@ func (c *CompatibilityReconciler) compatibilityCheck(ormv1Obj *unstructured.Unst
 		Name:      ormv1Obj.GetName(),
 	}
 
-	orm := &v1alpha1.OperatorResourceMapping{}
+	orm := &devopsv1alpha1.OperatorResourceMapping{}
 	err := c.Get(context.TODO(), req, orm)
 
 	if err != nil && !errors.IsNotFound(err) {
@@ -138,7 +136,7 @@ func (c *CompatibilityReconciler) compatibilityCheck(ormv1Obj *unstructured.Unst
 
 func (c *CompatibilityReconciler) createNewCompatibleORMv2(ormv1Obj *unstructured.Unstructured) error {
 	var err error
-	var neworm *v1alpha1.OperatorResourceMapping
+	var neworm *devopsv1alpha1.OperatorResourceMapping
 
 	neworm, err = c.constructCompatibleORMv2(ormv1Obj)
 
@@ -151,9 +149,9 @@ func (c *CompatibilityReconciler) createNewCompatibleORMv2(ormv1Obj *unstructure
 	return err
 }
 
-func (c *CompatibilityReconciler) updateCompatibleORMv2(ormv1Obj *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping) error {
+func (c *CompatibilityReconciler) updateCompatibleORMv2(ormv1Obj *unstructured.Unstructured, orm *devopsv1alpha1.OperatorResourceMapping) error {
 	var err error
-	var neworm *v1alpha1.OperatorResourceMapping
+	var neworm *devopsv1alpha1.OperatorResourceMapping
 
 	neworm, err = c.constructCompatibleORMv2(ormv1Obj)
 	if err != nil {
@@ -182,9 +180,9 @@ var (
 	srcPathKey    = "srcPath"
 )
 
-func (c *CompatibilityReconciler) constructCompatibleORMv2(ormv1Obj *unstructured.Unstructured) (*v1alpha1.OperatorResourceMapping, error) {
+func (c *CompatibilityReconciler) constructCompatibleORMv2(ormv1Obj *unstructured.Unstructured) (*devopsv1alpha1.OperatorResourceMapping, error) {
 
-	orm := &v1alpha1.OperatorResourceMapping{}
+	orm := &devopsv1alpha1.OperatorResourceMapping{}
 
 	orm.Name = ormv1Obj.GetName()
 	orm.Namespace = ormv1Obj.GetNamespace()
@@ -199,9 +197,9 @@ func (c *CompatibilityReconciler) constructCompatibleORMv2(ormv1Obj *unstructure
 		return orm, nil
 	}
 
-	gvk, _ := c.tools.FindGVKForResource(ormv1Obj.GetName())
+	gvk, _ := kubernetes.Toolbox.FindGVKForResource(ormv1Obj.GetName())
 	orm.Spec.Operand.APIVersion, orm.Spec.Operand.Kind = gvk.ToAPIVersionAndKind()
-	orm.Spec.EnforcementMode = v1alpha1.EnforcementModeNone
+	orm.Spec.EnforcementMode = devopsv1alpha1.EnforcementModeNone
 
 	var templates []interface{}
 	var parameterName string
@@ -239,13 +237,15 @@ func (c *CompatibilityReconciler) constructCompatibleORMv2(ormv1Obj *unstructure
 			opPathStr = strings.ReplaceAll(opPathStr, parameterStr, "{{"+parameterName+"}}")
 			srcPathStr = template.(map[string]interface{})[dstPathKey].(string)
 			srcPathStr = strings.ReplaceAll(srcPathStr, parameterStr, "{{"+parameterName+"}}")
-			pattern := v1alpha1.Pattern{
+			pattern := devopsv1alpha1.Pattern{
 				OperandPath: opPathStr,
-				Source: v1alpha1.SourceLocation{
+				Source: devopsv1alpha1.SourceLocation{
 					Path: srcPathStr,
-					ObjectReference: corev1.ObjectReference{
-						Kind:       srcKind,
-						APIVersion: "apps/v1",
+					ObjectLocator: devopsv1alpha1.ObjectLocator{
+						ObjectReference: corev1.ObjectReference{
+							Kind:       srcKind,
+							APIVersion: "apps/v1",
+						},
 					},
 				},
 			}

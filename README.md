@@ -22,7 +22,7 @@
 
 Operator Resource Mapping (ORM) is a mechanism to allow assets like [Kubeturbo](https://github.com/turbonomic/kubeturbo/wiki) to manage resources in an Operator managed Kubernetes cluster, for example to [vertically scale containers](https://github.com/turbonomic/kubeturbo/wiki/Action-Details#resizing-vertical-scaling-of-containerized-workloads) or [horizontally scale pods](https://github.com/turbonomic/kubeturbo/wiki/Action-Details#slo-horizontal-scaling-private-preview).
 
-ORM works at operand basis, user defines which operand holds the source of trueth of which resources and automatically coordinate resource changes.
+ORM works at operand basis, user defines which operand holds the desired status of which resources (source) and automatically coordinate resource changes.
 
 ## QuickStart
 

@@ -6,7 +6,7 @@ spec:
   operand: # target same namespace by default
     apiVersion: apps/v1
     kind: Deployment
-    name: ormoperand
+    name: ormoperand-patterns
   enforcement: none # none, once
   mappings:
     parameters:
@@ -22,5 +22,5 @@ spec:
         apiVersion: apps/v1
         kind: Deployment
         matchLabels:
-          app: ormsource
+          app: ormsource-patterns
         path: .spec.template.spec.containers[?(@.name=="{{containers}}")].ports[?(@.protocol=="{{ports}}")].containerPort

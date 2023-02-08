@@ -46,8 +46,6 @@ var (
 // OperatorResourceMappingReconciler reconciles a OperatorResourceMapping object
 type SimpleMapper struct {
 	SourceRegistry
-
-	tools *kubernetes.Toolbox
 }
 
 func (m *SimpleMapper) CleanupORM(key types.NamespacedName) {
@@ -83,14 +81,14 @@ func (m *SimpleMapper) MapORM(orm *v1alpha1.OperatorResourceMapping) error {
 		// TODO: avoid to retrieve same source repeatedly
 		var srcObjs []unstructured.Unstructured
 		if k.Name != "" {
-			srcObj, err = m.GetResourceWithGVK(p.Source.GroupVersionKind(), k)
+			srcObj, err = kubernetes.Toolbox.GetResourceWithGVK(p.Source.GroupVersionKind(), k)
 			if err != nil {
 				msLog.Error(err, "creating entry for ", "source", p.Source)
 				return err
 			}
 			srcObjs = append(srcObjs, *srcObj)
 		} else {
-			srcObjs, err = m.GetResourceListWithGVKWithSelector(p.Source.GroupVersionKind(), k, &p.Source.LabelSelector)
+			srcObjs, err = kubernetes.Toolbox.GetResourceListWithGVKWithSelector(p.Source.GroupVersionKind(), k, &p.Source.LabelSelector)
 			if err != nil {
 				msLog.Error(err, "listing resource", "source", p.Source)
 			}
@@ -116,7 +114,7 @@ func (m *SimpleMapper) MapORM(orm *v1alpha1.OperatorResourceMapping) error {
 		}
 
 		if !exists {
-			m.tools.WatchResourceWithGVK(p.Source.GroupVersionKind(), cache.ResourceEventHandlerFuncs{
+			kubernetes.Toolbox.WatchResourceWithGVK(p.Source.GroupVersionKind(), cache.ResourceEventHandlerFuncs{
 				UpdateFunc: func(old, new interface{}) {
 					obj := new.(*unstructured.Unstructured)
 
@@ -147,7 +145,7 @@ func (m *SimpleMapper) mapOnce(obj *unstructured.Unstructured) {
 	for ormk, pm := range re {
 
 		orm := &v1alpha1.OperatorResourceMapping{}
-		err = m.tools.OrmClient.Get(context.TODO(), ormk, orm)
+		err = kubernetes.Toolbox.OrmClient.Get(context.TODO(), ormk, orm)
 		if err != nil {
 			msLog.Error(err, "watching")
 		}
@@ -161,6 +159,32 @@ func (m *SimpleMapper) mapOnce(obj *unstructured.Unstructured) {
 
 	}
 
+}
+
+func (m *SimpleMapper) isAllowedManager(mgr string, rules map[string]string) bool {
+	if rules == nil || len(rules) == 0 {
+		return true
+	}
+
+	mgrsstr := rules[annoAllowedManager]
+	var allowedmgrs []string
+
+	allowedmgrs = strings.Split(strings.TrimSpace(mgrsstr), ",")
+
+	if len(allowedmgrs) > 0 && allowedmgrs[0] != "" {
+		found := false
+		for _, om := range allowedmgrs {
+			if mgr == om {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (m *SimpleMapper) mapOnceForOneORM(obj *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping, pm PatternMap, force bool) {
@@ -180,24 +204,8 @@ func (m *SimpleMapper) mapOnceForOneORM(obj *unstructured.Unstructured, orm *v1a
 			}
 		}
 
-		var allowedmgrs []string
-		objanno := obj.GetAnnotations()
-		if objanno != nil {
-			mgrsstr := objanno[annoAllowedManager]
-			allowedmgrs = strings.Split(strings.TrimSpace(mgrsstr), ",")
-		}
-
-		if len(allowedmgrs) > 0 && allowedmgrs[0] != "" {
-			found := false
-			for _, om := range allowedmgrs {
-				if mgr == om {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return
-			}
+		if !m.isAllowedManager(mgr, obj.GetAnnotations()) {
+			return
 		}
 	}
 
@@ -251,12 +259,12 @@ func (m *SimpleMapper) updateORMStatus(orm *v1alpha1.OperatorResourceMapping) {
 		Name:      orm.GetName(),
 	}
 
-	err := m.tools.OrmClient.Status().Update(context.TODO(), orm)
+	err := kubernetes.Toolbox.OrmClient.Status().Update(context.TODO(), orm)
 	if err != nil {
 		st := orm.Status.DeepCopy()
-		err = m.tools.OrmClient.Get(context.TODO(), k, orm)
+		err = kubernetes.Toolbox.OrmClient.Get(context.TODO(), k, orm)
 		st.DeepCopyInto(&orm.Status)
-		err = m.tools.OrmClient.Status().Update(context.TODO(), orm)
+		err = kubernetes.Toolbox.OrmClient.Status().Update(context.TODO(), orm)
 		if err != nil {
 			msLog.Error(err, "retry status")
 		}
@@ -278,8 +286,6 @@ func GetSimpleMapper(config *rest.Config, scheme *runtime.Scheme) (Mapper, error
 	if mp == nil {
 		mp = &SimpleMapper{}
 	}
-
-	mp.tools, err = kubernetes.GetToolbox(config, scheme)
 
 	return mp, err
 }

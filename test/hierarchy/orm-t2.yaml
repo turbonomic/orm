@@ -1,25 +1,18 @@
 apiVersion: devops.turbonomic.io/v1alpha1
 kind: OperatorResourceMapping
 metadata:
-  name: solo
+  name: hierarchy-t2
 spec:
   operand: # target same namespace by default
     apiVersion: apps/v1
     kind: Deployment
-    matchLabels:
-      app: ormoperand-solo
+    name: ormoperand-hierarchy-t2
   enforcement: none # none, once, always
   mappings:
     patterns:
-    - operandPath: .spec.replicas
-      source:
-        apiVersion: apps/v1
-        kind: Deployment
-        name: ormsource-solo
-        path: .spec.replicas
     - operandPath: .spec.template.spec.containers[?(@.name=="workload-0001")].resources
       source:
         apiVersion: apps/v1
         kind: Deployment
-        name: ormsource-solo
+        name: ormoperand-hierarchy-t1
         path: .spec.template.spec.containers[?(@.name=="workload-0001")].resources

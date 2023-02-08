@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ormoperand
+  name: ormoperand-patterns
   labels:
-    app: ormoperand
+    app: ormoperand-patterns
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ormoperand
+      app: ormoperand-patterns
   template:
     metadata:
       labels:
-        app: ormoperand
+        app: ormoperand-patterns
     spec:
       containers:
       - name: workload-0001

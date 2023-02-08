@@ -90,7 +90,7 @@ func (s *Schema) FindGVRfromGVK(gvk schema.GroupVersionKind) *schema.GroupVersio
 }
 
 func (s *Schema) discoverSchemaMappings() {
-	resources, err := discovery.NewDiscoveryClientForConfigOrDie(r.cfg).ServerPreferredResources()
+	resources, err := discovery.NewDiscoveryClientForConfigOrDie(Toolbox.cfg).ServerPreferredResources()
 	// do not return if there is error
 	// some api server aggregation may cause this problem, but can still get return some resources.
 	if err != nil {

@@ -33,7 +33,6 @@ import (
 )
 
 type SimpleEnforcer struct {
-	reg *kubernetes.Toolbox
 }
 
 var (
@@ -58,17 +57,33 @@ func (e *SimpleEnforcer) EnforceORM(orm *v1alpha1.OperatorResourceMapping) error
 		req.Name = orm.Name
 	}
 
-	obj, err := e.reg.SearchResourceWithGVK(orm.Spec.Operand.GroupVersionKind(), req)
-	if err != nil {
-		return err
-	}
-	if orm.Spec.EnforcementMode != v1alpha1.EnforcementModeNone {
-		err = e.enforceOnce(orm, obj)
+	var opObjs []unstructured.Unstructured
+	var err error
+
+	if orm.Spec.Operand.Name != "" {
+		var opObj *unstructured.Unstructured
+		opObj, err = kubernetes.Toolbox.GetResourceWithGVK(orm.Spec.Operand.GroupVersionKind(), req)
 		if err != nil {
-			eLog.Error(err, "enforce out")
+			eLog.Error(err, "enforcing ", "operand gvk", orm.Spec.Operand.GroupVersionKind())
 			return err
 		}
-		err = e.reg.UpdateResourceWithGVK(orm.Spec.Operand.GroupVersionKind(), obj)
+		opObjs = append(opObjs, *opObj)
+	} else {
+		opObjs, err = kubernetes.Toolbox.GetResourceListWithGVKWithSelector(orm.Spec.Operand.GroupVersionKind(), req, &orm.Spec.Operand.LabelSelector)
+		if err != nil {
+			eLog.Error(err, "listing resource", "operand", orm.Spec.Operand)
+		}
+	}
+
+	if orm.Spec.EnforcementMode != v1alpha1.EnforcementModeNone {
+		for _, opobj := range opObjs {
+			err = e.enforceOnce(orm, &opobj)
+			if err != nil {
+				eLog.Error(err, "enforce out")
+				return err
+			}
+			err = kubernetes.Toolbox.UpdateResourceWithGVK(orm.Spec.Operand.GroupVersionKind(), &opobj)
+		}
 	}
 
 	return err
@@ -117,18 +132,16 @@ func (e *SimpleEnforcer) updateMappingStatus(orm *v1alpha1.OperatorResourceMappi
 	}
 }
 
-func (m *SimpleEnforcer) CleanupORM(key types.NamespacedName) {
+func (e *SimpleEnforcer) CleanupORM(key types.NamespacedName) {
 	return
 }
 
-func (m *SimpleEnforcer) Start(ctx context.Context) error {
-	m.reg.Start(ctx)
-
+func (e *SimpleEnforcer) Start(ctx context.Context) error {
 	return nil
 }
 
-func (m *SimpleEnforcer) SetupWithManager(mgr manager.Manager) error {
-	return mgr.Add(m)
+func (e *SimpleEnforcer) SetupWithManager(mgr manager.Manager) error {
+	return mgr.Add(e)
 }
 
 func GetSimpleEnforcer(config *rest.Config, scheme *runtime.Scheme) (Enforcer, error) {
@@ -137,8 +150,6 @@ func GetSimpleEnforcer(config *rest.Config, scheme *runtime.Scheme) (Enforcer, e
 	if enforcer == nil {
 		enforcer = &SimpleEnforcer{}
 	}
-
-	enforcer.reg, err = kubernetes.GetToolbox(config, scheme)
 
 	return enforcer, err
 }

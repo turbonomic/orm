@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type Toolbox struct {
+type ToolboxType struct {
 	cfg    *rest.Config
 	ctx    context.Context
 	scheme *runtime.Scheme
@@ -43,41 +43,41 @@ var (
 	resync = 10 * time.Minute
 	stopCh chan struct{}
 
-	r *Toolbox
+	Toolbox *ToolboxType
 
 	setupLog = ctrl.Log.WithName("init")
 )
 
-func (r *Toolbox) Start(ctx context.Context) {
+func (r *ToolboxType) Start(ctx context.Context) {
 	r.ctx = ctx
 	r.InformerFactory.Start(r.ctx.Done())
 }
 
-func GetToolbox(config *rest.Config, scheme *runtime.Scheme) (*Toolbox, error) {
+func InitToolbox(config *rest.Config, scheme *runtime.Scheme) error {
 	var err error
 
-	if r == nil {
-		r = &Toolbox{}
+	if Toolbox == nil {
+		Toolbox = &ToolboxType{}
 	}
 
-	r.cfg = config
-	if r.cfg == nil {
-		return nil, errors.New("Null Config for discovery")
+	Toolbox.cfg = config
+	if Toolbox.cfg == nil {
+		return errors.New("Null Config for discovery")
 	}
-	r.scheme = scheme
+	Toolbox.scheme = scheme
 
-	r.ctx = context.TODO()
-	r.Client.Interface, err = dynamic.NewForConfig(config)
+	Toolbox.ctx = context.TODO()
+	Toolbox.Client.Interface, err = dynamic.NewForConfig(config)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	r.OrmClient, err = client.New(config, client.Options{Scheme: r.scheme})
+	Toolbox.OrmClient, err = client.New(config, client.Options{Scheme: Toolbox.scheme})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	r.InformerFactory = InformerFactory{}
-	r.InformerFactory.DynamicSharedInformerFactory = dynamicinformer.NewDynamicSharedInformerFactory(r.Client, resync)
+	Toolbox.InformerFactory = InformerFactory{}
+	Toolbox.InformerFactory.DynamicSharedInformerFactory = dynamicinformer.NewDynamicSharedInformerFactory(Toolbox.Client, resync)
 
-	return r, err
+	return err
 }

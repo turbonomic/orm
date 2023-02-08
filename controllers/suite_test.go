@@ -70,9 +70,11 @@ var (
 			Namespace: req.Namespace,
 		},
 		Spec: devopsv1alpha1.OperatorResourceMappingSpec{
-			Operand: corev1.ObjectReference{
-				APIVersion: "testgroup.testorg/v1alpha1",
-				Kind:       "TestOperatorKind",
+			Operand: devopsv1alpha1.ObjectLocator{
+				ObjectReference: corev1.ObjectReference{
+					APIVersion: "testgroup.testorg/v1alpha1",
+					Kind:       "TestOperatorKind",
+				},
 			},
 			Mappings: devopsv1alpha1.MappingPatterns{
 				Patterns: []devopsv1alpha1.Pattern{
@@ -80,10 +82,12 @@ var (
 						OperandPath: "destnation.path",
 						Source: devopsv1alpha1.SourceLocation{
 							Path: "source.path",
-							ObjectReference: corev1.ObjectReference{
-								APIVersion: "apps/v1",
-								Kind:       "Deployment",
-								Name:       "testdeploy",
+							ObjectLocator: devopsv1alpha1.ObjectLocator{
+								ObjectReference: corev1.ObjectReference{
+									APIVersion: "apps/v1",
+									Kind:       "Deployment",
+									Name:       "testdeploy",
+								},
 							},
 						},
 					},

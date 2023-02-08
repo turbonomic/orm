@@ -34,6 +34,7 @@ import (
 	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/controllers"
 	"github.com/turbonomic/orm/enforcer"
+	"github.com/turbonomic/orm/kubernetes"
 	"github.com/turbonomic/orm/mapper"
 	//+kubebuilder:scaffold:imports
 )
@@ -88,6 +89,12 @@ func main() {
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+
+	err = kubernetes.InitToolbox(mgr.GetConfig(), mgr.GetScheme())
+	if err != nil {
+		setupLog.Error(err, "unable to init kubernetes toolbox")
 		os.Exit(1)
 	}
 

@@ -25,11 +25,8 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-type SourceLocation struct {
-	Path string `json:"path,omitempty"` // Path to the field inside the source resource
-
-	// Reference to the source object by name or by label
-
+// Reference to the source object by name or by label
+type ObjectLocator struct {
 	// if namespace is empty, use the operand namespace as default;
 	// if apiversion and kind are empty, se apps/Deployment as default
 	corev1.ObjectReference `json:",inline"`
@@ -37,6 +34,11 @@ type SourceLocation struct {
 	// if ObjectReferene.name is provided use the name, otherwise, use this label selector to find target resource(s)
 	// if more than 1 resoures matching the selector, all of them are included
 	metav1.LabelSelector `json:",inline"`
+}
+
+type SourceLocation struct {
+	Path          string `json:"path,omitempty"` // Path to the field inside the source resource
+	ObjectLocator `json:",inline"`
 }
 
 type Pattern struct {
@@ -69,9 +71,9 @@ type OperatorResourceMappingSpec struct {
 
 	// Operand is the target to make actual changes
 	// if name and namespace are not provided, use same one as orm cr
-	Operand         corev1.ObjectReference `json:"operand"`
-	EnforcementMode EnforcementMode        `json:"enforcement,omitempty"`
-	Mappings        MappingPatterns        `json:"mappings,omitempty"`
+	Operand         ObjectLocator   `json:"operand"`
+	EnforcementMode EnforcementMode `json:"enforcement,omitempty"`
+	Mappings        MappingPatterns `json:"mappings,omitempty"`
 }
 
 type Mapping struct {
