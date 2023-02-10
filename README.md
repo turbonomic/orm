@@ -68,3 +68,4 @@ kubectl -n turbonomic apply -f https://raw.githubusercontent.com/turbonomic/orm/
 ```
 I0806 14:08:56.506469       1 k8s_discovery_client.go:271] Discovered 1 Operator managed Custom Resources in cluster Kubernetes-Turbonomic.
 ```
+
