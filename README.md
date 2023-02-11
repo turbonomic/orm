@@ -8,7 +8,7 @@
 * [Architecture](#Architecture)
 * [Schema](#Schema)
 * [ORM Samples](#ORM-Samples)
-* [Steps to Deploy ORM](#Steps-to-deploy)
+* [Steps to Deploy ORM](#Deploy-Steps)
 
 ## <a id="ORMDef"></a>What is ORM?
 
@@ -131,7 +131,7 @@ spec:
 
 <img src="https://github.com/SumanthKodali999/images/blob/main/ORM_Usecase3.png" width="700"/>
 
-## <a id="Steps-to-deploy"></a>Steps to Deploy ORM
+## <a id="Deploy-Steps"></a>Steps to Deploy ORM
 
 1. Create the ORM Customer Resource Definition (CRD) in the kubernetes cluster (where kubeturbo is also running):
 ```bash
