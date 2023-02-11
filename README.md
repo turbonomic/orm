@@ -6,7 +6,9 @@
 * [Problem](#Problem)
 * [Solution](#Solution)
 * [Architecture](#Architecture)
-* [Steps to Deploy ORM](#Steps_to_deploy)
+* [Schema](#Schema)
+* [ORM Samples](#ORM-Samples)
+* [Steps to Deploy ORM](#Steps-to-deploy)
 
 ## <a id="ORMDef"></a>What is ORM?
 
@@ -53,7 +55,83 @@ ORM introduces Custom Resource Definition(CRD) for users to define target owner,
   - once: orm apply the change only once when the mapping is created/updated, after that owner could be changed by others
   - always: orm monitor the owner resource defined in ORM CR and ensure the target fields are updated as indicated in ORM
 
-## <a id="Steps_to_deploy"></a>Steps to Deploy ORM
+## <a id="Schema"></a>Schema
+
+ORM CRD Schema
+```yaml
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: operatorresourcemappings.devops.turbonomic.io
+   ...
+spec:
+  group: devops.turbonomic.io
+  names:
+    kind: OperatorResourceMapping
+```
+
+ORM Schema
+```yaml
+apiVersion: devops.turbonomic.io/v1
+kind: OperatorResourceMapping
+metadata:
+  name: orm
+spec: 
+  owner: # target same namespace by default
+    kind: Deployment
+     ...
+  enforcement: once # none, once, always
+  mappings:
+    patterns:
+    - ownerPath: # JSON path to resource location in the owner object
+      owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: # name for the deployment  
+        path: # JSON path to the resource location in the owned object
+status:
+  mappedPatterns:
+  - ownerPath: #JSON path to the resource location in the owner object
+    value:
+        ...
+    mapped: # status of mapping
+```
+
+Deployment Schema
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: #name for deployment
+   ...
+spec:
+  replicas: #replica count
+   ...
+  template:
+    spec:
+     containers:
+     - name: #name of the container
+       resources:
+         limits: # cpu, memory ..
+            ...
+         requests: # cpu, memory ..
+            ...
+```
+## <a id="ORM-Samples"></a>ORM Samples
+
+- One ORM for one owned resource by one operator
+
+<img src="https://github.com/SumanthKodali999/images/blob/main/ORM_Usecase1.png" width="700"/>
+
+- One ORM for two owned resources controlled by one operator
+
+<img src="https://github.com/SumanthKodali999/images/blob/main/ORM_Usecase2.png" width="700"/>
+
+- ORM's for one owned resource with hierarchy of owners
+
+<img src="https://github.com/SumanthKodali999/images/blob/main/ORM_Usecase3.png" width="700"/>
+
+## <a id="Steps-to-deploy"></a>Steps to Deploy ORM
 
 1. Create the ORM Customer Resource Definition (CRD) in the kubernetes cluster (where kubeturbo is also running):
 ```bash
@@ -68,4 +146,3 @@ kubectl -n turbonomic apply -f https://raw.githubusercontent.com/turbonomic/orm/
 ```
 I0806 14:08:56.506469       1 k8s_discovery_client.go:271] Discovered 1 Operator managed Custom Resources in cluster Kubernetes-Turbonomic.
 ```
-
