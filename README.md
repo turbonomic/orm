@@ -2,6 +2,7 @@
 [![GoDoc](https://godoc.org/github.com/turbonomic/orm?status.svg)](https://godoc.org/github.com/turbonomic/orm)
 [![License](https://img.shields.io/:license-apache-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
 
+<<<<<<< HEAD
 <em>Previous ORM CRD and Samples are moved to [archive](./archive/), please find doc for compatibility [here](./docs/compatibility.md).<em>
 
 
@@ -45,6 +46,15 @@ Step 2. Install CRD
 ```script
 cd orm
 kubectl apply -f ./config/crd/bases/devops.turbonomic.io_operatorresourcemappings.yaml
+=======
+Here’re the steps to deploy it:
+1. Create the ORM Customer Resource Definition (CRD) in the kubernetes cluster (where kubeturbo is also running):
+```bash
+kubectl apply -f https://raw.githubusercontent.com/turbonomic/orm/master/config/crd/bases/turbo_operator_resource_mapping_crd_v1.yaml
+```
+>This CRD supports kubnernetes 1.16 and higher.
+2. Next deploy the ORM Custom Resource (CR) for your application in the namespace of that app. Sample CRs are located [here](https://github.com/turbonomic/orm/tree/master/config/samples). In our example, to allow for resizing of Turbonomic Server app services, we will deploy the Turbonomic XL ORM CR into the namespace where the Turbonomic Server is running:
+>>>>>>> upstream/master
 ```
 
 Step 3. Start Controller with your outstanding access to kubernetes cluster
@@ -69,6 +79,7 @@ go run ./main.go
 
 ...
 ```
+<<<<<<< HEAD
 
 Step 4 Try our `solo` test resources 
 
@@ -82,6 +93,9 @@ kubectl apply -f ./test/solo/.
 deployment.apps/ormoperand created
 operatorresourcemapping.devops.turbonomic.io/solo created
 deployment.apps/ormsource created
+=======
+3. Rediscover Kubeturbo target from Turbonomic UI and NO need to restart the corresponding Kubeturbo pod in cluster. ORM CR will be successfully discovered when you see a log message from Kubeturbo like this:
+>>>>>>> upstream/master
 ```
 
 After the resources are applied, you'll find the orm status already updated with values from ormsource deployment. 
