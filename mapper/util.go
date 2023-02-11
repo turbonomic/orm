@@ -19,8 +19,81 @@ package mapper
 import (
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
+
 	"github.com/turbonomic/orm/api/v1alpha1"
+	"github.com/turbonomic/orm/kubernetes"
+	"github.com/turbonomic/orm/registry"
 )
+
+func RegisterORM(orm *v1alpha1.OperatorResourceMapping, reg *registry.ORMRegistry) (map[corev1.ObjectReference]bool, error) {
+	var err error
+
+	objs := make(map[corev1.ObjectReference]bool)
+
+	if orm == nil {
+		return nil, nil
+	}
+
+	reg.CleanupRegistryForORM(types.NamespacedName{
+		Namespace: orm.Namespace,
+		Name:      orm.Name,
+	})
+
+	if orm.Spec.Mappings.Patterns == nil || len(orm.Spec.Mappings.Patterns) == 0 {
+		return nil, nil
+	}
+
+	allpatterns := BuildAllPatterns(orm)
+
+	var srcObj *unstructured.Unstructured
+	for _, p := range allpatterns {
+		k := types.NamespacedName{Namespace: p.Source.Namespace, Name: p.Source.Name}
+		if k.Namespace == "" {
+			k.Namespace = orm.Namespace
+		}
+
+		// TODO: avoid to retrieve same source repeatedly
+		var srcObjs []unstructured.Unstructured
+		if k.Name != "" {
+			srcObj, err = kubernetes.Toolbox.GetResourceWithGVK(p.Source.GroupVersionKind(), k)
+			if err != nil {
+				msLog.Error(err, "creating entry for ", "source", p.Source)
+				return nil, err
+			}
+			srcObjs = append(srcObjs, *srcObj)
+		} else {
+			srcObjs, err = kubernetes.Toolbox.GetResourceListWithGVKWithSelector(p.Source.GroupVersionKind(), k, &p.Source.LabelSelector)
+			if err != nil {
+				msLog.Error(err, "listing resource", "source", p.Source)
+			}
+		}
+
+		for _, srcObj := range srcObjs {
+			objref := p.Source.ObjectReference.DeepCopy()
+			objref.Namespace = srcObj.GetNamespace()
+			objref.Name = srcObj.GetName()
+			err = reg.RegsiterMapping(p.OperandPath, p.Source.Path,
+				types.NamespacedName{Name: orm.Name, Namespace: orm.Namespace},
+				orm.Spec.Operand.ObjectReference,
+				*objref)
+			if err != nil {
+				return nil, err
+			}
+
+			oe := registry.ObjectEntry{}
+			oe.Mappings = make(map[string]string)
+			oe.Mappings[p.OperandPath] = p.Source.Path
+
+			objs[*objref] = true
+		}
+
+	}
+
+	return objs, nil
+}
 
 func BuildAllPatterns(orm *v1alpha1.OperatorResourceMapping) []v1alpha1.Pattern {
 	allpatterns := orm.Spec.Mappings.Patterns

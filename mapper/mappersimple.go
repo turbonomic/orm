@@ -18,15 +18,19 @@ package mapper
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"strings"
 
 	"github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/kubernetes"
+	"github.com/turbonomic/orm/registry"
 	"github.com/turbonomic/orm/util"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -45,7 +49,9 @@ var (
 
 // OperatorResourceMappingReconciler reconciles a OperatorResourceMapping object
 type SimpleMapper struct {
-	SourceRegistry
+	registry.ORMRegistry
+
+	watchingGVK map[schema.GroupVersionKind]bool
 }
 
 func (m *SimpleMapper) CleanupORM(key types.NamespacedName) {
@@ -54,77 +60,45 @@ func (m *SimpleMapper) CleanupORM(key types.NamespacedName) {
 
 func (m *SimpleMapper) MapORM(orm *v1alpha1.OperatorResourceMapping) error {
 
-	var err error
+	objs, err := RegisterORM(orm, &m.ORMRegistry)
 
-	if orm == nil {
-		return nil
+	if err != nil {
+		return err
 	}
 
-	m.CleanupRegistryForORM(types.NamespacedName{
-		Namespace: orm.Namespace,
-		Name:      orm.Name,
-	})
-
-	if orm.Spec.Mappings.Patterns == nil || len(orm.Spec.Mappings.Patterns) == 0 {
-		return nil
-	}
-
-	allpatterns := BuildAllPatterns(orm)
-
-	var srcObj *unstructured.Unstructured
-	for _, p := range allpatterns {
-		k := types.NamespacedName{Namespace: p.Source.Namespace, Name: p.Source.Name}
-		if k.Namespace == "" {
-			k.Namespace = orm.Namespace
-		}
-
-		// TODO: avoid to retrieve same source repeatedly
-		var srcObjs []unstructured.Unstructured
-		if k.Name != "" {
-			srcObj, err = kubernetes.Toolbox.GetResourceWithGVK(p.Source.GroupVersionKind(), k)
+	if objs != nil && len(objs) > 0 {
+		for objref := range objs {
+			obj, err := kubernetes.Toolbox.GetResourceWithGVK(objref.GroupVersionKind(),
+				types.NamespacedName{Namespace: objref.Namespace, Name: objref.Name})
 			if err != nil {
-				msLog.Error(err, "creating entry for ", "source", p.Source)
+				msLog.Error(err, "creating entry for ", "objref", objref)
 				return err
 			}
-			srcObjs = append(srcObjs, *srcObj)
-		} else {
-			srcObjs, err = kubernetes.Toolbox.GetResourceListWithGVKWithSelector(p.Source.GroupVersionKind(), k, &p.Source.LabelSelector)
-			if err != nil {
-				msLog.Error(err, "listing resource", "source", p.Source)
+			ormkey := types.NamespacedName{
+				Namespace: orm.Namespace,
+				Name:      orm.Name,
 			}
-		}
-
-		var exists bool
-
-		for _, srcObj := range srcObjs {
-			objref := p.Source.ObjectReference.DeepCopy()
-			objref.Namespace = srcObj.GetNamespace()
-			objref.Name = srcObj.GetName()
-			exists, err = m.RegisterSource(p.OperandPath, *objref,
-				p.Source.Path,
-				types.NamespacedName{Name: orm.Name, Namespace: orm.Namespace})
-			if err != nil {
+			oe := m.RetriveObjectEntryForResourceAndORM(objref, ormkey)
+			if oe == nil {
+				err = errors.New("Failed to find object entry for " + objref.String() + " for orm " + ormkey.String())
 				return err
 			}
+			m.mapOnceForOneORM(obj, orm, *oe, true)
 
-			pm := make(map[string]string)
-			pm[p.OperandPath] = p.Source.Path
+			if _, ok := m.watchingGVK[objref.GroupVersionKind()]; !ok {
+				m.watchingGVK[objref.GroupVersionKind()] = true
 
-			m.mapOnceForOneORM(&srcObj, orm, pm, true)
+				kubernetes.Toolbox.WatchResourceWithGVK(objref.GroupVersionKind(), cache.ResourceEventHandlerFuncs{
+					UpdateFunc: func(old, new interface{}) {
+						obj := new.(*unstructured.Unstructured)
+
+						m.mapOnce(obj)
+					}})
+			}
 		}
-
-		if !exists {
-			kubernetes.Toolbox.WatchResourceWithGVK(p.Source.GroupVersionKind(), cache.ResourceEventHandlerFuncs{
-				UpdateFunc: func(old, new interface{}) {
-					obj := new.(*unstructured.Unstructured)
-
-					m.mapOnce(obj)
-				}})
-		}
-
 	}
 
-	return nil
+	return err
 }
 
 func (m *SimpleMapper) mapOnce(obj *unstructured.Unstructured) {
@@ -132,17 +106,17 @@ func (m *SimpleMapper) mapOnce(obj *unstructured.Unstructured) {
 
 	var orgStatus v1alpha1.OperatorResourceMappingStatus
 
-	k := types.NamespacedName{
-		Namespace: obj.GetNamespace(),
-		Name:      obj.GetName(),
-	}
+	objref := corev1.ObjectReference{}
+	objref.Name = obj.GetName()
+	objref.Namespace = obj.GetNamespace()
+	objref.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
 
-	re := m.RetriveORMEntryForResource(obj.GroupVersionKind(), k)
+	re := m.ORMRegistry.RetriveORMEntryForResource(objref)
 	if re == nil {
 		return
 	}
 
-	for ormk, pm := range re {
+	for ormk, oe := range re {
 
 		orm := &v1alpha1.OperatorResourceMapping{}
 		err = kubernetes.Toolbox.OrmClient.Get(context.TODO(), ormk, orm)
@@ -151,7 +125,7 @@ func (m *SimpleMapper) mapOnce(obj *unstructured.Unstructured) {
 		}
 		orm.Status.DeepCopyInto(&orgStatus)
 
-		m.mapOnceForOneORM(obj, orm, pm, false)
+		m.mapOnceForOneORM(obj, orm, oe, false)
 
 		if !reflect.DeepEqual(orgStatus, orm.Status) {
 			m.updateORMStatus(orm)
@@ -187,7 +161,7 @@ func (m *SimpleMapper) isAllowedManager(mgr string, rules map[string]string) boo
 	return true
 }
 
-func (m *SimpleMapper) mapOnceForOneORM(obj *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping, pm PatternMap, force bool) {
+func (m *SimpleMapper) mapOnceForOneORM(obj *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping, oe registry.ObjectEntry, force bool) {
 
 	if !force {
 		mfs := obj.GetManagedFields()
@@ -209,7 +183,7 @@ func (m *SimpleMapper) mapOnceForOneORM(obj *unstructured.Unstructured, orm *v1a
 		}
 	}
 
-	for op, sp := range pm {
+	for op, sp := range oe.Mappings {
 
 		mapitem := v1alpha1.Mapping{}
 		mapitem.OperandPath = op
@@ -254,6 +228,7 @@ func (m *SimpleMapper) mapOnceForOneORM(obj *unstructured.Unstructured, orm *v1a
 }
 
 func (m *SimpleMapper) updateORMStatus(orm *v1alpha1.OperatorResourceMapping) {
+
 	k := types.NamespacedName{
 		Namespace: orm.GetNamespace(),
 		Name:      orm.GetName(),
@@ -285,6 +260,9 @@ func GetSimpleMapper(config *rest.Config, scheme *runtime.Scheme) (Mapper, error
 
 	if mp == nil {
 		mp = &SimpleMapper{}
+		if mp.watchingGVK == nil {
+			mp.watchingGVK = make(map[schema.GroupVersionKind]bool)
+		}
 	}
 
 	return mp, err
