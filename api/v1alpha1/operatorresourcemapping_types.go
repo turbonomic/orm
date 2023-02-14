@@ -36,17 +36,17 @@ type ObjectLocator struct {
 	metav1.LabelSelector `json:",inline"`
 }
 
-type SourceLocation struct {
-	Path          string `json:"path,omitempty"` // Path to the field inside the source resource
+type OwnedResourcePath struct {
+	Path          string `json:"path"` // Path to the field inside the source resource
 	ObjectLocator `json:",inline"`
 }
 
 type Pattern struct {
 	// path to the location in operand, also serves as key of this pattern
-	OperandPath string `json:"operandPath"`
+	OwnerPath string `json:"ownerPath"`
 
 	// indicates which value should be mapped
-	Source SourceLocation `json:"source"`
+	OwnedResourcePath OwnedResourcePath `json:"owned"`
 }
 
 type MappingPatterns struct {
@@ -71,14 +71,14 @@ type OperatorResourceMappingSpec struct {
 
 	// Operand is the target to make actual changes
 	// if name and namespace are not provided, use same one as orm cr
-	Operand         ObjectLocator   `json:"operand"`
+	Owner           ObjectLocator   `json:"owner"`
 	EnforcementMode EnforcementMode `json:"enforcement,omitempty"`
 	Mappings        MappingPatterns `json:"mappings,omitempty"`
 }
 
 type Mapping struct {
-	OperandPath string                `json:"operandPath"`
-	Value       *runtime.RawExtension `json:"value"`
+	OwnerPath string                `json:"ownerPath"`
+	Value     *runtime.RawExtension `json:"value"`
 
 	// Status of the condition, one of True, False, Unknown.
 	Mapped corev1.ConditionStatus `json:"mapped"`
@@ -102,8 +102,8 @@ const (
 type ORMStatusReason string
 
 const (
-	ORMStatusReasonOperandError ORMStatusReason = "OperandError"
-	ORMStatusReasonSourceError  ORMStatusReason = "SourceError"
+	ORMStatusReasonOwnerError         ORMStatusReason = "OwnerError"
+	ORMStatusReasonOwnedResourceError ORMStatusReason = "OwnedResourceError"
 )
 
 // OperatorResourceMappingStatus defines the observed state of OperatorResourceMapping

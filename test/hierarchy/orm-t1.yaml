@@ -3,15 +3,15 @@ kind: OperatorResourceMapping
 metadata:
   name: hierarchy-t1
 spec:
-  operand: # target same namespace by default
+  owner: # target same namespace by default
     apiVersion: apps/v1
     kind: Deployment
     name: ormoperand-hierarchy-t1
   enforcement: none # none, once, always
   mappings:
     patterns:
-    - operandPath: .spec.template.spec.containers[?(@.name=="workload-0001")].resources
-      source:
+    - ownerPath: .spec.template.spec.containers[?(@.name=="workload-0001")].resources
+      owned:
         apiVersion: apps/v1
         kind: Deployment
         name: ormsource-hierarchy

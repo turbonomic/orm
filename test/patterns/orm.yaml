@@ -3,7 +3,7 @@ kind: OperatorResourceMapping
 metadata:
   name: patterns
 spec:
-  operand: # target same namespace by default
+  owner: # target same namespace by default
     apiVersion: apps/v1
     kind: Deployment
     name: ormoperand-patterns
@@ -17,8 +17,8 @@ spec:
       - "TCP"
       - "UDP"
     patterns:
-    - operandPath: .spec.template.spec.containers[?(@.name=="{{containers}}")].ports[?(@.protocol=="{{ports}}")].containerPort
-      source:
+    - ownerPath: .spec.template.spec.containers[?(@.name=="{{containers}}")].ports[?(@.protocol=="{{ports}}")].containerPort
+      owned:
         apiVersion: apps/v1
         kind: Deployment
         matchLabels:

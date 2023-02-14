@@ -198,7 +198,7 @@ func (c *CompatibilityReconciler) constructCompatibleORMv2(ormv1Obj *unstructure
 	}
 
 	gvk, _ := kubernetes.Toolbox.FindGVKForResource(ormv1Obj.GetName())
-	orm.Spec.Operand.APIVersion, orm.Spec.Operand.Kind = gvk.ToAPIVersionAndKind()
+	orm.Spec.Owner.APIVersion, orm.Spec.Owner.Kind = gvk.ToAPIVersionAndKind()
 	orm.Spec.EnforcementMode = devopsv1alpha1.EnforcementModeNone
 
 	var templates []interface{}
@@ -238,8 +238,8 @@ func (c *CompatibilityReconciler) constructCompatibleORMv2(ormv1Obj *unstructure
 			srcPathStr = template.(map[string]interface{})[dstPathKey].(string)
 			srcPathStr = strings.ReplaceAll(srcPathStr, parameterStr, "{{"+parameterName+"}}")
 			pattern := devopsv1alpha1.Pattern{
-				OperandPath: opPathStr,
-				Source: devopsv1alpha1.SourceLocation{
+				OwnerPath: opPathStr,
+				OwnedResourcePath: devopsv1alpha1.OwnedResourcePath{
 					Path: srcPathStr,
 					ObjectLocator: devopsv1alpha1.ObjectLocator{
 						ObjectReference: corev1.ObjectReference{

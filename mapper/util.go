@@ -50,7 +50,7 @@ func RegisterORM(orm *v1alpha1.OperatorResourceMapping, reg *registry.ORMRegistr
 
 	var srcObj *unstructured.Unstructured
 	for _, p := range allpatterns {
-		k := types.NamespacedName{Namespace: p.Source.Namespace, Name: p.Source.Name}
+		k := types.NamespacedName{Namespace: p.OwnedResourcePath.Namespace, Name: p.OwnedResourcePath.Name}
 		if k.Namespace == "" {
 			k.Namespace = orm.Namespace
 		}
@@ -58,26 +58,26 @@ func RegisterORM(orm *v1alpha1.OperatorResourceMapping, reg *registry.ORMRegistr
 		// TODO: avoid to retrieve same source repeatedly
 		var srcObjs []unstructured.Unstructured
 		if k.Name != "" {
-			srcObj, err = kubernetes.Toolbox.GetResourceWithGVK(p.Source.GroupVersionKind(), k)
+			srcObj, err = kubernetes.Toolbox.GetResourceWithGVK(p.OwnedResourcePath.GroupVersionKind(), k)
 			if err != nil {
-				msLog.Error(err, "creating entry for ", "source", p.Source)
+				msLog.Error(err, "creating entry for ", "source", p.OwnedResourcePath)
 				return nil, err
 			}
 			srcObjs = append(srcObjs, *srcObj)
 		} else {
-			srcObjs, err = kubernetes.Toolbox.GetResourceListWithGVKWithSelector(p.Source.GroupVersionKind(), k, &p.Source.LabelSelector)
+			srcObjs, err = kubernetes.Toolbox.GetResourceListWithGVKWithSelector(p.OwnedResourcePath.GroupVersionKind(), k, &p.OwnedResourcePath.LabelSelector)
 			if err != nil {
-				msLog.Error(err, "listing resource", "source", p.Source)
+				msLog.Error(err, "listing resource", "source", p.OwnedResourcePath)
 			}
 		}
 
 		for _, srcObj := range srcObjs {
-			objref := p.Source.ObjectReference.DeepCopy()
+			objref := p.OwnedResourcePath.ObjectReference.DeepCopy()
 			objref.Namespace = srcObj.GetNamespace()
 			objref.Name = srcObj.GetName()
-			err = reg.RegsiterMapping(p.OperandPath, p.Source.Path,
+			err = reg.RegsiterMapping(p.OwnerPath, p.OwnedResourcePath.Path,
 				types.NamespacedName{Name: orm.Name, Namespace: orm.Namespace},
-				orm.Spec.Operand.ObjectReference,
+				orm.Spec.Owner.ObjectReference,
 				*objref)
 			if err != nil {
 				return nil, err
@@ -85,7 +85,7 @@ func RegisterORM(orm *v1alpha1.OperatorResourceMapping, reg *registry.ORMRegistr
 
 			oe := registry.ObjectEntry{}
 			oe.Mappings = make(map[string]string)
-			oe.Mappings[p.OperandPath] = p.Source.Path
+			oe.Mappings[p.OwnerPath] = p.OwnedResourcePath.Path
 
 			objs[*objref] = true
 		}
@@ -104,21 +104,21 @@ func BuildAllPatterns(orm *v1alpha1.OperatorResourceMapping) []v1alpha1.Pattern 
 			allpatterns = []v1alpha1.Pattern{}
 			var loc int
 			for _, p := range prevpatterns {
-				loc = strings.Index(p.OperandPath, "{{"+name+"}}")
+				loc = strings.Index(p.OwnerPath, "{{"+name+"}}")
 				if loc == -1 {
 					allpatterns = append(allpatterns, p)
 				} else {
 					list := speclist
 					if len(list) == 1 && list[0] == "*" {
 						tmpp := p.DeepCopy()
-						tmpp.OperandPath = strings.ReplaceAll(p.OperandPath, "{{"+name+"}}", list[0])
-						tmpp.Source.Path = strings.ReplaceAll(p.Source.Path, "{{"+name+"}}", list[0])
+						tmpp.OwnerPath = strings.ReplaceAll(p.OwnerPath, "{{"+name+"}}", list[0])
+						tmpp.OwnedResourcePath.Path = strings.ReplaceAll(p.OwnedResourcePath.Path, "{{"+name+"}}", list[0])
 						//TODO: replace list with the names got from source, need to retreive all source objs
 					}
 					for _, c := range list {
 						newp := p.DeepCopy()
-						newp.OperandPath = strings.ReplaceAll(p.OperandPath, "{{"+name+"}}", c)
-						newp.Source.Path = strings.ReplaceAll(p.Source.Path, "{{"+name+"}}", c)
+						newp.OwnerPath = strings.ReplaceAll(p.OwnerPath, "{{"+name+"}}", c)
+						newp.OwnedResourcePath.Path = strings.ReplaceAll(p.OwnedResourcePath.Path, "{{"+name+"}}", c)
 						allpatterns = append(allpatterns, *newp)
 					}
 				}

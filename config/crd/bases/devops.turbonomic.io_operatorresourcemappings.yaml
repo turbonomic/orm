@@ -53,11 +53,7 @@ spec:
                   patterns:
                     items:
                       properties:
-                        operandPath:
-                          description: path to the location in operand, also serves
-                            as key of this pattern
-                          type: string
-                        source:
+                        owned:
                           description: indicates which value should be mapped
                           properties:
                             apiVersion:
@@ -137,15 +133,21 @@ spec:
                             uid:
                               description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                               type: string
+                          required:
+                          - path
                           type: object
                           x-kubernetes-map-type: atomic
+                        ownerPath:
+                          description: path to the location in operand, also serves
+                            as key of this pattern
+                          type: string
                       required:
-                      - operandPath
-                      - source
+                      - owned
+                      - ownerPath
                       type: object
                     type: array
                 type: object
-              operand:
+              owner:
                 description: Operand is the target to make actual changes if name
                   and namespace are not provided, use same one as orm cr
                 properties:
@@ -224,7 +226,7 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
             required:
-            - operand
+            - owner
             type: object
           status:
             description: OperatorResourceMappingStatus defines the observed state
@@ -243,7 +245,7 @@ spec:
                       description: A human readable message indicating details about
                         the transition.
                       type: string
-                    operandPath:
+                    ownerPath:
                       type: string
                     reason:
                       description: The reason for the condition's last transition.
@@ -253,7 +255,7 @@ spec:
                       x-kubernetes-preserve-unknown-fields: true
                   required:
                   - mapped
-                  - operandPath
+                  - ownerPath
                   - value
                   type: object
                 type: array

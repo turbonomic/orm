@@ -186,7 +186,7 @@ func (m *SimpleMapper) mapOnceForOneORM(obj *unstructured.Unstructured, orm *v1a
 	for op, sp := range oe.Mappings {
 
 		mapitem := v1alpha1.Mapping{}
-		mapitem.OperandPath = op
+		mapitem.OwnerPath = op
 
 		fields := strings.Split(sp, ".")
 		lastField := fields[len(fields)-1]
@@ -212,7 +212,7 @@ func (m *SimpleMapper) mapOnceForOneORM(obj *unstructured.Unstructured, orm *v1a
 
 		exists := false
 		for n, mp := range orm.Status.MappedPatterns {
-			if mp.OperandPath == mapitem.OperandPath {
+			if mp.OwnerPath == mapitem.OwnerPath {
 				mapitem.DeepCopyInto(&(orm.Status.MappedPatterns[n]))
 				exists = true
 				break

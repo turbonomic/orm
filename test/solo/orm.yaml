@@ -3,7 +3,7 @@ kind: OperatorResourceMapping
 metadata:
   name: solo
 spec:
-  operand: # target same namespace by default
+  owner: # target same namespace by default
     apiVersion: apps/v1
     kind: Deployment
     matchLabels:
@@ -11,14 +11,14 @@ spec:
   enforcement: none # none, once, always
   mappings:
     patterns:
-    - operandPath: .spec.replicas
-      source:
+    - ownerPath: .spec.replicas
+      owned:
         apiVersion: apps/v1
         kind: Deployment
         name: ormsource-solo
         path: .spec.replicas
-    - operandPath: .spec.template.spec.containers[?(@.name=="workload-0001")].resources
-      source:
+    - ownerPath: .spec.template.spec.containers[?(@.name=="workload-0001")].resources
+      owned:
         apiVersion: apps/v1
         kind: Deployment
         name: ormsource-solo

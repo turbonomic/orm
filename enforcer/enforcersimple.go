@@ -47,12 +47,12 @@ func (e *SimpleEnforcer) EnforceORM(orm *v1alpha1.OperatorResourceMapping) error
 	}
 
 	req := types.NamespacedName{}
-	req.Namespace = orm.Spec.Operand.Namespace
+	req.Namespace = orm.Spec.Owner.Namespace
 	if req.Namespace == "" {
 		req.Namespace = orm.Namespace
 	}
 
-	req.Name = orm.Spec.Operand.Name
+	req.Name = orm.Spec.Owner.Name
 	if req.Name == "" {
 		req.Name = orm.Name
 	}
@@ -60,18 +60,18 @@ func (e *SimpleEnforcer) EnforceORM(orm *v1alpha1.OperatorResourceMapping) error
 	var opObjs []unstructured.Unstructured
 	var err error
 
-	if orm.Spec.Operand.Name != "" {
+	if orm.Spec.Owner.Name != "" {
 		var opObj *unstructured.Unstructured
-		opObj, err = kubernetes.Toolbox.GetResourceWithGVK(orm.Spec.Operand.GroupVersionKind(), req)
+		opObj, err = kubernetes.Toolbox.GetResourceWithGVK(orm.Spec.Owner.GroupVersionKind(), req)
 		if err != nil {
-			eLog.Error(err, "enforcing ", "operand gvk", orm.Spec.Operand.GroupVersionKind())
+			eLog.Error(err, "enforcing ", "operand gvk", orm.Spec.Owner.GroupVersionKind())
 			return err
 		}
 		opObjs = append(opObjs, *opObj)
 	} else {
-		opObjs, err = kubernetes.Toolbox.GetResourceListWithGVKWithSelector(orm.Spec.Operand.GroupVersionKind(), req, &orm.Spec.Operand.LabelSelector)
+		opObjs, err = kubernetes.Toolbox.GetResourceListWithGVKWithSelector(orm.Spec.Owner.GroupVersionKind(), req, &orm.Spec.Owner.LabelSelector)
 		if err != nil {
-			eLog.Error(err, "listing resource", "operand", orm.Spec.Operand)
+			eLog.Error(err, "listing resource", "operand", orm.Spec.Owner)
 		}
 	}
 
@@ -82,7 +82,7 @@ func (e *SimpleEnforcer) EnforceORM(orm *v1alpha1.OperatorResourceMapping) error
 				eLog.Error(err, "enforce out")
 				return err
 			}
-			err = kubernetes.Toolbox.UpdateResourceWithGVK(orm.Spec.Operand.GroupVersionKind(), &opobj)
+			err = kubernetes.Toolbox.UpdateResourceWithGVK(orm.Spec.Owner.GroupVersionKind(), &opobj)
 		}
 	}
 
@@ -108,7 +108,7 @@ func (e *SimpleEnforcer) enforceOnce(orm *v1alpha1.OperatorResourceMapping, obj 
 			valueInObj = v
 		}
 
-		err = util.SetNestedField(obj.Object, valueInObj, m.OperandPath)
+		err = util.SetNestedField(obj.Object, valueInObj, m.OwnerPath)
 		if err != nil {
 			e.updateMappingStatus(orm, n, err)
 			return err
@@ -127,7 +127,7 @@ func (e *SimpleEnforcer) updateMappingStatus(orm *v1alpha1.OperatorResourceMappi
 		orm.Status.MappedPatterns[n].Message = ""
 	} else {
 		orm.Status.MappedPatterns[n].Mapped = corev1.ConditionFalse
-		orm.Status.MappedPatterns[n].Reason = string(v1alpha1.ORMStatusReasonOperandError)
+		orm.Status.MappedPatterns[n].Reason = string(v1alpha1.ORMStatusReasonOwnerError)
 		orm.Status.MappedPatterns[n].Message = err.Error()
 	}
 }
