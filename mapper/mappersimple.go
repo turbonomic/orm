@@ -136,6 +136,8 @@ func (m *SimpleMapper) mapForOwner(owner *unstructured.Unstructured) {
 }
 
 func (m *SimpleMapper) validateOwnedResources(owner *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping) {
+	var err error
+
 	ownerRef := corev1.ObjectReference{
 		Namespace: owner.GetNamespace(),
 		Name:      owner.GetName(),
@@ -148,8 +150,37 @@ func (m *SimpleMapper) validateOwnedResources(owner *unstructured.Unstructured, 
 	})
 
 	for resource, mappings := range *oe {
-		msLog.Info("=====", "resource", resource, "mappings", mappings)
+		resobj := &unstructured.Unstructured{}
+		resobj.SetGroupVersionKind(resource.GroupVersionKind())
+
+		resobj, err = kubernetes.Toolbox.GetResourceWithGVK(resource.GroupVersionKind(), types.NamespacedName{Namespace: resource.Namespace, Name: resource.Name})
+		if err != nil {
+			for op := range mappings {
+				for n, m := range orm.Status.MappedPatterns {
+					if op == m.OwnerPath {
+						orm.Status.MappedPatterns[n].Message = "Failed to locate owned resource: " + resource.String()
+					}
+				}
+			}
+			continue
+		}
+
+		for op, sp := range mappings {
+			mapitem := PrepareMappingForObject(resobj, sp)
+			var msg string
+			if mapitem == nil {
+				msg = "Failed to locate mapping path " + sp + " in owned resource " + resource.String()
+			} else {
+				msg = "Path in owned resource is ok"
+			}
+			for n, m := range orm.Status.MappedPatterns {
+				if op == m.OwnerPath {
+					orm.Status.MappedPatterns[n].Message = msg
+				}
+			}
+		}
 	}
+
 }
 
 func (m *SimpleMapper) setORMStatus(owner *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping) {
@@ -182,7 +213,7 @@ func (m *SimpleMapper) setORMStatus(owner *unstructured.Unstructured, orm *v1alp
 			continue
 		}
 
-		mapitem := PrepareMappingForStatus(owner, mapping.OwnerPath)
+		mapitem := PrepareMappingForObject(owner, mapping.OwnerPath)
 		if mapitem != nil {
 			orm.Status.MappedPatterns = append(orm.Status.MappedPatterns, *mapitem)
 		}
@@ -191,12 +222,14 @@ func (m *SimpleMapper) setORMStatus(owner *unstructured.Unstructured, orm *v1alp
 
 	if len(allmappings) != 0 {
 		for ownerPath := range allmappings {
-			mapitem := PrepareMappingForStatus(owner, ownerPath)
+			mapitem := PrepareMappingForObject(owner, ownerPath)
 			if mapitem != nil {
 				orm.Status.MappedPatterns = append(orm.Status.MappedPatterns, *mapitem)
 			}
 		}
 	}
+
+	m.validateOwnedResources(owner, orm)
 }
 
 func (m *SimpleMapper) updateORMStatus(orm *v1alpha1.OperatorResourceMapping) {

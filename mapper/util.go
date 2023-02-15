@@ -120,19 +120,19 @@ func BuildAllPatterns(orm *v1alpha1.OperatorResourceMapping) []v1alpha1.Pattern 
 	return allpatterns
 }
 
-func PrepareMappingForStatus(owner *unstructured.Unstructured, ownerPath string) *v1alpha1.Mapping {
+func PrepareMappingForObject(obj *unstructured.Unstructured, objPath string) *v1alpha1.Mapping {
 	mapitem := v1alpha1.Mapping{}
-	mapitem.OwnerPath = ownerPath
+	mapitem.OwnerPath = objPath
 
-	fields := strings.Split(ownerPath, ".")
+	fields := strings.Split(objPath, ".")
 	lastField := fields[len(fields)-1]
-	valueInObj, found, err := util.NestedField(owner, lastField, ownerPath)
+	valueInObj, found, err := util.NestedField(obj, lastField, objPath)
 
 	valueMap := make(map[string]interface{})
 	valueMap[lastField] = valueInObj
 
 	if err != nil {
-		msLog.Error(err, "parsing src", "fields", fields, "actual", owner.Object["metadata"])
+		msLog.Error(err, "parsing src", "fields", fields, "actual", obj.Object["metadata"])
 		return nil
 	}
 	if !found {
