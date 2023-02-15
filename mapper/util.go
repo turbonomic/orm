@@ -45,7 +45,7 @@ func RegisterORM(reg *registry.ORMRegistry, orm *v1alpha1.OperatorResourceMappin
 		return nil
 	}
 
-	allpatterns := BuildAllPatterns(orm)
+	allpatterns := buildAllPatterns(orm)
 
 	var srcObj *unstructured.Unstructured
 	for _, p := range allpatterns {
@@ -87,7 +87,7 @@ func RegisterORM(reg *registry.ORMRegistry, orm *v1alpha1.OperatorResourceMappin
 	return nil
 }
 
-func BuildAllPatterns(orm *v1alpha1.OperatorResourceMapping) []v1alpha1.Pattern {
+func buildAllPatterns(orm *v1alpha1.OperatorResourceMapping) []v1alpha1.Pattern {
 	allpatterns := orm.Spec.Mappings.Patterns
 	if orm.Spec.Mappings.Parameters != nil && len(orm.Spec.Mappings.Parameters) > 0 {
 		var prevpatterns []v1alpha1.Pattern

@@ -235,7 +235,7 @@ func (c *CompatibilityReconciler) constructCompatibleORMv2(ormv1Obj *unstructure
 		for _, template := range templates {
 			opPathStr = template.(map[string]interface{})[dstPathKey].(string)
 			opPathStr = strings.ReplaceAll(opPathStr, parameterStr, "{{"+parameterName+"}}")
-			srcPathStr = template.(map[string]interface{})[dstPathKey].(string)
+			srcPathStr = template.(map[string]interface{})[srcPathKey].(string)
 			srcPathStr = strings.ReplaceAll(srcPathStr, parameterStr, "{{"+parameterName+"}}")
 			pattern := devopsv1alpha1.Pattern{
 				OwnerPath: opPathStr,
