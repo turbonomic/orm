@@ -37,8 +37,6 @@ import (
 )
 
 var (
-	annoAllowedManager = "devops.turbonomic.io/allowed-managers"
-
 	msLog = ctrl.Log.WithName("mapper simple")
 
 	mp *SimpleMapper
@@ -57,11 +55,8 @@ func (m *SimpleMapper) CleanupORM(key types.NamespacedName) {
 
 func (m *SimpleMapper) MapORM(orm *v1alpha1.OperatorResourceMapping) error {
 
-	_, err := RegisterORM(orm, &m.ORMRegistry)
-	if err != nil {
-		return err
-	}
-
+	var err error
+	// get owner
 	var obj *unstructured.Unstructured
 	if orm.Spec.Owner.Name != "" {
 		objk := types.NamespacedName{
@@ -84,6 +79,11 @@ func (m *SimpleMapper) MapORM(orm *v1alpha1.OperatorResourceMapping) error {
 			return err
 		}
 		obj = &objs[0]
+	}
+
+	err = RegisterORM(&m.ORMRegistry, orm)
+	if err != nil {
+		return err
 	}
 
 	if _, ok := m.watchingGVK[obj.GroupVersionKind()]; !ok {
@@ -135,6 +135,23 @@ func (m *SimpleMapper) mapForOwner(owner *unstructured.Unstructured) {
 	}
 }
 
+func (m *SimpleMapper) validateOwnedResources(owner *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping) {
+	ownerRef := corev1.ObjectReference{
+		Namespace: owner.GetNamespace(),
+		Name:      owner.GetName(),
+	}
+	ownerRef.SetGroupVersionKind(owner.GetObjectKind().GroupVersionKind())
+
+	oe := m.ORMRegistry.RetriveObjectEntryForOwnerAndORM(ownerRef, types.NamespacedName{
+		Namespace: orm.GetNamespace(),
+		Name:      orm.GetName(),
+	})
+
+	for resource, mappings := range *oe {
+		msLog.Info("=====", "resource", resource, "mappings", mappings)
+	}
+}
+
 func (m *SimpleMapper) setORMStatus(owner *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping) {
 	existingMappings := orm.Status.MappedPatterns
 	orm.Status.MappedPatterns = nil
@@ -150,17 +167,17 @@ func (m *SimpleMapper) setORMStatus(owner *unstructured.Unstructured, orm *v1alp
 		Name:      orm.GetName(),
 	})
 
-	oedup := make(map[string]bool)
-	if oe != nil && len(oe.Mappings) > 0 {
-		for k := range oe.Mappings {
-			oedup[k] = true
+	allmappings := make(map[string]bool)
+	for _, mappings := range *oe {
+		for k := range mappings {
+			allmappings[k] = true
 		}
 	}
 
 	// add old mappings first
 	for _, mapping := range existingMappings {
-		if _, ok := oedup[mapping.OwnerPath]; ok {
-			delete(oedup, mapping.OwnerPath)
+		if _, ok := allmappings[mapping.OwnerPath]; ok {
+			delete(allmappings, mapping.OwnerPath)
 		} else {
 			continue
 		}
@@ -169,10 +186,11 @@ func (m *SimpleMapper) setORMStatus(owner *unstructured.Unstructured, orm *v1alp
 		if mapitem != nil {
 			orm.Status.MappedPatterns = append(orm.Status.MappedPatterns, *mapitem)
 		}
+
 	}
 
-	if len(oedup) != 0 {
-		for ownerPath := range oedup {
+	if len(allmappings) != 0 {
+		for ownerPath := range allmappings {
 			mapitem := PrepareMappingForStatus(owner, ownerPath)
 			if mapitem != nil {
 				orm.Status.MappedPatterns = append(orm.Status.MappedPatterns, *mapitem)

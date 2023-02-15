@@ -19,7 +19,6 @@ package mapper
 import (
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -30,13 +29,11 @@ import (
 	"github.com/turbonomic/orm/util"
 )
 
-func RegisterORM(orm *v1alpha1.OperatorResourceMapping, reg *registry.ORMRegistry) (map[corev1.ObjectReference]bool, error) {
+func RegisterORM(reg *registry.ORMRegistry, orm *v1alpha1.OperatorResourceMapping) error {
 	var err error
 
-	objs := make(map[corev1.ObjectReference]bool)
-
 	if orm == nil {
-		return nil, nil
+		return nil
 	}
 
 	reg.CleanupRegistryForORM(types.NamespacedName{
@@ -45,7 +42,7 @@ func RegisterORM(orm *v1alpha1.OperatorResourceMapping, reg *registry.ORMRegistr
 	})
 
 	if orm.Spec.Mappings.Patterns == nil || len(orm.Spec.Mappings.Patterns) == 0 {
-		return nil, nil
+		return nil
 	}
 
 	allpatterns := BuildAllPatterns(orm)
@@ -81,19 +78,13 @@ func RegisterORM(orm *v1alpha1.OperatorResourceMapping, reg *registry.ORMRegistr
 				orm.Spec.Owner.ObjectReference,
 				*objref)
 			if err != nil {
-				return nil, err
+				return err
 			}
-
-			oe := registry.ObjectEntry{}
-			oe.Mappings = make(map[string]string)
-			oe.Mappings[p.OwnerPath] = p.OwnedResourcePath.Path
-
-			objs[*objref] = true
 		}
 
 	}
 
-	return objs, nil
+	return nil
 }
 
 func BuildAllPatterns(orm *v1alpha1.OperatorResourceMapping) []v1alpha1.Pattern {

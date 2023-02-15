@@ -23,11 +23,9 @@ import (
 )
 
 // namespacedname of ORM as key, in case 1 source maps to more than 1 ORM
-type ObjectEntry struct {
-	corev1.ObjectReference
-	// ormPath as key, objectPath as value
-	Mappings map[string]string
-}
+
+type Mappings map[string]string
+type ObjectEntry map[corev1.ObjectReference]Mappings
 
 // ORMEntry is defined for registry to search orm and all registered mappings
 type ORMEntry map[types.NamespacedName]ObjectEntry
@@ -67,16 +65,23 @@ func regsiterMappingToRegistry(registry map[corev1.ObjectReference]ORMEntry, ope
 
 	var oe ObjectEntry
 	var ok bool
-	oe, ok = ormEntry[orm]
-	if !ok {
-		oe.Mappings = make(map[string]string)
+
+	if oe, ok = ormEntry[orm]; !ok {
+		oe = make(map[corev1.ObjectReference]Mappings)
 	}
 
-	oe.SetGroupVersionKind(resource.GroupVersionKind())
-	oe.Namespace = resource.Namespace
-	oe.Name = resource.Name
+	resref := corev1.ObjectReference{
+		Namespace: resource.Namespace,
+		Name:      resource.Name,
+	}
+	resref.SetGroupVersionKind(resource.GroupVersionKind())
 
-	oe.Mappings[operandPath] = objectPath
+	var m Mappings
+	if m, ok = oe[resref]; !ok {
+		m = make(map[string]string)
+	}
+	m[operandPath] = objectPath
+	oe[resref] = m
 	ormEntry[orm] = oe
 	registry[indexref] = ormEntry
 

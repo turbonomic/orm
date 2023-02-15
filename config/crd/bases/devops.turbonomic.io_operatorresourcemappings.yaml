@@ -238,9 +238,6 @@ spec:
                     lastTransitionTime:
                       format: date-time
                       type: string
-                    mapped:
-                      description: Status of the condition, one of True, False, Unknown.
-                      type: string
                     message:
                       description: A human readable message indicating details about
                         the transition.
@@ -254,7 +251,6 @@ spec:
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
                   required:
-                  - mapped
                   - ownerPath
                   - value
                   type: object
