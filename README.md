@@ -16,7 +16,7 @@ Operator Resource Mapping (ORM) is a mechanism to allow [Kubeturbo](https://gith
 
 ## <a id="Problem"></a>Problem
 
-The lifecycle of micro-service based application is managed by Operator, this uses declarative approach to manage the desired state of an application (like Pod replicas, memory limits, etc.). Any Turbo actions to manage the size of a workload controller like Deployment, either vertically or horizontally will be reverted by the Operator.
+The lifecycle of micro-service based application is managed by Operator, this uses declarative approach to manage the desired state of an application (like Pod replicas, memory limits, etc.). Any Turbo actions to directly manage the size of a workload controller like Deployment, either vertically or horizontally will be reverted by the Operator.
 
 To Illustrate the problem, lets consider two scenarios when executing a container resizing action in kubetrubo with operator and without operator:
 
@@ -28,7 +28,7 @@ The update in the deployment will be successful.
 
 ### Container Resize with Operator
 
-<img src="https://github.com/SumanthKodali999/images/blob/main/Resize_with_operator.png" width="700"/>
+<img src="https://github.com/SumanthKodali999/images/blob/main/resize_with_operator_updated.png" width="700"/>
 
 The update in the Deployment will be reverted by the Operator because the CR is the source of truth for resource values.
 
