@@ -6,8 +6,7 @@ spec:
   owner: # target same namespace by default
     apiVersion: apps/v1
     kind: Deployment
-    matchLabels:
-      app: ormoperand-solo
+    name: ormoperand-solo
   enforcement: none # none, once, always
   mappings:
     patterns:

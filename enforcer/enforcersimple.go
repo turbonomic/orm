@@ -23,7 +23,6 @@ import (
 	"github.com/turbonomic/orm/kubernetes"
 	"github.com/turbonomic/orm/util"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -122,11 +121,9 @@ func (e *SimpleEnforcer) enforceOnce(orm *v1alpha1.OperatorResourceMapping, obj 
 
 func (e *SimpleEnforcer) updateMappingStatus(orm *v1alpha1.OperatorResourceMapping, n int, err error) {
 	if err == nil {
-		orm.Status.MappedPatterns[n].Mapped = corev1.ConditionTrue
 		orm.Status.MappedPatterns[n].Reason = ""
 		orm.Status.MappedPatterns[n].Message = ""
 	} else {
-		orm.Status.MappedPatterns[n].Mapped = corev1.ConditionFalse
 		orm.Status.MappedPatterns[n].Reason = string(v1alpha1.ORMStatusReasonOwnerError)
 		orm.Status.MappedPatterns[n].Message = err.Error()
 	}

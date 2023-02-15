@@ -80,8 +80,6 @@ type Mapping struct {
 	OwnerPath string                `json:"ownerPath"`
 	Value     *runtime.RawExtension `json:"value"`
 
-	// Status of the condition, one of True, False, Unknown.
-	Mapped corev1.ConditionStatus `json:"mapped"`
 	// +optional
 	LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`
 	// The reason for the condition's last transition.

@@ -21,11 +21,13 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/kubernetes"
 	"github.com/turbonomic/orm/registry"
+	"github.com/turbonomic/orm/util"
 )
 
 func RegisterORM(orm *v1alpha1.OperatorResourceMapping, reg *registry.ORMRegistry) (map[corev1.ObjectReference]bool, error) {
@@ -58,11 +60,10 @@ func RegisterORM(orm *v1alpha1.OperatorResourceMapping, reg *registry.ORMRegistr
 		// TODO: avoid to retrieve same source repeatedly
 		var srcObjs []unstructured.Unstructured
 		if k.Name != "" {
-			srcObj, err = kubernetes.Toolbox.GetResourceWithGVK(p.OwnedResourcePath.GroupVersionKind(), k)
-			if err != nil {
-				msLog.Error(err, "creating entry for ", "source", p.OwnedResourcePath)
-				return nil, err
-			}
+			srcObj = &unstructured.Unstructured{}
+			srcObj.SetGroupVersionKind(p.OwnedResourcePath.GroupVersionKind())
+			srcObj.SetNamespace(k.Namespace)
+			srcObj.SetName(k.Name)
 			srcObjs = append(srcObjs, *srcObj)
 		} else {
 			srcObjs, err = kubernetes.Toolbox.GetResourceListWithGVKWithSelector(p.OwnedResourcePath.GroupVersionKind(), k, &p.OwnedResourcePath.LabelSelector)
@@ -126,4 +127,33 @@ func BuildAllPatterns(orm *v1alpha1.OperatorResourceMapping) []v1alpha1.Pattern 
 		}
 	}
 	return allpatterns
+}
+
+func PrepareMappingForStatus(owner *unstructured.Unstructured, ownerPath string) *v1alpha1.Mapping {
+	mapitem := v1alpha1.Mapping{}
+	mapitem.OwnerPath = ownerPath
+
+	fields := strings.Split(ownerPath, ".")
+	lastField := fields[len(fields)-1]
+	valueInObj, found, err := util.NestedField(owner, lastField, ownerPath)
+
+	valueMap := make(map[string]interface{})
+	valueMap[lastField] = valueInObj
+
+	if err != nil {
+		msLog.Error(err, "parsing src", "fields", fields, "actual", owner.Object["metadata"])
+		return nil
+	}
+	if !found {
+		return nil
+	}
+
+	valueObj := &unstructured.Unstructured{
+		Object: valueMap,
+	}
+	mapitem.Value = &runtime.RawExtension{
+		Object: valueObj,
+	}
+
+	return &mapitem
 }

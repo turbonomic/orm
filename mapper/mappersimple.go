@@ -18,14 +18,11 @@ package mapper
 
 import (
 	"context"
-	"errors"
 	"reflect"
-	"strings"
 
 	"github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/kubernetes"
 	"github.com/turbonomic/orm/registry"
-	"github.com/turbonomic/orm/util"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -60,189 +57,136 @@ func (m *SimpleMapper) CleanupORM(key types.NamespacedName) {
 
 func (m *SimpleMapper) MapORM(orm *v1alpha1.OperatorResourceMapping) error {
 
-	objs, err := RegisterORM(orm, &m.ORMRegistry)
-
+	_, err := RegisterORM(orm, &m.ORMRegistry)
 	if err != nil {
 		return err
 	}
 
-	if objs != nil && len(objs) > 0 {
-		for objref := range objs {
-			obj, err := kubernetes.Toolbox.GetResourceWithGVK(objref.GroupVersionKind(),
-				types.NamespacedName{Namespace: objref.Namespace, Name: objref.Name})
-			if err != nil {
-				msLog.Error(err, "creating entry for ", "objref", objref)
-				return err
-			}
-			ormkey := types.NamespacedName{
-				Namespace: orm.Namespace,
-				Name:      orm.Name,
-			}
-			oe := m.RetriveObjectEntryForResourceAndORM(objref, ormkey)
-			if oe == nil {
-				err = errors.New("Failed to find object entry for " + objref.String() + " for orm " + ormkey.String())
-				return err
-			}
-			m.mapOnceForOneORM(obj, orm, *oe, true)
-
-			if _, ok := m.watchingGVK[objref.GroupVersionKind()]; !ok {
-				m.watchingGVK[objref.GroupVersionKind()] = true
-
-				kubernetes.Toolbox.WatchResourceWithGVK(objref.GroupVersionKind(), cache.ResourceEventHandlerFuncs{
-					UpdateFunc: func(old, new interface{}) {
-						obj := new.(*unstructured.Unstructured)
-
-						m.mapOnce(obj)
-					}})
-			}
+	var obj *unstructured.Unstructured
+	if orm.Spec.Owner.Name != "" {
+		objk := types.NamespacedName{
+			Namespace: orm.Spec.Owner.Namespace,
+			Name:      orm.Spec.Owner.Name,
 		}
+		if objk.Namespace == "" {
+			objk.Namespace = orm.Namespace
+		}
+		obj, err = kubernetes.Toolbox.GetResourceWithGVK(orm.Spec.Owner.GroupVersionKind(), objk)
+		if err != nil {
+			msLog.Error(err, "failed to find owner", "owner", orm.Spec.Owner)
+			return err
+		}
+	} else {
+		objs, err := kubernetes.Toolbox.GetResourceListWithGVKWithSelector(orm.Spec.Owner.GroupVersionKind(),
+			types.NamespacedName{Namespace: orm.Spec.Owner.Namespace, Name: orm.Spec.Owner.Name}, &orm.Spec.Owner.LabelSelector)
+		if err != nil || len(objs) == 0 {
+			msLog.Error(err, "failed to find owner", "owner", orm.Spec.Owner)
+			return err
+		}
+		obj = &objs[0]
 	}
+
+	if _, ok := m.watchingGVK[obj.GroupVersionKind()]; !ok {
+		kubernetes.Toolbox.WatchResourceWithGVK(obj.GroupVersionKind(), cache.ResourceEventHandlerFuncs{
+			AddFunc: func(new interface{}) {
+				ownerobj := new.(*unstructured.Unstructured)
+				m.mapForOwner(ownerobj)
+			},
+			UpdateFunc: func(old, new interface{}) {
+				ownerobj := new.(*unstructured.Unstructured)
+				m.mapForOwner(ownerobj)
+			}})
+		m.watchingGVK[obj.GroupVersionKind()] = true
+	}
+
+	m.setORMStatus(obj, orm)
 
 	return err
 }
 
-func (m *SimpleMapper) mapOnce(obj *unstructured.Unstructured) {
+func (m *SimpleMapper) mapForOwner(owner *unstructured.Unstructured) {
 	var err error
 
 	var orgStatus v1alpha1.OperatorResourceMappingStatus
 
 	objref := corev1.ObjectReference{}
-	objref.Name = obj.GetName()
-	objref.Namespace = obj.GetNamespace()
-	objref.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
+	objref.Name = owner.GetName()
+	objref.Namespace = owner.GetNamespace()
+	objref.SetGroupVersionKind(owner.GetObjectKind().GroupVersionKind())
 
-	re := m.ORMRegistry.RetriveORMEntryForResource(objref)
-	if re == nil {
-		return
-	}
+	// set orm status if the object is owner
+	orm := &v1alpha1.OperatorResourceMapping{}
 
-	for ormk, oe := range re {
+	ormEntry := m.ORMRegistry.RetriveORMEntryForOwner(objref)
 
-		orm := &v1alpha1.OperatorResourceMapping{}
+	for ormk := range ormEntry {
+
 		err = kubernetes.Toolbox.OrmClient.Get(context.TODO(), ormk, orm)
 		if err != nil {
-			msLog.Error(err, "watching")
+			msLog.Error(err, "retrieving ", "orm", ormk)
 		}
 		orm.Status.DeepCopyInto(&orgStatus)
-
-		m.mapOnceForOneORM(obj, orm, oe, false)
+		m.setORMStatus(owner, orm)
 
 		if !reflect.DeepEqual(orgStatus, orm.Status) {
 			m.updateORMStatus(orm)
 		}
 
 	}
-
 }
 
-func (m *SimpleMapper) isAllowedManager(mgr string, rules map[string]string) bool {
-	if rules == nil || len(rules) == 0 {
-		return true
+func (m *SimpleMapper) setORMStatus(owner *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping) {
+	existingMappings := orm.Status.MappedPatterns
+	orm.Status.MappedPatterns = nil
+
+	ownerRef := corev1.ObjectReference{
+		Namespace: owner.GetNamespace(),
+		Name:      owner.GetName(),
 	}
+	ownerRef.SetGroupVersionKind(owner.GetObjectKind().GroupVersionKind())
 
-	mgrsstr := rules[annoAllowedManager]
-	var allowedmgrs []string
+	oe := m.ORMRegistry.RetriveObjectEntryForOwnerAndORM(ownerRef, types.NamespacedName{
+		Namespace: orm.GetNamespace(),
+		Name:      orm.GetName(),
+	})
 
-	allowedmgrs = strings.Split(strings.TrimSpace(mgrsstr), ",")
-
-	if len(allowedmgrs) > 0 && allowedmgrs[0] != "" {
-		found := false
-		for _, om := range allowedmgrs {
-			if mgr == om {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return false
-		}
-	}
-
-	return true
-}
-
-func (m *SimpleMapper) mapOnceForOneORM(obj *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping, oe registry.ObjectEntry, force bool) {
-
-	if !force {
-		mfs := obj.GetManagedFields()
-		if len(mfs) == 0 {
-			msLog.Info("no managed fields", "gvk", obj.GroupVersionKind())
-		}
-
-		mgr := mfs[0].Manager
-		t := mfs[0].Time
-		for _, mf := range obj.GetManagedFields() {
-			if t.Before(mf.Time) {
-				mgr = mf.Manager
-				t = mf.Time
-			}
-		}
-
-		if !m.isAllowedManager(mgr, obj.GetAnnotations()) {
-			return
+	oedup := make(map[string]bool)
+	if oe != nil && len(oe.Mappings) > 0 {
+		for k := range oe.Mappings {
+			oedup[k] = true
 		}
 	}
 
-	for op, sp := range oe.Mappings {
-
-		mapitem := v1alpha1.Mapping{}
-		mapitem.OwnerPath = op
-
-		fields := strings.Split(sp, ".")
-		lastField := fields[len(fields)-1]
-		valueInObj, found, err := util.NestedField(obj, lastField, sp)
-
-		valueMap := make(map[string]interface{})
-		valueMap[lastField] = valueInObj
-
-		if err != nil {
-			msLog.Error(err, "parsing src", "fields", fields, "actual", obj.Object["metadata"])
-			return
-		}
-		if !found {
+	// add old mappings first
+	for _, mapping := range existingMappings {
+		if _, ok := oedup[mapping.OwnerPath]; ok {
+			delete(oedup, mapping.OwnerPath)
+		} else {
 			continue
 		}
 
-		valueObj := &unstructured.Unstructured{
-			Object: valueMap,
-		}
-		mapitem.Value = &runtime.RawExtension{
-			Object: valueObj,
-		}
-
-		exists := false
-		for n, mp := range orm.Status.MappedPatterns {
-			if mp.OwnerPath == mapitem.OwnerPath {
-				mapitem.DeepCopyInto(&(orm.Status.MappedPatterns[n]))
-				exists = true
-				break
-			}
-		}
-
-		if !exists {
-			orm.Status.MappedPatterns = append(orm.Status.MappedPatterns, mapitem)
+		mapitem := PrepareMappingForStatus(owner, mapping.OwnerPath)
+		if mapitem != nil {
+			orm.Status.MappedPatterns = append(orm.Status.MappedPatterns, *mapitem)
 		}
 	}
 
-	return
+	if len(oedup) != 0 {
+		for ownerPath := range oedup {
+			mapitem := PrepareMappingForStatus(owner, ownerPath)
+			if mapitem != nil {
+				orm.Status.MappedPatterns = append(orm.Status.MappedPatterns, *mapitem)
+			}
+		}
+	}
 }
 
 func (m *SimpleMapper) updateORMStatus(orm *v1alpha1.OperatorResourceMapping) {
 
-	k := types.NamespacedName{
-		Namespace: orm.GetNamespace(),
-		Name:      orm.GetName(),
-	}
-
-	err := kubernetes.Toolbox.OrmClient.Status().Update(context.TODO(), orm)
+	var err error
+	err = kubernetes.Toolbox.OrmClient.Status().Update(context.TODO(), orm)
 	if err != nil {
-		st := orm.Status.DeepCopy()
-		err = kubernetes.Toolbox.OrmClient.Get(context.TODO(), k, orm)
-		st.DeepCopyInto(&orm.Status)
-		err = kubernetes.Toolbox.OrmClient.Status().Update(context.TODO(), orm)
-		if err != nil {
-			msLog.Error(err, "retry status")
-		}
+		msLog.Error(err, "retry status")
 	}
 
 }
