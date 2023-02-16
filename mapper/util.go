@@ -29,6 +29,9 @@ import (
 	"github.com/turbonomic/orm/util"
 )
 
+const predefinedParameterComponentName = ".componentName"
+const predefinedParameterPlaceHolder = ".."
+
 func RegisterORM(reg *registry.ORMRegistry, orm *v1alpha1.OperatorResourceMapping) error {
 	var err error
 
@@ -45,10 +48,8 @@ func RegisterORM(reg *registry.ORMRegistry, orm *v1alpha1.OperatorResourceMappin
 		return nil
 	}
 
-	allpatterns := buildAllPatterns(orm)
-
 	var srcObj *unstructured.Unstructured
-	for _, p := range allpatterns {
+	for _, p := range orm.Spec.Mappings.Patterns {
 		k := types.NamespacedName{Namespace: p.OwnedResourcePath.Namespace, Name: p.OwnedResourcePath.Name}
 		if k.Namespace == "" {
 			k.Namespace = orm.Namespace
@@ -70,15 +71,19 @@ func RegisterORM(reg *registry.ORMRegistry, orm *v1alpha1.OperatorResourceMappin
 		}
 
 		for _, srcObj := range srcObjs {
-			objref := p.OwnedResourcePath.ObjectReference.DeepCopy()
-			objref.Namespace = srcObj.GetNamespace()
-			objref.Name = srcObj.GetName()
-			err = reg.RegsiterMapping(p.OwnerPath, p.OwnedResourcePath.Path,
-				types.NamespacedName{Name: orm.Name, Namespace: orm.Namespace},
-				orm.Spec.Owner.ObjectReference,
-				*objref)
-			if err != nil {
-				return err
+			p.OwnedResourcePath.Namespace = srcObj.GetNamespace()
+			p.OwnedResourcePath.Name = srcObj.GetName()
+
+			patterns := populatePatterns(orm.Spec.Mappings.Parameters, p)
+
+			for _, pattern := range patterns {
+				err = reg.RegsiterMapping(pattern.OwnerPath, pattern.OwnedResourcePath.Path,
+					types.NamespacedName{Name: orm.Name, Namespace: orm.Namespace},
+					orm.Spec.Owner.ObjectReference,
+					p.OwnedResourcePath.ObjectReference)
+				if err != nil {
+					return err
+				}
 			}
 		}
 
@@ -87,33 +92,29 @@ func RegisterORM(reg *registry.ORMRegistry, orm *v1alpha1.OperatorResourceMappin
 	return nil
 }
 
-func buildAllPatterns(orm *v1alpha1.OperatorResourceMapping) []v1alpha1.Pattern {
-	allpatterns := orm.Spec.Mappings.Patterns
-	if orm.Spec.Mappings.Parameters != nil && len(orm.Spec.Mappings.Parameters) > 0 {
-		var prevpatterns []v1alpha1.Pattern
-		for name, speclist := range orm.Spec.Mappings.Parameters {
-			prevpatterns = allpatterns
-			allpatterns = []v1alpha1.Pattern{}
-			var loc int
-			for _, p := range prevpatterns {
-				loc = strings.Index(p.OwnerPath, "{{"+name+"}}")
-				if loc == -1 {
-					allpatterns = append(allpatterns, p)
-				} else {
-					list := speclist
-					if len(list) == 1 && list[0] == "*" {
-						tmpp := p.DeepCopy()
-						tmpp.OwnerPath = strings.ReplaceAll(p.OwnerPath, "{{"+name+"}}", list[0])
-						tmpp.OwnedResourcePath.Path = strings.ReplaceAll(p.OwnedResourcePath.Path, "{{"+name+"}}", list[0])
-						//TODO: replace list with the names got from source, need to retreive all source objs
-					}
-					for _, c := range list {
-						newp := p.DeepCopy()
-						newp.OwnerPath = strings.ReplaceAll(p.OwnerPath, "{{"+name+"}}", c)
-						newp.OwnedResourcePath.Path = strings.ReplaceAll(p.OwnedResourcePath.Path, "{{"+name+"}}", c)
-						allpatterns = append(allpatterns, *newp)
-					}
-				}
+func populatePatterns(parameters map[string][]string, pattern v1alpha1.Pattern) []v1alpha1.Pattern {
+	var allpatterns []v1alpha1.Pattern
+
+	pattern.OwnerPath = strings.ReplaceAll(pattern.OwnerPath, "{{"+predefinedParameterComponentName+"}}", pattern.OwnedResourcePath.Name)
+	pattern.OwnedResourcePath.Path = strings.ReplaceAll(pattern.OwnedResourcePath.Path, "{{"+predefinedParameterComponentName+"}}", pattern.OwnedResourcePath.Name)
+
+	allpatterns = append(allpatterns, pattern)
+
+	if parameters == nil {
+		parameters = make(map[string][]string)
+	}
+	parameters[predefinedParameterPlaceHolder] = []string{predefinedParameterPlaceHolder}
+	var prevpatterns []v1alpha1.Pattern
+	for name, values := range parameters {
+		prevpatterns = allpatterns
+		allpatterns = []v1alpha1.Pattern{}
+
+		for _, p := range prevpatterns {
+			for _, v := range values {
+				newp := p.DeepCopy()
+				newp.OwnerPath = strings.ReplaceAll(p.OwnerPath, "{{"+name+"}}", v)
+				newp.OwnedResourcePath.Path = strings.ReplaceAll(p.OwnedResourcePath.Path, "{{"+name+"}}", v)
+				allpatterns = append(allpatterns, *newp)
 			}
 		}
 	}

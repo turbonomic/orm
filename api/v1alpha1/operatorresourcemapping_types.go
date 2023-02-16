@@ -78,7 +78,7 @@ type OperatorResourceMappingSpec struct {
 
 type Mapping struct {
 	OwnerPath string                `json:"ownerPath"`
-	Value     *runtime.RawExtension `json:"value"`
+	Value     *runtime.RawExtension `json:"value,omitempty"`
 
 	// +optional
 	LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`

@@ -252,7 +252,6 @@ spec:
                       x-kubernetes-preserve-unknown-fields: true
                   required:
                   - ownerPath
-                  - value
                   type: object
                 type: array
               message:

@@ -15,7 +15,7 @@ spec:
         app: ormsource-patterns-0002
     spec:
       containers:
-      - name: workload-0002
+      - name: ormsource-patterns-0002
         image: alpine:latest
         command:
         - /bin/sh

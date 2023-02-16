@@ -37,6 +37,8 @@ import (
 )
 
 var (
+	messagePlaceHolder = "locating source path"
+
 	msLog = ctrl.Log.WithName("mapper simple")
 
 	mp *SimpleMapper
@@ -159,6 +161,7 @@ func (m *SimpleMapper) validateOwnedResources(owner *unstructured.Unstructured, 
 				for n, m := range orm.Status.MappedPatterns {
 					if op == m.OwnerPath {
 						orm.Status.MappedPatterns[n].Message = "Failed to locate owned resource: " + resource.String()
+						orm.Status.MappedPatterns[n].Reason = string(v1alpha1.ORMStatusReasonOwnedResourceError)
 					}
 				}
 			}
@@ -167,15 +170,19 @@ func (m *SimpleMapper) validateOwnedResources(owner *unstructured.Unstructured, 
 
 		for op, sp := range mappings {
 			mapitem := PrepareMappingForObject(resobj, sp)
-			var msg string
-			if mapitem == nil {
-				msg = "Failed to locate mapping path " + sp + " in owned resource " + resource.String()
-			} else {
-				msg = "Path in owned resource is ok"
-			}
 			for n, m := range orm.Status.MappedPatterns {
 				if op == m.OwnerPath {
-					orm.Status.MappedPatterns[n].Message = msg
+					if mapitem == nil && orm.Status.MappedPatterns[n].Message == messagePlaceHolder {
+						orm.Status.MappedPatterns[n].Message = "Failed to locate mapping path " + sp + " in owned resource"
+						orm.Status.MappedPatterns[n].Reason = string(v1alpha1.ORMStatusReasonOwnedResourceError)
+					} else if mapitem != nil && orm.Status.MappedPatterns[n].Message == messagePlaceHolder {
+						orm.Status.MappedPatterns[n].Message = ""
+						orm.Status.MappedPatterns[n].Reason = ""
+
+					} else if mapitem != nil && orm.Status.MappedPatterns[n].Reason == string(v1alpha1.ORMStatusReasonOwnedResourceError) {
+						orm.Status.MappedPatterns[n].Message = ""
+						orm.Status.MappedPatterns[n].Reason = ""
+					}
 				}
 			}
 		}
@@ -215,6 +222,14 @@ func (m *SimpleMapper) setORMStatus(owner *unstructured.Unstructured, orm *v1alp
 
 		mapitem := PrepareMappingForObject(owner, mapping.OwnerPath)
 		if mapitem != nil {
+			mapitem.Message = messagePlaceHolder
+			orm.Status.MappedPatterns = append(orm.Status.MappedPatterns, *mapitem)
+		} else {
+			mapitem = &v1alpha1.Mapping{
+				OwnerPath: mapping.OwnerPath,
+				Message:   "Failed to locate ownerPath in owner",
+				Reason:    string(v1alpha1.ORMStatusReasonOwnerError),
+			}
 			orm.Status.MappedPatterns = append(orm.Status.MappedPatterns, *mapitem)
 		}
 
@@ -224,6 +239,14 @@ func (m *SimpleMapper) setORMStatus(owner *unstructured.Unstructured, orm *v1alp
 		for ownerPath := range allmappings {
 			mapitem := PrepareMappingForObject(owner, ownerPath)
 			if mapitem != nil {
+				mapitem.Message = messagePlaceHolder
+				orm.Status.MappedPatterns = append(orm.Status.MappedPatterns, *mapitem)
+			} else {
+				mapitem = &v1alpha1.Mapping{
+					OwnerPath: ownerPath,
+					Message:   "Failed to locate ownerPath in owner",
+					Reason:    string(v1alpha1.ORMStatusReasonOwnerError),
+				}
 				orm.Status.MappedPatterns = append(orm.Status.MappedPatterns, *mapitem)
 			}
 		}

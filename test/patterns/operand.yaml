@@ -15,7 +15,7 @@ spec:
         app: ormoperand-patterns
     spec:
       containers:
-      - name: workload-0001
+      - name: ormsource-patterns-0001
         image: alpine:latest
         command:
         - /bin/sh
@@ -34,7 +34,7 @@ spec:
           requests:
             cpu: 50m
             memory: 50Mi
-      - name: workload-0002
+      - name: ormsource-patterns-0002
         image: alpine:latest
         command:
         - /bin/sh

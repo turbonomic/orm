@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"reflect"
-	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -202,9 +201,8 @@ func (c *CompatibilityReconciler) constructCompatibleORMv2(ormv1Obj *unstructure
 	orm.Spec.EnforcementMode = devopsv1alpha1.EnforcementModeNone
 
 	var templates []interface{}
-	var parameterName string
 
-	for n, mapping := range mappings {
+	for _, mapping := range mappings {
 		var paramList []string
 		paramList, found, err = unstructured.NestedStringSlice(mapping.(map[string]interface{}), parameterPath...)
 		if err != nil {
@@ -218,38 +216,33 @@ func (c *CompatibilityReconciler) constructCompatibleORMv2(ormv1Obj *unstructure
 			return orm, err
 		}
 
-		if len(paramList) > 0 {
-			parameterName = parameterKey + "-" + strconv.Itoa(n)
-			if orm.Spec.Mappings.Parameters == nil {
-				orm.Spec.Mappings.Parameters = make(map[string][]string)
+		for _, component := range paramList {
+			templates, found, err = unstructured.NestedSlice(mapping.(map[string]interface{}), templatePath...)
+			if err != nil {
+				return orm, err
 			}
-			orm.Spec.Mappings.Parameters[parameterName] = paramList
-		}
 
-		templates, found, err = unstructured.NestedSlice(mapping.(map[string]interface{}), templatePath...)
-		if err != nil {
-			return orm, err
-		}
-
-		var opPathStr, srcPathStr string
-		for _, template := range templates {
-			opPathStr = template.(map[string]interface{})[dstPathKey].(string)
-			opPathStr = strings.ReplaceAll(opPathStr, parameterStr, "{{"+parameterName+"}}")
-			srcPathStr = template.(map[string]interface{})[srcPathKey].(string)
-			srcPathStr = strings.ReplaceAll(srcPathStr, parameterStr, "{{"+parameterName+"}}")
-			pattern := devopsv1alpha1.Pattern{
-				OwnerPath: opPathStr,
-				OwnedResourcePath: devopsv1alpha1.OwnedResourcePath{
-					Path: srcPathStr,
-					ObjectLocator: devopsv1alpha1.ObjectLocator{
-						ObjectReference: corev1.ObjectReference{
-							Kind:       srcKind,
-							APIVersion: "apps/v1",
+			var opPathStr, srcPathStr string
+			for _, template := range templates {
+				opPathStr = template.(map[string]interface{})[dstPathKey].(string)
+				opPathStr = strings.ReplaceAll(opPathStr, parameterStr, component)
+				srcPathStr = template.(map[string]interface{})[srcPathKey].(string)
+				srcPathStr = strings.ReplaceAll(srcPathStr, parameterStr, component)
+				pattern := devopsv1alpha1.Pattern{
+					OwnerPath: opPathStr,
+					OwnedResourcePath: devopsv1alpha1.OwnedResourcePath{
+						Path: srcPathStr,
+						ObjectLocator: devopsv1alpha1.ObjectLocator{
+							ObjectReference: corev1.ObjectReference{
+								Kind:       srcKind,
+								APIVersion: "apps/v1",
+								Name:       component,
+							},
 						},
 					},
-				},
+				}
+				orm.Spec.Mappings.Patterns = append(orm.Spec.Mappings.Patterns, pattern)
 			}
-			orm.Spec.Mappings.Patterns = append(orm.Spec.Mappings.Patterns, pattern)
 		}
 	}
 

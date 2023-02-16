@@ -85,7 +85,7 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 			ocLog.Error(err, "registering sources of operator "+req.String()+" ... skipping")
 
 			orm.Status.State = v1alpha1.ORMTypeError
-			orm.Status.Reason = string(v1alpha1.ORMStatusReasonOwnedResourceError)
+			orm.Status.Reason = string(v1alpha1.ORMStatusReasonOwnerError)
 			orm.Status.Message = err.Error()
 			r.checkAndUpdateStatus(oldStatus, orm)
 			return ctrl.Result{}, nil

@@ -11,8 +11,8 @@ spec:
   mappings:
     parameters:
       containers:
-      - "workload-0001"
-      - "workload-0002"
+      - "ormsource-patterns-0001"
+      - "ormsource-patterns-0002"
       ports:
       - "TCP"
       - "UDP"
@@ -23,4 +23,4 @@ spec:
         kind: Deployment
         matchLabels:
           app: ormsource-patterns
-        path: .spec.template.spec.containers[?(@.name=="{{containers}}")].ports[?(@.protocol=="{{ports}}")].containerPort
+        path: .spec.template.spec.containers[?(@.name=="{{.componentName}}")].ports[?(@.protocol=="{{ports}}")].containerPort
