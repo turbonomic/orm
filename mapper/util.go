@@ -121,8 +121,8 @@ func populatePatterns(parameters map[string][]string, pattern v1alpha1.Pattern) 
 	return allpatterns
 }
 
-func PrepareMappingForObject(obj *unstructured.Unstructured, objPath string) *v1alpha1.Mapping {
-	mapitem := v1alpha1.Mapping{}
+func PrepareMappingForObject(obj *unstructured.Unstructured, objPath string) *v1alpha1.OwnerMappingValue {
+	mapitem := v1alpha1.OwnerMappingValue{}
 	mapitem.OwnerPath = objPath
 
 	fields := strings.Split(objPath, ".")

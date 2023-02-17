@@ -6,7 +6,6 @@ spec:
   owner: # target same namespace by default
     apiVersion: deploy.hybridapp.io/v1alpha1
     kind: Operator
-  enforcement: once # none, once, always
   mappings:
     parameters:
       containers:

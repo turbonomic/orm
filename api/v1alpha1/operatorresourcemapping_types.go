@@ -54,16 +54,6 @@ type MappingPatterns struct {
 	Parameters map[string][]string `json:"parameters,omitempty"`
 }
 
-type EnforcementMode string
-
-const (
-	EnforcementModeNone   EnforcementMode = "none"
-	EnforcementModeOnce   EnforcementMode = "once"
-	EnforcementModeAlways EnforcementMode = "always"
-)
-
-var EnforcementModeDefault = EnforcementModeOnce
-
 // OperatorResourceMappingSpec defines the desired state of OperatorResourceMapping
 type OperatorResourceMappingSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -71,12 +61,11 @@ type OperatorResourceMappingSpec struct {
 
 	// Operand is the target to make actual changes
 	// if name and namespace are not provided, use same one as orm cr
-	Owner           ObjectLocator   `json:"owner"`
-	EnforcementMode EnforcementMode `json:"enforcement,omitempty"`
-	Mappings        MappingPatterns `json:"mappings,omitempty"`
+	Owner    ObjectLocator   `json:"owner"`
+	Mappings MappingPatterns `json:"mappings,omitempty"`
 }
 
-type Mapping struct {
+type OwnerMappingValue struct {
 	OwnerPath string                `json:"ownerPath"`
 	Value     *runtime.RawExtension `json:"value,omitempty"`
 
@@ -118,7 +107,7 @@ type OperatorResourceMappingStatus struct {
 	Message string `json:"message,omitempty"`
 
 	// +optional
-	MappedPatterns []Mapping `json:"mappedPatterns,omitempty"`
+	OwnerMappingValues []OwnerMappingValue `json:"ownerValues,omitempty"`
 }
 
 //+kubebuilder:object:root=true

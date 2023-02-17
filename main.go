@@ -33,7 +33,6 @@ import (
 
 	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/controllers"
-	"github.com/turbonomic/orm/enforcer"
 	"github.com/turbonomic/orm/kubernetes"
 	"github.com/turbonomic/orm/mapper"
 	//+kubebuilder:scaffold:imports
@@ -98,11 +97,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	ef, err := enforcer.GetSimpleEnforcer(mgr.GetConfig(), mgr.GetScheme())
-	if err != nil {
-		setupLog.Error(err, "unable to init enforcer")
-		os.Exit(1)
-	}
 	mp, err := mapper.GetSimpleMapper(mgr.GetConfig(), mgr.GetScheme())
 	if err != nil {
 		setupLog.Error(err, "unable to init mapper")
@@ -110,10 +104,9 @@ func main() {
 	}
 
 	if err = (&controllers.OperatorResourceMappingReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Enforcer: ef,
-		Mapper:   mp,
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Mapper: mp,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create orm controller", "controller", "OperatorResourceMapping")
 		os.Exit(1)

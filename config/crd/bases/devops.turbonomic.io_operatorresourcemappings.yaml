@@ -40,8 +40,6 @@ spec:
             description: OperatorResourceMappingSpec defines the desired state of
               OperatorResourceMapping
             properties:
-              enforcement:
-                type: string
               mappings:
                 properties:
                   parameters:
@@ -232,7 +230,11 @@ spec:
             description: OperatorResourceMappingStatus defines the observed state
               of OperatorResourceMapping
             properties:
-              mappedPatterns:
+              message:
+                description: A human readable message indicating details about the
+                  transition.
+                type: string
+              ownerValues:
                 items:
                   properties:
                     lastTransitionTime:
@@ -254,10 +256,6 @@ spec:
                   - ownerPath
                   type: object
                 type: array
-              message:
-                description: A human readable message indicating details about the
-                  transition.
-                type: string
               reason:
                 type: string
               state:

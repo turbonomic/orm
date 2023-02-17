@@ -9,20 +9,39 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Operator Resource Mapping](#operator-resource-mapping)
-  - [Overview](#overview)
-  - [QuickStart](#quickstart)
-  - [Architecture](#architecture)
-    - [Simple Implementation](#simple-implementation)
-    - [Extensions](#extensions)
+- [Overview](#overview)
+- [QuickStart](#quickstart)
+- [Architecture](#architecture)
+  - [Simple Implementation](#simple-implementation)
+  - [Extensions](#extensions)
+- [Next Step](#next-step)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 ## Overview
 
-Operator Resource Mapping (ORM) is a mechanism to allow assets like [Kubeturbo](https://github.com/turbonomic/kubeturbo/wiki) to manage resources in an Operator managed Kubernetes cluster, for example to [vertically scale containers](https://github.com/turbonomic/kubeturbo/wiki/Action-Details#resizing-vertical-scaling-of-containerized-workloads) or [horizontally scale pods](https://github.com/turbonomic/kubeturbo/wiki/Action-Details#slo-horizontal-scaling-private-preview).
+Operator Resource Mapping (ORM) is a map to allow assets like [Kubeturbo](https://github.com/turbonomic/kubeturbo/wiki) to manage resources in an Operator managed Kubernetes cluster, for example to [vertically scale containers](https://github.com/turbonomic/kubeturbo/wiki/Action-Details#resizing-vertical-scaling-of-containerized-workloads) or [horizontally scale pods](https://github.com/turbonomic/kubeturbo/wiki/Action-Details#slo-horizontal-scaling-private-preview).
 
-ORM works at operand basis, user defines which operand holds the desired status of which resources (source) and automatically coordinate resource changes.
+ORM works at operand basis, user defines which operand holds the desired status of which resources so that other assets can coordinate resource changes. 
+
+This repo provides new ORM resource scheme, legacy ORM CRD and examples are in archive folder. Controllers in this repo are 
+
+- helping users to compose and test ORMs with the operands and deployed resources only.
+- generating ORM resource from legacy ORM resources for backward compatibility
+
+### Terminilogy
+
+`Owner`: the operator resource who ownes actual deployed resources. Changes in `owner` trigger operator to update deployed/`owned` resources
+
+`Owned` resource: resources deployed by operator, answer to changes in operand/`owner`
+
+`Mapping`: pair of paths in `owner` and `owned` resources
+
+`Pattern`: pair of paths in `owner` and `owned` resource. Parameters can be defined in `patters` in order to generate multiple `mapping` from one `pattern`.
+
+Predefined Parameters - all predefined parameters starts with "."
+
+ - `.componentName`: refer to the name of the owned resource. Together with label selector of `owned` resource, a pattern can generate lots of mappings if the naming is right.
 
 ## QuickStart
 
@@ -44,38 +63,40 @@ Step 2. Install CRD
 
 ```script
 cd orm
-kubectl apply -f ./config/crd/bases/devops.turbonomic.io_operatorresourcemappings.yaml
+% kubectl apply -f ./config/crd/bases 
+customresourcedefinition.apiextensions.k8s.io/operatorresourcemappings.devops.turbonomic.io created
+customresourcedefinition.apiextensions.k8s.io/operatorresourcemappings.turbonomic.com created
 ```
+
+note: old orm crd is also created for backward compatibility controller
 
 Step 3. Start Controller with your outstanding access to kubernetes cluster
 
 ```script
-% make run
-
-test -s /Users/kuan/Workspace/src/github.com/kuanf/orm/bin/controller-gen || GOBIN=/Users/kuan/Workspace/src/github.com/kuanf/orm/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.10.0
+%test -s /Users/kuan/Workspace/src/github.com/kuanf/orm/bin/controller-gen || GOBIN=/Users/kuan/Workspace/src/github.com/kuanf/orm/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.10.0
 /Users/kuan/Workspace/src/github.com/kuanf/orm/bin/controller-gen rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 /Users/kuan/Workspace/src/github.com/kuanf/orm/bin/controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
 go fmt ./...
 go vet ./...
 go run ./main.go
-1.6680114457816792e+09  INFO    controller-runtime.metrics    Metrics server is starting to listen    {"addr": ":8080"}
-1.668011446468928e+09   INFO    setup   starting manager
-1.6680114464695108e+09  INFO    Starting server {"path": "/metrics", "kind": "metrics", "addr": "[::]:8080"}
-1.6680114464695098e+09  INFO    Starting server {"kind": "health probe", "addr": "[::]:8081"}
-1.668011446469908e+09   INFO    Starting EventSource {"controller": "operatorresourcemapping", "controllerGroup": "devops.turbonomic.io", "controllerKind": "OperatorResourceMapping", "source": "kind source: *v1alpha1.OperatorResourceMapping"}
-1.66801144647004e+09    INFO    Starting Controller  {"controller": "operatorresourcemapping", "controllerGroup": "devops.turbonomic.io", "controllerKind": "OperatorResourceMapping"}
-1.668011446671689e+09   INFO    Starting workers     {"controller": "operatorresourcemapping", "controllerGroup": "devops.turbonomic.io", "controllerKind": "OperatorResourceMapping", "worker count": 1}
-1
-
+1.676652505232917e+09   INFO    controller-runtime.metrics      Metrics server is starting to listen    {"addr": ":8080"}
+1.676652506578926e+09   INFO    setup   starting manager
+1.676652506579638e+09   INFO    Starting server {"path": "/metrics", "kind": "metrics", "addr": "[::]:8080"}
+1.676652506579651e+09   INFO    Starting server {"kind": "health probe", "addr": "[::]:8081"}
+1.67665250658025e+09    INFO    Starting EventSource    {"controller": "operatorresourcemapping", "controllerGroup": "turbonomic.com", "controllerKind": "OperatorResourceMapping", "source": "kind source: *unstructured.Unstructured"}
+1.676652506580307e+09   INFO    Starting Controller     {"controller": "operatorresourcemapping", "controllerGroup": "turbonomic.com", "controllerKind": "OperatorResourceMapping"}
+1.6766525065802581e+09  INFO    Starting EventSource    {"controller": "operatorresourcemapping", "controllerGroup": "devops.turbonomic.io", "controllerKind": "OperatorResourceMapping", "source": "kind source: *v1alpha1.OperatorResourceMapping"}
+1.6766525065803242e+09  INFO    Starting Controller     {"controller": "operatorresourcemapping", "controllerGroup": "devops.turbonomic.io", "controllerKind": "OperatorResourceMapping"}
+1.676652506782094e+09   INFO    Starting workers        {"controller": "operatorresourcemapping", "controllerGroup": "devops.turbonomic.io", "controllerKind": "OperatorResourceMapping", "worker count": 1}
+1.6766525067822971e+09  INFO    Starting workers        {"controller": "operatorresourcemapping", "controllerGroup": "turbonomic.com", "controllerKind": "OperatorResourceMapping", "worker count": 1}
 ...
 ```
-<<<<<<< HEAD
 
 Step 4 Try our `solo` test resources 
 
-Previous console is occupied by controller running in foreground. You need another one for the commands in this step.
+Previous console is occupied by controller running in foreground. You need another one for the commands in this step. Make sure the 2nd console also access the same kubernetes cluster as the first one.
 
-The `solo` test case intends to work without any operator. It makes a deployment (ormoperand) follows the changes in `replicas` and container `resources` from another deployment (ormsource). It consists of 3 resources as follow:
+The `solo` test case creates mapping from one deployment to another. It consists of 3 resources as follow:
 
 ```scripts
 kubectl apply -f ./test/solo/.
@@ -83,12 +104,9 @@ kubectl apply -f ./test/solo/.
 deployment.apps/ormoperand created
 operatorresourcemapping.devops.turbonomic.io/solo created
 deployment.apps/ormsource created
-=======
-3. Rediscover Kubeturbo target from Turbonomic UI and NO need to restart the corresponding Kubeturbo pod in cluster. ORM CR will be successfully discovered when you see a log message from Kubeturbo like this:
->>>>>>> upstream/master
 ```
 
-After the resources are applied, you'll find the orm status already updated with values from ormsource deployment. 
+After the resources are applied, you'll find the orm status already updated with values from ormoperand deployment. 
 
 ```yaml
 status:
@@ -111,52 +129,53 @@ status:
 
 ```
 
-When you change the ormsource deployment, the status in orm CR follows.
+If there are errors in your ORM, or you modify the paths defined in your ORM, you can see message in ORM status helping you to fix the problem. Here are some example messages after we corrupt the paths
 
-At this point of time, the enforcement mode in orm is set to `none`, so nothing happens to the ormoperand deployment. But after you change the mode to `once`, everytime you change the pod replicas and/or container resources in ormsource, the ormoperand follows.
 
 ```yaml
-apiVersion: devops.turbonomic.io/v1alpha1
-kind: OperatorResourceMapping
-metadata:
-  name: solo
-  namespace: default
-...
-spec:
-  enforcement: none # none/once
-  operand:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: ormoperand
-...
+    - message: Failed to locate ownerPath in owner
+      ownerPath: .spec.template.spec.containers[?(@.name=="workload-001")].resources
+      reason: OwnerError
 ```
 
+```yaml
+    - message: Failed to locate mapping path .spec.template.spec.containers[?(@.name=="workload-OOO1")].resources
+        in owned resource
+      ownerPath: .spec.template.spec.containers[?(@.name=="workload-0001")].resources
+      reason: OwnedResourceError
+```
+
+Step 5 Experience parameters for patterns
+
+Continue in the 2nd console.
+
+The `pattern` test case intends to show how to use (predefined) parameters ifor patterns.  It uses predefined parameter `.componentName` and parameter `ports` to generate 4 mappings.
+
+```yaml
+  status:
+    ownerValues:
+    - ownerPath: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0002")].ports[?(@.protocol=="TCP")].containerPort
+      value:
+        containerPort: 82
+    - ownerPath: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0002")].ports[?(@.protocol=="UDP")].containerPort
+      value:
+        containerPort: 10002
+    - ownerPath: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0001")].ports[?(@.protocol=="TCP")].containerPort
+      value:
+        containerPort: 81
+    - ownerPath: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0001")].ports[?(@.protocol=="UDP")].containerPort
+      value:
+        containerPort: 10001
+    state: ok
+```
 
 ## Architecture
 
-ORM introduces Custom Resource Definition (CRD) for users to define target operand, patterns and report status of the mapping (to be) done by orm. There are two types of the controllers working with ORM Custom Resources(CR)s: Enforcer and Mapper.
-
-![image](docs/images/basic.png)
-
-Mapper reads the Patters defined in ORM CR spec, translate it to actual mapping and monitor the target resource to update the value dynamically into ORM CR status.
-
-Enforcer read the mapping in ORM CR status and enforce it to the operand defined in ORM CR spec. There various mode to enforce the change: none, once, always. 
-
-- none: orm is for advisory only, no changes will be applied to operand
-- once: orm apply the change only once when the mapping is created/updated, after that operand could be changed by others
-- always: orm monitor the operand resource defined in ORM CR and ensure the target fields are updated as indicated in ORM
-
-### Simple Implementation
-
-A simple implementation of mapper and enforcer is provided for users to develop and test their ORMs. In this simple implementation, 
-
-- simple-mapper watches the actual resource managed by the operand and use the changes outside operator controller (via managedFields) to 
-fill the ORM CR
-- simple-enforcer update the operand from ORM CR status
+A mapper controller is introduced to construct mapppings from patters and obtain the value from owner into orm status, the same controller is responsible for validating the paths set in patterns.
 
 ### Extensions
 
-Mapper and Enforcer could be extended for complex or simply production use cases. Mapper could talk with 3rd party "brain" to decide what to be changed; wihle Enforcer could be repurposed to chase the source of trueth and take actions other than updating a resource in kubernetes.
+There is another use case of the mappings with operator resource. That is to retrieve recommended values from 3rd party `advisor` and use that to set the value in `owner`. We could add the `advisor` field into `pattern` to map to a `owner` path. Certain controllers can be introduced to monitor the change from `advisor` and enforec the change.
 
 ## Next Step
 

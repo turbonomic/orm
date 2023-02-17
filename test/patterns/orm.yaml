@@ -7,17 +7,13 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: ormoperand-patterns
-  enforcement: none # none, once
   mappings:
     parameters:
-      containers:
-      - "ormsource-patterns-0001"
-      - "ormsource-patterns-0002"
       ports:
       - "TCP"
       - "UDP"
     patterns:
-    - ownerPath: .spec.template.spec.containers[?(@.name=="{{containers}}")].ports[?(@.protocol=="{{ports}}")].containerPort
+    - ownerPath: .spec.template.spec.containers[?(@.name=="{{.componentName}}")].ports[?(@.protocol=="{{ports}}")].containerPort
       owned:
         apiVersion: apps/v1
         kind: Deployment

@@ -157,8 +157,6 @@ func (c *CompatibilityReconciler) updateCompatibleORMv2(ormv1Obj *unstructured.U
 		return err
 	}
 
-	neworm.Spec.EnforcementMode = orm.Spec.EnforcementMode
-
 	if !reflect.DeepEqual(neworm.Spec, orm.Spec) {
 		neworm.Spec.DeepCopyInto(&orm.Spec)
 
@@ -198,7 +196,6 @@ func (c *CompatibilityReconciler) constructCompatibleORMv2(ormv1Obj *unstructure
 
 	gvk, _ := kubernetes.Toolbox.FindGVKForResource(ormv1Obj.GetName())
 	orm.Spec.Owner.APIVersion, orm.Spec.Owner.Kind = gvk.ToAPIVersionAndKind()
-	orm.Spec.EnforcementMode = devopsv1alpha1.EnforcementModeNone
 
 	var templates []interface{}
 

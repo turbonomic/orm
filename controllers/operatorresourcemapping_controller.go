@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/turbonomic/orm/api/v1alpha1"
-	"github.com/turbonomic/orm/enforcer"
 	"github.com/turbonomic/orm/mapper"
 )
 
@@ -40,8 +39,7 @@ type OperatorResourceMappingReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
-	Enforcer enforcer.Enforcer
-	Mapper   mapper.Mapper
+	Mapper mapper.Mapper
 }
 
 //+kubebuilder:rbac:groups=devops.turbonomic.io,resources=operatorresourcemappings,verbs=get;list;watch;create;update;patch;delete
@@ -65,7 +63,6 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 
 	if errors.IsNotFound(err) {
 		r.Mapper.CleanupORM(req.NamespacedName)
-		r.Enforcer.CleanupORM(req.NamespacedName)
 		return ctrl.Result{}, nil
 	}
 
@@ -83,19 +80,6 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 		err = r.Mapper.MapORM(orm)
 		if err != nil {
 			ocLog.Error(err, "registering sources of operator "+req.String()+" ... skipping")
-
-			orm.Status.State = v1alpha1.ORMTypeError
-			orm.Status.Reason = string(v1alpha1.ORMStatusReasonOwnerError)
-			orm.Status.Message = err.Error()
-			r.checkAndUpdateStatus(oldStatus, orm)
-			return ctrl.Result{}, nil
-		}
-	}
-
-	if r.Enforcer != nil {
-		err = r.Enforcer.EnforceORM(orm)
-		if err != nil {
-			ocLog.Error(err, "registering operator "+req.String()+" ... skipping")
 
 			orm.Status.State = v1alpha1.ORMTypeError
 			orm.Status.Reason = string(v1alpha1.ORMStatusReasonOwnerError)
@@ -130,11 +114,6 @@ func (r *OperatorResourceMappingReconciler) SetupWithManager(mgr ctrl.Manager) e
 
 	if err = r.Mapper.SetupWithManager(mgr); err != nil {
 		ocLog.Error(err, "unable to setup mapper with manager", "mapper", r.Mapper)
-		return err
-	}
-
-	if err = r.Enforcer.SetupWithManager(mgr); err != nil {
-		ocLog.Error(err, "unable to setup enforcer with manager", "enforcer", r.Enforcer)
 		return err
 	}
 

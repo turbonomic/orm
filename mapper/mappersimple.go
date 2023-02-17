@@ -158,10 +158,10 @@ func (m *SimpleMapper) validateOwnedResources(owner *unstructured.Unstructured, 
 		resobj, err = kubernetes.Toolbox.GetResourceWithGVK(resource.GroupVersionKind(), types.NamespacedName{Namespace: resource.Namespace, Name: resource.Name})
 		if err != nil {
 			for op := range mappings {
-				for n, m := range orm.Status.MappedPatterns {
+				for n, m := range orm.Status.OwnerMappingValues {
 					if op == m.OwnerPath {
-						orm.Status.MappedPatterns[n].Message = "Failed to locate owned resource: " + resource.String()
-						orm.Status.MappedPatterns[n].Reason = string(v1alpha1.ORMStatusReasonOwnedResourceError)
+						orm.Status.OwnerMappingValues[n].Message = "Failed to locate owned resource: " + resource.String()
+						orm.Status.OwnerMappingValues[n].Reason = string(v1alpha1.ORMStatusReasonOwnedResourceError)
 					}
 				}
 			}
@@ -170,18 +170,18 @@ func (m *SimpleMapper) validateOwnedResources(owner *unstructured.Unstructured, 
 
 		for op, sp := range mappings {
 			mapitem := PrepareMappingForObject(resobj, sp)
-			for n, m := range orm.Status.MappedPatterns {
+			for n, m := range orm.Status.OwnerMappingValues {
 				if op == m.OwnerPath {
-					if mapitem == nil && orm.Status.MappedPatterns[n].Message == messagePlaceHolder {
-						orm.Status.MappedPatterns[n].Message = "Failed to locate mapping path " + sp + " in owned resource"
-						orm.Status.MappedPatterns[n].Reason = string(v1alpha1.ORMStatusReasonOwnedResourceError)
-					} else if mapitem != nil && orm.Status.MappedPatterns[n].Message == messagePlaceHolder {
-						orm.Status.MappedPatterns[n].Message = ""
-						orm.Status.MappedPatterns[n].Reason = ""
+					if mapitem == nil && orm.Status.OwnerMappingValues[n].Message == messagePlaceHolder {
+						orm.Status.OwnerMappingValues[n].Message = "Failed to locate mapping path " + sp + " in owned resource"
+						orm.Status.OwnerMappingValues[n].Reason = string(v1alpha1.ORMStatusReasonOwnedResourceError)
+					} else if mapitem != nil && orm.Status.OwnerMappingValues[n].Message == messagePlaceHolder {
+						orm.Status.OwnerMappingValues[n].Message = ""
+						orm.Status.OwnerMappingValues[n].Reason = ""
 
-					} else if mapitem != nil && orm.Status.MappedPatterns[n].Reason == string(v1alpha1.ORMStatusReasonOwnedResourceError) {
-						orm.Status.MappedPatterns[n].Message = ""
-						orm.Status.MappedPatterns[n].Reason = ""
+					} else if mapitem != nil && orm.Status.OwnerMappingValues[n].Reason == string(v1alpha1.ORMStatusReasonOwnedResourceError) {
+						orm.Status.OwnerMappingValues[n].Message = ""
+						orm.Status.OwnerMappingValues[n].Reason = ""
 					}
 				}
 			}
@@ -191,8 +191,8 @@ func (m *SimpleMapper) validateOwnedResources(owner *unstructured.Unstructured, 
 }
 
 func (m *SimpleMapper) setORMStatus(owner *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping) {
-	existingMappings := orm.Status.MappedPatterns
-	orm.Status.MappedPatterns = nil
+	existingMappings := orm.Status.OwnerMappingValues
+	orm.Status.OwnerMappingValues = nil
 
 	ownerRef := corev1.ObjectReference{
 		Namespace: owner.GetNamespace(),
@@ -223,14 +223,14 @@ func (m *SimpleMapper) setORMStatus(owner *unstructured.Unstructured, orm *v1alp
 		mapitem := PrepareMappingForObject(owner, mapping.OwnerPath)
 		if mapitem != nil {
 			mapitem.Message = messagePlaceHolder
-			orm.Status.MappedPatterns = append(orm.Status.MappedPatterns, *mapitem)
+			orm.Status.OwnerMappingValues = append(orm.Status.OwnerMappingValues, *mapitem)
 		} else {
-			mapitem = &v1alpha1.Mapping{
+			mapitem = &v1alpha1.OwnerMappingValue{
 				OwnerPath: mapping.OwnerPath,
 				Message:   "Failed to locate ownerPath in owner",
 				Reason:    string(v1alpha1.ORMStatusReasonOwnerError),
 			}
-			orm.Status.MappedPatterns = append(orm.Status.MappedPatterns, *mapitem)
+			orm.Status.OwnerMappingValues = append(orm.Status.OwnerMappingValues, *mapitem)
 		}
 
 	}
@@ -240,14 +240,14 @@ func (m *SimpleMapper) setORMStatus(owner *unstructured.Unstructured, orm *v1alp
 			mapitem := PrepareMappingForObject(owner, ownerPath)
 			if mapitem != nil {
 				mapitem.Message = messagePlaceHolder
-				orm.Status.MappedPatterns = append(orm.Status.MappedPatterns, *mapitem)
+				orm.Status.OwnerMappingValues = append(orm.Status.OwnerMappingValues, *mapitem)
 			} else {
-				mapitem = &v1alpha1.Mapping{
+				mapitem = &v1alpha1.OwnerMappingValue{
 					OwnerPath: ownerPath,
 					Message:   "Failed to locate ownerPath in owner",
 					Reason:    string(v1alpha1.ORMStatusReasonOwnerError),
 				}
-				orm.Status.MappedPatterns = append(orm.Status.MappedPatterns, *mapitem)
+				orm.Status.OwnerMappingValues = append(orm.Status.OwnerMappingValues, *mapitem)
 			}
 		}
 	}
