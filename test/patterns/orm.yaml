@@ -13,10 +13,10 @@ spec:
       - "TCP"
       - "UDP"
     patterns:
-    - ownerPath: .spec.template.spec.containers[?(@.name=="{{.componentName}}")].ports[?(@.protocol=="{{ports}}")].containerPort
+    - ownerPath: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].ports[?(@.protocol=="{{ports}}")].containerPort
       owned:
         apiVersion: apps/v1
         kind: Deployment
         matchLabels:
           app: ormsource-patterns
-        path: .spec.template.spec.containers[?(@.name=="{{.componentName}}")].ports[?(@.protocol=="{{ports}}")].containerPort
+        path: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].ports[?(@.protocol=="{{ports}}")].containerPort

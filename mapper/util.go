@@ -29,7 +29,7 @@ import (
 	"github.com/turbonomic/orm/util"
 )
 
-const predefinedParameterComponentName = ".componentName"
+const predefinedOwnedResourceName = ".owned.name"
 const predefinedParameterPlaceHolder = ".."
 
 func RegisterORM(reg *registry.ORMRegistry, orm *v1alpha1.OperatorResourceMapping) error {
@@ -95,8 +95,8 @@ func RegisterORM(reg *registry.ORMRegistry, orm *v1alpha1.OperatorResourceMappin
 func populatePatterns(parameters map[string][]string, pattern v1alpha1.Pattern) []v1alpha1.Pattern {
 	var allpatterns []v1alpha1.Pattern
 
-	pattern.OwnerPath = strings.ReplaceAll(pattern.OwnerPath, "{{"+predefinedParameterComponentName+"}}", pattern.OwnedResourcePath.Name)
-	pattern.OwnedResourcePath.Path = strings.ReplaceAll(pattern.OwnedResourcePath.Path, "{{"+predefinedParameterComponentName+"}}", pattern.OwnedResourcePath.Name)
+	pattern.OwnerPath = strings.ReplaceAll(pattern.OwnerPath, "{{"+predefinedOwnedResourceName+"}}", pattern.OwnedResourcePath.Name)
+	pattern.OwnedResourcePath.Path = strings.ReplaceAll(pattern.OwnedResourcePath.Path, "{{"+predefinedOwnedResourceName+"}}", pattern.OwnedResourcePath.Name)
 
 	allpatterns = append(allpatterns, pattern)
 
