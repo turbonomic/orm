@@ -1,0 +1,62 @@
+# This is a sample ORM CR for Xl CRD.
+apiVersion: turbonomic.com/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  name: turbonomicxl
+spec:
+  owner:
+  patterns:
+  - ownerPath: .spec.{{.owned.name}}.resources
+    owned:
+      apiVersion: apps/v1
+      kind: Deployment
+      matchLabels:
+      path: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].resources
+  - ownerPath: .spec.{{.owned.name}}.replicaCount
+    owned:
+      apiVersion: apps/v1
+      kind: Deployment
+      matchLabels:
+      path: .spec.replicas
+  - ownerPath: .{{.owned.name}}.service.replicas
+    owned:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: chronograf
+      path: .spec.replicas
+  - ownerPath: .{{.owned.name}}.client.resources
+    owned:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: elasticsearch
+      path: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].resources
+  - ownerPath: .{{.owned.name}}.replicas
+    owned:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: grafana
+      path: .spec.replicas
+  - ownerPath: .{{.owned.name}}.replicaCount
+    owned:
+      apiVersion: apps/v1
+      kind: Deployment
+      matchLabels:
+      path: .spec.replicas
+  - ownerPath: .spec.{{.owned.name}}.alertmanager.replicaCount
+    owned:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: prometheus-alertmanager
+      path: .spec.replicas
+  - ownerPath: .spec.{{.owned.name}}.kubeStateMetrics.replicaCount
+    owned:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: prometheus-kube-state-metrics
+      path: .spec.replicas
+  - ownerPath: .spec.{{.owned.name}}.pushgateway.replicaCount
+    owned:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: prometheus-pushgateway
+      path: .spec.replicas
