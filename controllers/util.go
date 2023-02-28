@@ -14,19 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package mapper
+package controllers
 
 import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/kubernetes"
 	"github.com/turbonomic/orm/registry"
-	"github.com/turbonomic/orm/util"
 )
 
 const predefinedOwnedResourceName = ".owned.name"
@@ -38,11 +36,6 @@ func RegisterORM(reg *registry.ORMRegistry, orm *v1alpha1.OperatorResourceMappin
 	if orm == nil {
 		return nil
 	}
-
-	reg.CleanupRegistryForORM(types.NamespacedName{
-		Namespace: orm.Namespace,
-		Name:      orm.Name,
-	})
 
 	if orm.Spec.Mappings.Patterns == nil || len(orm.Spec.Mappings.Patterns) == 0 {
 		return nil
@@ -66,9 +59,14 @@ func RegisterORM(reg *registry.ORMRegistry, orm *v1alpha1.OperatorResourceMappin
 		} else {
 			srcObjs, err = kubernetes.Toolbox.GetResourceListWithGVKWithSelector(p.OwnedResourcePath.GroupVersionKind(), k, &p.OwnedResourcePath.LabelSelector)
 			if err != nil {
-				msLog.Error(err, "listing resource", "source", p.OwnedResourcePath)
+				ocLog.Error(err, "listing resource", "source", p.OwnedResourcePath)
 			}
 		}
+
+		reg.CleanupRegistryForORM(types.NamespacedName{
+			Namespace: orm.Namespace,
+			Name:      orm.Name,
+		})
 
 		for _, srcObj := range srcObjs {
 			p.OwnedResourcePath.Namespace = srcObj.GetNamespace()
@@ -119,33 +117,4 @@ func populatePatterns(parameters map[string][]string, pattern v1alpha1.Pattern) 
 		}
 	}
 	return allpatterns
-}
-
-func PrepareMappingForObject(obj *unstructured.Unstructured, objPath string) *v1alpha1.OwnerMappingValue {
-	mapitem := v1alpha1.OwnerMappingValue{}
-	mapitem.OwnerPath = objPath
-
-	fields := strings.Split(objPath, ".")
-	lastField := fields[len(fields)-1]
-	valueInObj, found, err := util.NestedField(obj, lastField, objPath)
-
-	valueMap := make(map[string]interface{})
-	valueMap[lastField] = valueInObj
-
-	if err != nil {
-		msLog.Error(err, "parsing src", "fields", fields, "actual", obj.Object["metadata"])
-		return nil
-	}
-	if !found {
-		return nil
-	}
-
-	valueObj := &unstructured.Unstructured{
-		Object: valueMap,
-	}
-	mapitem.Value = &runtime.RawExtension{
-		Object: valueObj,
-	}
-
-	return &mapitem
 }

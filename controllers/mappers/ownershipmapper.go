@@ -14,22 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package mapper
+package mappers
 
 import (
 	"context"
+	"errors"
 	"reflect"
+	"strings"
 
 	"github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/kubernetes"
 	"github.com/turbonomic/orm/registry"
+	"github.com/turbonomic/orm/util"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -39,74 +41,17 @@ import (
 var (
 	messagePlaceHolder = "locating source path"
 
-	msLog = ctrl.Log.WithName("mapper simple")
-
-	mp *SimpleMapper
+	moLog = ctrl.Log.WithName("Mapper Ownership")
 )
 
 // OperatorResourceMappingReconciler reconciles a OperatorResourceMapping object
-type SimpleMapper struct {
-	registry.ORMRegistry
+type OwnershipMapper struct {
+	reg *registry.ORMRegistry
 
 	watchingGVK map[schema.GroupVersionKind]bool
 }
 
-func (m *SimpleMapper) CleanupORM(key types.NamespacedName) {
-	m.CleanupRegistryForORM(key)
-}
-
-func (m *SimpleMapper) MapORM(orm *v1alpha1.OperatorResourceMapping) error {
-
-	var err error
-	// get owner
-	var obj *unstructured.Unstructured
-	if orm.Spec.Owner.Name != "" {
-		objk := types.NamespacedName{
-			Namespace: orm.Spec.Owner.Namespace,
-			Name:      orm.Spec.Owner.Name,
-		}
-		if objk.Namespace == "" {
-			objk.Namespace = orm.Namespace
-		}
-		obj, err = kubernetes.Toolbox.GetResourceWithGVK(orm.Spec.Owner.GroupVersionKind(), objk)
-		if err != nil {
-			msLog.Error(err, "failed to find owner", "owner", orm.Spec.Owner)
-			return err
-		}
-	} else {
-		objs, err := kubernetes.Toolbox.GetResourceListWithGVKWithSelector(orm.Spec.Owner.GroupVersionKind(),
-			types.NamespacedName{Namespace: orm.Spec.Owner.Namespace, Name: orm.Spec.Owner.Name}, &orm.Spec.Owner.LabelSelector)
-		if err != nil || len(objs) == 0 {
-			msLog.Error(err, "failed to find owner", "owner", orm.Spec.Owner)
-			return err
-		}
-		obj = &objs[0]
-	}
-
-	err = RegisterORM(&m.ORMRegistry, orm)
-	if err != nil {
-		return err
-	}
-
-	if _, ok := m.watchingGVK[obj.GroupVersionKind()]; !ok {
-		kubernetes.Toolbox.WatchResourceWithGVK(obj.GroupVersionKind(), cache.ResourceEventHandlerFuncs{
-			AddFunc: func(new interface{}) {
-				ownerobj := new.(*unstructured.Unstructured)
-				m.mapForOwner(ownerobj)
-			},
-			UpdateFunc: func(old, new interface{}) {
-				ownerobj := new.(*unstructured.Unstructured)
-				m.mapForOwner(ownerobj)
-			}})
-		m.watchingGVK[obj.GroupVersionKind()] = true
-	}
-
-	m.setORMStatus(obj, orm)
-
-	return err
-}
-
-func (m *SimpleMapper) mapForOwner(owner *unstructured.Unstructured) {
+func (m *OwnershipMapper) mapForOwner(owner *unstructured.Unstructured) {
 	var err error
 
 	var orgStatus v1alpha1.OperatorResourceMappingStatus
@@ -119,25 +64,27 @@ func (m *SimpleMapper) mapForOwner(owner *unstructured.Unstructured) {
 	// set orm status if the object is owner
 	orm := &v1alpha1.OperatorResourceMapping{}
 
-	ormEntry := m.ORMRegistry.RetriveORMEntryForOwner(objref)
+	ormEntry := m.reg.RetriveORMEntryForOwner(objref)
 
 	for ormk := range ormEntry {
 
 		err = kubernetes.Toolbox.OrmClient.Get(context.TODO(), ormk, orm)
 		if err != nil {
-			msLog.Error(err, "retrieving ", "orm", ormk)
+			moLog.Error(err, "retrieving ", "orm", ormk)
 		}
 		orm.Status.DeepCopyInto(&orgStatus)
 		m.setORMStatus(owner, orm)
 
 		if !reflect.DeepEqual(orgStatus, orm.Status) {
-			m.updateORMStatus(orm)
+			err = kubernetes.Toolbox.OrmClient.Status().Update(context.TODO(), orm)
+			if err != nil {
+				moLog.Error(err, "retry status")
+			}
 		}
-
 	}
 }
 
-func (m *SimpleMapper) validateOwnedResources(owner *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping) {
+func (m *OwnershipMapper) validateOwnedResources(owner *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping) {
 	var err error
 
 	ownerRef := corev1.ObjectReference{
@@ -146,10 +93,15 @@ func (m *SimpleMapper) validateOwnedResources(owner *unstructured.Unstructured, 
 	}
 	ownerRef.SetGroupVersionKind(owner.GetObjectKind().GroupVersionKind())
 
-	oe := m.ORMRegistry.RetriveObjectEntryForOwnerAndORM(ownerRef, types.NamespacedName{
+	oe := m.reg.RetriveObjectEntryForOwnerAndORM(ownerRef, types.NamespacedName{
 		Namespace: orm.GetNamespace(),
 		Name:      orm.GetName(),
 	})
+
+	if oe == nil {
+		moLog.Error(errors.New("Failed to locate owner in registry"), "=============", "oe", oe, "owner ref", ownerRef, "orm", orm)
+		return
+	}
 
 	for resource, mappings := range *oe {
 		resobj := &unstructured.Unstructured{}
@@ -190,7 +142,7 @@ func (m *SimpleMapper) validateOwnedResources(owner *unstructured.Unstructured, 
 
 }
 
-func (m *SimpleMapper) setORMStatus(owner *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping) {
+func (m *OwnershipMapper) setORMStatus(owner *unstructured.Unstructured, orm *v1alpha1.OperatorResourceMapping) {
 	existingMappings := orm.Status.OwnerMappingValues
 	orm.Status.OwnerMappingValues = nil
 
@@ -200,7 +152,7 @@ func (m *SimpleMapper) setORMStatus(owner *unstructured.Unstructured, orm *v1alp
 	}
 	ownerRef.SetGroupVersionKind(owner.GetObjectKind().GroupVersionKind())
 
-	oe := m.ORMRegistry.RetriveObjectEntryForOwnerAndORM(ownerRef, types.NamespacedName{
+	oe := m.reg.RetriveObjectEntryForOwnerAndORM(ownerRef, types.NamespacedName{
 		Namespace: orm.GetNamespace(),
 		Name:      orm.GetName(),
 	})
@@ -255,33 +207,70 @@ func (m *SimpleMapper) setORMStatus(owner *unstructured.Unstructured, orm *v1alp
 	m.validateOwnedResources(owner, orm)
 }
 
-func (m *SimpleMapper) updateORMStatus(orm *v1alpha1.OperatorResourceMapping) {
-
-	var err error
-	err = kubernetes.Toolbox.OrmClient.Status().Update(context.TODO(), orm)
-	if err != nil {
-		msLog.Error(err, "retry status")
-	}
-
-}
-
-func (m *SimpleMapper) Start(context.Context) error {
+func (m *OwnershipMapper) Start(context.Context) error {
 	return nil
 }
 
-func (m *SimpleMapper) SetupWithManager(mgr manager.Manager) error {
+func (m *OwnershipMapper) SetupWithManager(mgr manager.Manager) error {
 	return mgr.Add(m)
 }
 
-func GetSimpleMapper(config *rest.Config, scheme *runtime.Scheme) (Mapper, error) {
+func (m *OwnershipMapper) RegisterGroupVersionKind(gvk schema.GroupVersionKind) error {
+
+	if _, ok := m.watchingGVK[gvk]; !ok {
+		kubernetes.Toolbox.WatchResourceWithGVK(gvk, cache.ResourceEventHandlerFuncs{
+			AddFunc: func(new interface{}) {
+				obj := new.(*unstructured.Unstructured)
+				m.mapForOwner(obj)
+			},
+			UpdateFunc: func(old, new interface{}) {
+				obj := new.(*unstructured.Unstructured)
+				m.mapForOwner(obj)
+			}})
+		m.watchingGVK[gvk] = true
+	}
+
+	return nil
+}
+
+func NewOwnershipMapper(reg *registry.ORMRegistry) (Mapper, error) {
 	var err error
 
-	if mp == nil {
-		mp = &SimpleMapper{}
-		if mp.watchingGVK == nil {
-			mp.watchingGVK = make(map[schema.GroupVersionKind]bool)
-		}
+	mp := &OwnershipMapper{
+		reg: reg,
+	}
+	if mp.watchingGVK == nil {
+		mp.watchingGVK = make(map[schema.GroupVersionKind]bool)
 	}
 
 	return mp, err
+}
+
+func PrepareMappingForObject(obj *unstructured.Unstructured, objPath string) *v1alpha1.OwnerMappingValue {
+	mapitem := v1alpha1.OwnerMappingValue{}
+	mapitem.OwnerPath = objPath
+
+	fields := strings.Split(objPath, ".")
+	lastField := fields[len(fields)-1]
+	valueInObj, found, err := util.NestedField(obj, lastField, objPath)
+
+	valueMap := make(map[string]interface{})
+	valueMap[lastField] = valueInObj
+
+	if err != nil {
+		moLog.Error(err, "parsing src", "fields", fields, "actual", obj.Object["metadata"])
+		return nil
+	}
+	if !found {
+		return nil
+	}
+
+	valueObj := &unstructured.Unstructured{
+		Object: valueMap,
+	}
+	mapitem.Value = &runtime.RawExtension{
+		Object: valueObj,
+	}
+
+	return &mapitem
 }

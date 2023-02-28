@@ -18,16 +18,21 @@ package controllers
 
 import (
 	"context"
+	"os"
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/turbonomic/orm/api/v1alpha1"
-	"github.com/turbonomic/orm/mapper"
+	"github.com/turbonomic/orm/controllers/mappers"
+	"github.com/turbonomic/orm/kubernetes"
+	"github.com/turbonomic/orm/registry"
 )
 
 var (
@@ -39,7 +44,8 @@ type OperatorResourceMappingReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
-	Mapper mapper.Mapper
+	ownershipMapper mappers.Mapper
+	registry        registry.ORMRegistry
 }
 
 //+kubebuilder:rbac:groups=devops.turbonomic.io,resources=operatorresourcemappings,verbs=get;list;watch;create;update;patch;delete
@@ -62,7 +68,7 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 	err := r.Get(context.TODO(), req.NamespacedName, orm)
 
 	if errors.IsNotFound(err) {
-		r.Mapper.CleanupORM(req.NamespacedName)
+		r.cleanupORM(req.NamespacedName)
 		return ctrl.Result{}, nil
 	}
 
@@ -76,24 +82,16 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 	oldStatus := orm.Status.DeepCopy()
 	orm.Status = v1alpha1.OperatorResourceMappingStatus{}
 
-	if r.Mapper != nil {
-		err = r.Mapper.MapORM(orm)
-		if err != nil {
-			ocLog.Error(err, "registering sources of operator "+req.String()+" ... skipping")
+	err = r.parseORM(orm)
+	if err != nil {
+		ocLog.Error(err, "registering sources of operator "+req.String()+" ... skipping")
 
-			orm.Status.State = v1alpha1.ORMTypeError
-			orm.Status.Reason = string(v1alpha1.ORMStatusReasonOwnerError)
-			orm.Status.Message = err.Error()
-			r.checkAndUpdateStatus(oldStatus, orm)
-			return ctrl.Result{}, nil
-		}
+		orm.Status.State = v1alpha1.ORMTypeError
+		orm.Status.Reason = string(v1alpha1.ORMStatusReasonOwnerError)
+		orm.Status.Message = err.Error()
+		r.checkAndUpdateStatus(oldStatus, orm)
+		return ctrl.Result{}, nil
 	}
-
-	orm.Status.State = v1alpha1.ORMTypeOK
-	orm.Status.Reason = ""
-	orm.Status.Message = ""
-
-	r.checkAndUpdateStatus(oldStatus, orm)
 
 	return ctrl.Result{}, nil
 }
@@ -112,12 +110,65 @@ func (r *OperatorResourceMappingReconciler) checkAndUpdateStatus(oldStatus *v1al
 func (r *OperatorResourceMappingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	var err error
 
-	if err = r.Mapper.SetupWithManager(mgr); err != nil {
-		ocLog.Error(err, "unable to setup mapper with manager", "mapper", r.Mapper)
+	r.ownershipMapper, err = mappers.NewOwnershipMapper(&r.registry)
+	if err != nil {
+		ocLog.Error(err, "unable to init mapper")
+		os.Exit(1)
+	}
+
+	if err = r.ownershipMapper.SetupWithManager(mgr); err != nil {
+		ocLog.Error(err, "unable to setup mapper with manager", "mapper", r.ownershipMapper)
 		return err
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.OperatorResourceMapping{}).
 		Complete(r)
+}
+
+func (r *OperatorResourceMappingReconciler) cleanupORM(key types.NamespacedName) {
+	r.registry.CleanupRegistryForORM(key)
+}
+
+func (r *OperatorResourceMappingReconciler) parseORM(orm *v1alpha1.OperatorResourceMapping) error {
+
+	var err error
+	// get owner
+	var obj *unstructured.Unstructured
+	if orm.Spec.Owner.Name != "" {
+		objk := types.NamespacedName{
+			Namespace: orm.Spec.Owner.Namespace,
+			Name:      orm.Spec.Owner.Name,
+		}
+		if objk.Namespace == "" {
+			objk.Namespace = orm.Namespace
+		}
+		obj, err = kubernetes.Toolbox.GetResourceWithGVK(orm.Spec.Owner.GroupVersionKind(), objk)
+		if err != nil {
+			ocLog.Error(err, "failed to find owner", "owner", orm.Spec.Owner)
+			return err
+		}
+	} else {
+		objs, err := kubernetes.Toolbox.GetResourceListWithGVKWithSelector(orm.Spec.Owner.GroupVersionKind(),
+			types.NamespacedName{Namespace: orm.Spec.Owner.Namespace, Name: orm.Spec.Owner.Name}, &orm.Spec.Owner.LabelSelector)
+		if err != nil || len(objs) == 0 {
+			ocLog.Error(err, "failed to find owner", "owner", orm.Spec.Owner)
+			return err
+		}
+		obj = &objs[0]
+	}
+
+	err = RegisterORM(&r.registry, orm)
+	if err != nil {
+		return err
+	}
+
+	err = r.ownershipMapper.RegisterGroupVersionKind(orm.Spec.Owner.GroupVersionKind())
+	if err != nil {
+		return err
+	}
+
+	obj.GetAnnotations()
+
+	return err
 }

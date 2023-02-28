@@ -14,16 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package mapper
+package mappers
 
 import (
-	"github.com/turbonomic/orm/api/v1alpha1"
-	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 type Mapper interface {
 	SetupWithManager(manager.Manager) error
-	MapORM(*v1alpha1.OperatorResourceMapping) error
-	CleanupORM(key types.NamespacedName)
+	RegisterGroupVersionKind(schema.GroupVersionKind) error
 }
