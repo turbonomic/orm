@@ -41,14 +41,19 @@ spec:
               OperatorResourceMapping
             properties:
               mappings:
+                description: mapping patters defined for the owner
                 properties:
                   parameters:
                     additionalProperties:
                       items:
                         type: string
                       type: array
+                    description: paramters defined here can be used in owner and owned
+                      resource paths user can also use .owner.name to refer owner's
+                      name without defining it
                     type: object
                   patterns:
+                    description: patterns for orm controller to generate mappings
                     items:
                       properties:
                         owned:
@@ -123,6 +128,7 @@ spec:
                                 https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
                               type: string
                             path:
+                              description: path to the field inside the owned resource
                               type: string
                             resourceVersion:
                               description: 'Specific resourceVersion to which this
@@ -136,8 +142,8 @@ spec:
                           type: object
                           x-kubernetes-map-type: atomic
                         ownerPath:
-                          description: path to the location in operand, also serves
-                            as key of this pattern
+                          description: path to the location in owner resource, also
+                            serves as key of this pattern
                           type: string
                       required:
                       - owned
@@ -146,8 +152,8 @@ spec:
                     type: array
                 type: object
               owner:
-                description: Operand is the target to make actual changes if name
-                  and namespace are not provided, use same one as orm cr
+                description: Owner is the resource owns the deployed resources if
+                  name and namespace are not provided, use same one as orm cr
                 properties:
                   apiVersion:
                     description: API version of the referent.
@@ -235,6 +241,8 @@ spec:
                   transition.
                 type: string
               ownerValues:
+                description: all mappings generated from the patterns defined in spec
+                  and their values
                 items:
                   properties:
                     lastTransitionTime:
@@ -245,11 +253,13 @@ spec:
                         the transition.
                       type: string
                     ownerPath:
+                      description: path in owner resource
                       type: string
                     reason:
                       description: The reason for the condition's last transition.
                       type: string
                     value:
+                      description: value of the path in owner resource
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
                   required:
@@ -259,6 +269,7 @@ spec:
               reason:
                 type: string
               state:
+                description: state of ORM resource
                 type: string
             type: object
         type: object

@@ -25,24 +25,26 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// Reference to the source object by name or by label
+// Reference to object by name or by label
 type ObjectLocator struct {
-	// if namespace is empty, use the operand namespace as default;
-	// if apiversion and kind are empty, se apps/Deployment as default
+	// if namespace is empty, use the owner's namespace as default;
 	corev1.ObjectReference `json:",inline"`
 
 	// if ObjectReferene.name is provided use the name, otherwise, use this label selector to find target resource(s)
-	// if more than 1 resoures matching the selector, all of them are included
 	metav1.LabelSelector `json:",inline"`
 }
 
 type OwnedResourcePath struct {
-	Path          string `json:"path"` // Path to the field inside the source resource
+	// path to the field inside the owned resource
+	Path string `json:"path"`
+
+	// identify owned resources by object reference of label
+	// if more than 1 resoures matching the selector, all of them are included
 	ObjectLocator `json:",inline"`
 }
 
 type Pattern struct {
-	// path to the location in operand, also serves as key of this pattern
+	// path to the location in owner resource, also serves as key of this pattern
 	OwnerPath string `json:"ownerPath"`
 
 	// indicates which value should be mapped
@@ -50,7 +52,11 @@ type Pattern struct {
 }
 
 type MappingPatterns struct {
-	Patterns   []Pattern           `json:"patterns,omitempty"`
+	// patterns for orm controller to generate mappings
+	Patterns []Pattern `json:"patterns,omitempty"`
+
+	// paramters defined here can be used in owner and owned resource paths
+	// user can also use .owner.name to refer owner's name without defining it
 	Parameters map[string][]string `json:"parameters,omitempty"`
 }
 
@@ -59,15 +65,19 @@ type OperatorResourceMappingSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Operand is the target to make actual changes
+	// Owner is the resource owns the deployed resources
 	// if name and namespace are not provided, use same one as orm cr
-	Owner    ObjectLocator   `json:"owner"`
+	Owner ObjectLocator `json:"owner"`
+
+	// mapping patters defined for the owner
 	Mappings MappingPatterns `json:"mappings,omitempty"`
 }
 
 type OwnerMappingValue struct {
-	OwnerPath string                `json:"ownerPath"`
-	Value     *runtime.RawExtension `json:"value,omitempty"`
+	// path in owner resource
+	OwnerPath string `json:"ownerPath"`
+	// value of the path in owner resource
+	Value *runtime.RawExtension `json:"value,omitempty"`
 
 	// +optional
 	LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`
@@ -99,6 +109,7 @@ type OperatorResourceMappingStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// +optional
+	// state of ORM resource
 	State ORMStatusType `json:"state,omitempty"`
 	// +optional
 	Reason string `json:"reason,omitempty"`
@@ -107,6 +118,7 @@ type OperatorResourceMappingStatus struct {
 	Message string `json:"message,omitempty"`
 
 	// +optional
+	// all mappings generated from the patterns defined in spec and their values
 	OwnerMappingValues []OwnerMappingValue `json:"ownerValues,omitempty"`
 }
 
