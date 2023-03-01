@@ -75,7 +75,7 @@ func RegisterORM(reg *registry.ORMRegistry, orm *v1alpha1.OperatorResourceMappin
 			patterns := populatePatterns(orm.Spec.Mappings.Parameters, p)
 
 			for _, pattern := range patterns {
-				err = reg.RegsiterMapping(pattern.OwnerPath, pattern.OwnedResourcePath.Path,
+				err = reg.RegisterMapping(pattern.OwnerPath, pattern.OwnedResourcePath.Path,
 					types.NamespacedName{Name: orm.Name, Namespace: orm.Namespace},
 					orm.Spec.Owner.ObjectReference,
 					p.OwnedResourcePath.ObjectReference)
