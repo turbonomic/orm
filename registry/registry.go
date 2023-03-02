@@ -41,7 +41,7 @@ var (
 	rLog = ctrl.Log.WithName("registry")
 )
 
-func registerMappingToRegistry(registry map[corev1.ObjectReference]ORMEntry, operandPath string, objectPath string, orm types.NamespacedName, resource corev1.ObjectReference, index corev1.ObjectReference) error {
+func registerMappingToRegistry(registry map[corev1.ObjectReference]ORMEntry, ownerPath string, objectPath string, orm types.NamespacedName, resource corev1.ObjectReference, index corev1.ObjectReference) error {
 
 	if resource.Namespace == "" {
 		resource.Namespace = orm.Namespace
@@ -80,7 +80,7 @@ func registerMappingToRegistry(registry map[corev1.ObjectReference]ORMEntry, ope
 	if m, ok = oe[resref]; !ok {
 		m = make(map[string]string)
 	}
-	m[operandPath] = objectPath
+	m[ownerPath] = objectPath
 	oe[resref] = m
 	ormEntry[orm] = oe
 	registry[indexref] = ormEntry
@@ -88,14 +88,14 @@ func registerMappingToRegistry(registry map[corev1.ObjectReference]ORMEntry, ope
 	return nil
 }
 
-func (or *ORMRegistry) RegisterMapping(operandPath string, objectPath string, orm types.NamespacedName, operand corev1.ObjectReference, object corev1.ObjectReference) error {
+func (or *ORMRegistry) RegisterMapping(ownerPath string, objectPath string, orm types.NamespacedName, owner corev1.ObjectReference, object corev1.ObjectReference) error {
 
 	var err error
 
 	if or.registry == nil {
 		or.registry = make(map[corev1.ObjectReference]ORMEntry)
 	}
-	err = registerMappingToRegistry(or.registry, operandPath, objectPath, orm, operand, object)
+	err = registerMappingToRegistry(or.registry, ownerPath, objectPath, orm, owner, object)
 	if err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func (or *ORMRegistry) RegisterMapping(operandPath string, objectPath string, or
 		or.ownerRegistry = make(map[corev1.ObjectReference]ORMEntry)
 	}
 
-	err = registerMappingToRegistry(or.ownerRegistry, operandPath, objectPath, orm, object, operand)
+	err = registerMappingToRegistry(or.ownerRegistry, ownerPath, objectPath, orm, object, owner)
 
 	return err
 }
