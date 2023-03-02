@@ -18,10 +18,11 @@ package mappers
 
 import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 type Mapper interface {
 	SetupWithManager(manager.Manager) error
-	RegisterGroupVersionKind(schema.GroupVersionKind) error
+	RegisterForObject(schema.GroupVersionKind, types.NamespacedName) error
 }

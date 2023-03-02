@@ -163,12 +163,10 @@ func (r *OperatorResourceMappingReconciler) parseORM(orm *v1alpha1.OperatorResou
 		return err
 	}
 
-	err = r.ownershipMapper.RegisterGroupVersionKind(orm.Spec.Owner.GroupVersionKind())
+	err = r.ownershipMapper.RegisterForObject(orm.Spec.Owner.GroupVersionKind(), types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()})
 	if err != nil {
 		return err
 	}
-
-	obj.GetAnnotations()
 
 	return err
 }

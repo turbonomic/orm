@@ -41,36 +41,41 @@ func RegisterORM(reg *registry.ORMRegistry, orm *v1alpha1.OperatorResourceMappin
 		return nil
 	}
 
-	var srcObj *unstructured.Unstructured
+	srcmap := make(map[string][]types.NamespacedName)
 	for _, p := range orm.Spec.Mappings.Patterns {
+
+		var srckeys []types.NamespacedName
+
 		k := types.NamespacedName{Namespace: p.OwnedResourcePath.Namespace, Name: p.OwnedResourcePath.Name}
 		if k.Namespace == "" {
 			k.Namespace = orm.Namespace
 		}
 
 		// TODO: avoid to retrieve same source repeatedly
-		var srcObjs []unstructured.Unstructured
 		if k.Name != "" {
-			srcObj = &unstructured.Unstructured{}
-			srcObj.SetGroupVersionKind(p.OwnedResourcePath.GroupVersionKind())
-			srcObj.SetNamespace(k.Namespace)
-			srcObj.SetName(k.Name)
-			srcObjs = append(srcObjs, *srcObj)
+			srckeys = append(srckeys, k)
 		} else {
+			var srcObjs []unstructured.Unstructured
 			srcObjs, err = kubernetes.Toolbox.GetResourceListWithGVKWithSelector(p.OwnedResourcePath.GroupVersionKind(), k, &p.OwnedResourcePath.LabelSelector)
 			if err != nil {
 				ocLog.Error(err, "listing resource", "source", p.OwnedResourcePath)
 			}
+			for _, obj := range srcObjs {
+				srckeys = append(srckeys, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()})
+			}
 		}
+		srcmap[p.OwnedResourcePath.Path] = srckeys
+	}
 
-		reg.CleanupRegistryForORM(types.NamespacedName{
-			Namespace: orm.Namespace,
-			Name:      orm.Name,
-		})
+	reg.CleanupRegistryForORM(types.NamespacedName{
+		Namespace: orm.Namespace,
+		Name:      orm.Name,
+	})
 
-		for _, srcObj := range srcObjs {
-			p.OwnedResourcePath.Namespace = srcObj.GetNamespace()
-			p.OwnedResourcePath.Name = srcObj.GetName()
+	for _, p := range orm.Spec.Mappings.Patterns {
+		for _, k := range srcmap[p.OwnedResourcePath.Path] {
+			p.OwnedResourcePath.Namespace = k.Namespace
+			p.OwnedResourcePath.Name = k.Name
 
 			patterns := populatePatterns(orm.Spec.Mappings.Parameters, p)
 

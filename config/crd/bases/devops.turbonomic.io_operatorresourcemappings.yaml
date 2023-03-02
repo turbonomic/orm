@@ -48,9 +48,9 @@ spec:
                       items:
                         type: string
                       type: array
-                    description: paramters defined here can be used in owner and owned
-                      resource paths user can also use .owner.name to refer owner's
-                      name without defining it
+                    description: parameters defined here can be used in owner and
+                      owned resource paths user can also use .owner.name to refer
+                      owner's name without defining it
                     type: object
                   patterns:
                     description: patterns for orm controller to generate mappings
