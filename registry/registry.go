@@ -19,7 +19,6 @@ package registry
 import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // namespacedname of ORM as key, in case 1 source maps to more than 1 ORM
@@ -36,10 +35,6 @@ type ORMRegistry struct {
 	// ownerRegistry is defined to find orm and mappings by Owner Object
 	ownerRegistry map[corev1.ObjectReference]ORMEntry
 }
-
-var (
-	rLog = ctrl.Log.WithName("registry")
-)
 
 func registerMappingToRegistry(registry map[corev1.ObjectReference]ORMEntry, ownerPath string, objectPath string, orm types.NamespacedName, resource corev1.ObjectReference, index corev1.ObjectReference) error {
 
@@ -115,9 +110,7 @@ func cleanupORMInRegistry(registry map[corev1.ObjectReference]ORMEntry, orm type
 	}
 
 	for _, ormEntry := range registry {
-		if _, exists := ormEntry[orm]; exists {
-			delete(ormEntry, orm)
-		}
+		delete(ormEntry, orm)
 	}
 }
 
@@ -125,9 +118,6 @@ func (or *ORMRegistry) CleanupRegistryForORM(orm types.NamespacedName) {
 	cleanupORMInRegistry(or.registry, orm)
 
 	cleanupORMInRegistry(or.ownerRegistry, orm)
-
-	return
-
 }
 
 func retrieveORMEntryForObjectFromRegistry(registry map[corev1.ObjectReference]ORMEntry, objref corev1.ObjectReference) ORMEntry {
@@ -152,12 +142,12 @@ func retrieveObjectEntryForObjectAndORMFromRegistry(registry map[corev1.ObjectRe
 	return &oe
 }
 
-func (or *ORMRegistry) RetrieveORMEntryForOwner(ownerref corev1.ObjectReference) ORMEntry {
-	return retrieveORMEntryForObjectFromRegistry(or.ownerRegistry, ownerref)
+func (or *ORMRegistry) RetrieveORMEntryForOwner(owner corev1.ObjectReference) ORMEntry {
+	return retrieveORMEntryForObjectFromRegistry(or.ownerRegistry, owner)
 }
 
-func (or *ORMRegistry) RetrieveObjectEntryForOwnerAndORM(ownerref corev1.ObjectReference, orm types.NamespacedName) *ObjectEntry {
-	return retrieveObjectEntryForObjectAndORMFromRegistry(or.ownerRegistry, ownerref, orm)
+func (or *ORMRegistry) RetrieveObjectEntryForOwnerAndORM(owner corev1.ObjectReference, orm types.NamespacedName) *ObjectEntry {
+	return retrieveObjectEntryForObjectAndORMFromRegistry(or.ownerRegistry, owner, orm)
 }
 
 func (or *ORMRegistry) RetrieveORMEntryForResource(objref corev1.ObjectReference) ORMEntry {

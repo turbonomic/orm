@@ -30,7 +30,6 @@ type Schema struct {
 }
 
 var (
-	ormSchema         Schema
 	resourcePredicate = discovery.SupportsAllVerbs{Verbs: []string{"create", "update", "delete", "list", "watch"}}
 
 	sLog = ctrl.Log.WithName("schema")
@@ -94,6 +93,7 @@ func (s *Schema) discoverSchemaMappings() {
 	// do not return if there is error
 	// some api server aggregation may cause this problem, but can still get return some resources.
 	if err != nil {
+		sLog.Info("discovering schema mapping, ignoring error ", err)
 	}
 
 	filteredResources := discovery.FilteredBy(resourcePredicate, resources)

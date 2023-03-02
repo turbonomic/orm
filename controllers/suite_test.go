@@ -72,21 +72,21 @@ var (
 		Spec: devopsv1alpha1.OperatorResourceMappingSpec{
 			Owner: devopsv1alpha1.ObjectLocator{
 				ObjectReference: corev1.ObjectReference{
-					APIVersion: "testgroup.testorg/v1alpha1",
+					APIVersion: "group.org/v1alpha1",
 					Kind:       "TestOperatorKind",
 				},
 			},
 			Mappings: devopsv1alpha1.MappingPatterns{
 				Patterns: []devopsv1alpha1.Pattern{
 					{
-						OwnerPath: "destnation.path",
+						OwnerPath: "destination.path",
 						OwnedResourcePath: devopsv1alpha1.OwnedResourcePath{
 							Path: "source.path",
 							ObjectLocator: devopsv1alpha1.ObjectLocator{
 								ObjectReference: corev1.ObjectReference{
 									APIVersion: "apps/v1",
 									Kind:       "Deployment",
-									Name:       "testdeploy",
+									Name:       "deploy",
 								},
 							},
 						},
@@ -105,7 +105,7 @@ func TestAPIs(t *testing.T) {
 
 var _ = Describe("ORMController", func() {
 
-	It("can recocile orm", func() {
+	It("can reconcile orm", func() {
 		Expect(k8sClient).NotTo(BeNil())
 		Expect(testorm.Spec.Mappings.Patterns).NotTo(BeNil())
 		err := k8sClient.Create(ctx, testorm)

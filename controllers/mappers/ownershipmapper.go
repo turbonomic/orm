@@ -99,7 +99,7 @@ func (m *OwnershipMapper) validateOwnedResources(owner *unstructured.Unstructure
 	})
 
 	if oe == nil {
-		moLog.Error(errors.New("Failed to locate owner in registry"), "=============", "oe", oe, "owner ref", ownerRef, "orm", orm)
+		moLog.Error(errors.New("failed to locate owner in registry"), "oe", oe, "owner ref", ownerRef, "orm", orm)
 		return
 	}
 

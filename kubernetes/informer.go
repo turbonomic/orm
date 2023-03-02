@@ -22,11 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
-	ctrl "sigs.k8s.io/controller-runtime"
-)
-
-var (
-	iLog = ctrl.Log.WithName("informer")
 )
 
 type InformerFactory struct {

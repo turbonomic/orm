@@ -30,7 +30,7 @@ type ObjectLocator struct {
 	// if namespace is empty, use the owner's namespace as default;
 	corev1.ObjectReference `json:",inline"`
 
-	// if ObjectReferene.name is provided use the name, otherwise, use this label selector to find target resource(s)
+	// if ObjectReference.name is provided use the name, otherwise, use this label selector to find target resource(s)
 	metav1.LabelSelector `json:",inline"`
 }
 
@@ -39,7 +39,7 @@ type OwnedResourcePath struct {
 	Path string `json:"path"`
 
 	// identify owned resources by object reference of label
-	// if more than 1 resoures matching the selector, all of them are included
+	// if more than 1 resources matching the selector, all of them are included
 	ObjectLocator `json:",inline"`
 }
 
@@ -55,7 +55,7 @@ type MappingPatterns struct {
 	// patterns for orm controller to generate mappings
 	Patterns []Pattern `json:"patterns,omitempty"`
 
-	// paramters defined here can be used in owner and owned resource paths
+	// parameters defined here can be used in owner and owned resource paths
 	// user can also use .owner.name to refer owner's name without defining it
 	Parameters map[string][]string `json:"parameters,omitempty"`
 }

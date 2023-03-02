@@ -77,7 +77,7 @@ func (r *CompatibilityReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	ocLog.Info("reconciling ormv1", "object", req.NamespacedName)
+	ocLog.Info("reconciling legacy orm", "object", req.NamespacedName)
 
 	r.compatibilityCheck(ormv1Obj)
 
@@ -138,6 +138,9 @@ func (c *CompatibilityReconciler) createNewCompatibleORMv2(ormv1Obj *unstructure
 	var neworm *devopsv1alpha1.OperatorResourceMapping
 
 	neworm, err = c.constructCompatibleORMv2(ormv1Obj)
+	if err != nil {
+		ccLog.Error(err, "constructing new orm")
+	}
 
 	err = c.Create(context.TODO(), neworm)
 
@@ -201,20 +204,20 @@ func (c *CompatibilityReconciler) constructCompatibleORMv2(ormv1Obj *unstructure
 
 	for _, mapping := range mappings {
 		var paramList []string
-		paramList, found, err = unstructured.NestedStringSlice(mapping.(map[string]interface{}), parameterPath...)
+		paramList, _, err = unstructured.NestedStringSlice(mapping.(map[string]interface{}), parameterPath...)
 		if err != nil {
 			return orm, err
 		}
 
 		var srcKind string
-		srcKind, found, err = unstructured.NestedString(mapping.(map[string]interface{}), srcKindPath...)
+		srcKind, _, err = unstructured.NestedString(mapping.(map[string]interface{}), srcKindPath...)
 
 		if err != nil {
 			return orm, err
 		}
 
 		for _, component := range paramList {
-			templates, found, err = unstructured.NestedSlice(mapping.(map[string]interface{}), templatePath...)
+			templates, _, err = unstructured.NestedSlice(mapping.(map[string]interface{}), templatePath...)
 			if err != nil {
 				return orm, err
 			}

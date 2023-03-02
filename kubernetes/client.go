@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -32,10 +31,6 @@ type Client struct {
 	dynamic.Interface
 	OrmClient client.Client
 }
-
-var (
-	rcLog = ctrl.Log.WithName("client")
-)
 
 func (c *Client) GetResourceListWithGVKWithSelector(gvk schema.GroupVersionKind, req types.NamespacedName, selector *metav1.LabelSelector) ([]unstructured.Unstructured, error) {
 

@@ -25,7 +25,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/rest"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -41,11 +40,8 @@ type ToolboxType struct {
 
 var (
 	resync = 10 * time.Minute
-	stopCh chan struct{}
 
 	Toolbox *ToolboxType
-
-	setupLog = ctrl.Log.WithName("init")
 )
 
 func (r *ToolboxType) Start(ctx context.Context) {
@@ -62,7 +58,7 @@ func InitToolbox(config *rest.Config, scheme *runtime.Scheme) error {
 
 	Toolbox.cfg = config
 	if Toolbox.cfg == nil {
-		return errors.New("Null Config for discovery")
+		return errors.New("nil Config for discovery")
 	}
 	Toolbox.scheme = scheme
 
