@@ -130,7 +130,7 @@ func (or *ORMRegistry) CleanupRegistryForORM(orm types.NamespacedName) {
 
 }
 
-func retriveORMEntryForObjectFromRegistry(registry map[corev1.ObjectReference]ORMEntry, objref corev1.ObjectReference) ORMEntry {
+func retrieveORMEntryForObjectFromRegistry(registry map[corev1.ObjectReference]ORMEntry, objref corev1.ObjectReference) ORMEntry {
 	if registry == nil {
 		return nil
 	}
@@ -139,7 +139,7 @@ func retriveORMEntryForObjectFromRegistry(registry map[corev1.ObjectReference]OR
 }
 
 func retrieveObjectEntryForObjectAndORMFromRegistry(registry map[corev1.ObjectReference]ORMEntry, obj corev1.ObjectReference, orm types.NamespacedName) *ObjectEntry {
-	orme := retriveORMEntryForObjectFromRegistry(registry, obj)
+	orme := retrieveORMEntryForObjectFromRegistry(registry, obj)
 	if orme == nil {
 		return nil
 	}
@@ -153,7 +153,7 @@ func retrieveObjectEntryForObjectAndORMFromRegistry(registry map[corev1.ObjectRe
 }
 
 func (or *ORMRegistry) RetrieveORMEntryForOwner(ownerref corev1.ObjectReference) ORMEntry {
-	return retriveORMEntryForObjectFromRegistry(or.ownerRegistry, ownerref)
+	return retrieveORMEntryForObjectFromRegistry(or.ownerRegistry, ownerref)
 }
 
 func (or *ORMRegistry) RetrieveObjectEntryForOwnerAndORM(ownerref corev1.ObjectReference, orm types.NamespacedName) *ObjectEntry {
@@ -161,7 +161,7 @@ func (or *ORMRegistry) RetrieveObjectEntryForOwnerAndORM(ownerref corev1.ObjectR
 }
 
 func (or *ORMRegistry) RetrieveORMEntryForResource(objref corev1.ObjectReference) ORMEntry {
-	return retriveORMEntryForObjectFromRegistry(or.registry, objref)
+	return retrieveORMEntryForObjectFromRegistry(or.registry, objref)
 }
 
 func (or *ORMRegistry) RetrieveObjectEntryForResourceAndORM(objref corev1.ObjectReference, orm types.NamespacedName) *ObjectEntry {
