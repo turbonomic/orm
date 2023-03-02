@@ -64,7 +64,7 @@ func (m *OwnershipMapper) mapForOwner(owner *unstructured.Unstructured) {
 	// set orm status if the object is owner
 	orm := &v1alpha1.OperatorResourceMapping{}
 
-	ormEntry := m.reg.RetriveORMEntryForOwner(objref)
+	ormEntry := m.reg.RetrieveORMEntryForOwner(objref)
 
 	for ormk := range ormEntry {
 

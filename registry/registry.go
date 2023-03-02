@@ -38,7 +38,7 @@ type ORMRegistry struct {
 }
 
 var (
-	rLog = ctrl.Log.WithName("source regisry")
+	rLog = ctrl.Log.WithName("registry")
 )
 
 func registerMappingToRegistry(registry map[corev1.ObjectReference]ORMEntry, operandPath string, objectPath string, orm types.NamespacedName, resource corev1.ObjectReference, index corev1.ObjectReference) error {
@@ -152,7 +152,7 @@ func retriveObjectEntryForObjectAndORMFromRegistry(registry map[corev1.ObjectRef
 	return &oe
 }
 
-func (or *ORMRegistry) RetriveORMEntryForOwner(ownerref corev1.ObjectReference) ORMEntry {
+func (or *ORMRegistry) RetrieveORMEntryForOwner(ownerref corev1.ObjectReference) ORMEntry {
 	return retriveORMEntryForObjectFromRegistry(or.ownerRegistry, ownerref)
 }
 
@@ -160,10 +160,10 @@ func (or *ORMRegistry) RetriveObjectEntryForOwnerAndORM(ownerref corev1.ObjectRe
 	return retriveObjectEntryForObjectAndORMFromRegistry(or.ownerRegistry, ownerref, orm)
 }
 
-func (or *ORMRegistry) RetriveORMEntryForResource(objref corev1.ObjectReference) ORMEntry {
+func (or *ORMRegistry) RetrieveORMEntryForResource(objref corev1.ObjectReference) ORMEntry {
 	return retriveORMEntryForObjectFromRegistry(or.registry, objref)
 }
 
-func (or *ORMRegistry) RetriveObjectEntryForResourceAndORM(objref corev1.ObjectReference, orm types.NamespacedName) *ObjectEntry {
+func (or *ORMRegistry) RetrieveObjectEntryForResourceAndORM(objref corev1.ObjectReference, orm types.NamespacedName) *ObjectEntry {
 	return retriveObjectEntryForObjectAndORMFromRegistry(or.registry, objref, orm)
 }
