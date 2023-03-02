@@ -1,0 +1,171 @@
+# This is a sample ORM CR for Xl CRD.
+apiVersion: turbonomic.com/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  name: xls.charts.helm.k8s.io
+spec:
+  resourceMappings:
+    - srcResourceSpec:
+        kind: Deployment
+        componentNames:
+          - action-orchestrator
+          - api
+          - auth
+          - clustermgr
+          - cost
+          - extractor
+          - db
+          - group
+          - history
+          - intersight-integration
+          - kafka
+          - kubeturbo
+          - market
+          - mediation-acims
+          - mediation-actionscript
+          - mediation-actionstream-kafka
+          - mediation-aix
+          - mediation-apic
+          - mediation-appdynamics
+          - mediation-appinsights
+          - mediation-aws
+          - mediation-awsbilling
+          - mediation-awscloudbilling
+          - mediation-awscost
+          - mediation-awslambda
+          - mediation-azure
+          - mediation-azurecost
+          - mediation-azureea
+          - mediation-azuresp
+          - mediation-azurevolumes
+          - mediation-baremetal
+          - mediation-cloudfoundry
+          - mediation-compellent
+          - mediation-datadog
+          - mediation-dynatrace
+          - mediation-flexera
+          - mediation-gcpproject
+          - mediation-gcpbilling
+          - mediation-gcpcost
+          - mediation-gcpsa
+          - mediation-hds
+          - mediation-horizon
+          - mediation-hpe3par
+          - mediation-hyperflex
+          - mediation-hyperv
+          - mediation-ibmstorage-flashsystem
+          - mediation-instana
+          - mediation-intersight
+          - mediation-intersighthyperflex
+          - mediation-intersightucs
+          - mediation-istio
+          - mediation-jboss
+          - mediation-jvm
+          - mediation-mssql
+          - mediation-mysql
+          - mediation-netapp
+          - mediation-netflow
+          - mediation-newrelic
+          - mediation-nutanix
+          - mediation-oneview
+          - mediation-openstack
+          - mediation-oracle
+          - mediation-pivotal
+          - mediation-pure
+          - mediation-rhv
+          - mediation-scaleio
+          - mediation-servicenow
+          - mediation-snmp
+          - mediation-tanium
+          - mediation-terraform
+          - mediation-tetration
+          - mediation-tomcat
+          - mediation-ucs
+          - mediation-ucsdirector
+          - mediation-udt
+          - mediation-vcd
+          - mediation-vcenter
+          - mediation-vcenterbrowsing
+          - mediation-vmax
+          - mediation-vmm
+          - mediation-vplex
+          - mediation-webhook
+          - mediation-weblogic
+          - mediation-websphere
+          - mediation-wmi
+          - mediation-xtremio
+          - ml-datastore
+          - ml-training
+          - plan-orchestrator
+          - reporting
+          - repository
+          - topology-processor
+      resourceMappingTemplates:
+        - srcPath: .spec.template.spec.containers[?(@.name=="{{.componentName}}")].resources
+          destPath: .spec.{{.componentName}}.resources
+        - srcPath: .spec.replicas
+          destPath: .spec.{{.componentName}}.replicaCount
+    - srcResourceSpec:
+        kind: Deployment
+        componentNames:
+          - arangodb
+          - influxdb
+          - kafka
+          - zookeeper
+      resourceMappingTemplates:
+        - srcPath: .spec.template.spec.containers[?(@.name=="{{.componentName}}")].resources
+          destPath: .spec.{{.componentName}}.resources
+    - srcResourceSpec:
+        kind: Deployment
+        componentNames:
+          - chronograf
+      resourceMappingTemplates:
+        - srcPath: .spec.template.spec.containers[?(@.name=="{{.componentName}}")].resources
+          destPath: .spec.{{.componentName}}.resources
+        - srcPath: .spec.replicas
+          destPath: .{{.componentName}}.service.replicas
+    - srcResourceSpec:
+        kind: Deployment
+        componentNames:
+          - elasticsearch
+      resourceMappingTemplates:
+        - srcPath: .spec.template.spec.containers[?(@.name=="{{.componentName}}")].resources
+          destPath: .{{.componentName}}.client.resources
+    - srcResourceSpec:
+        kind: Deployment
+        componentNames:
+          - grafana
+      resourceMappingTemplates:
+        - srcPath: .spec.replicas
+          destPath: .{{.componentName}}.replicas
+    - srcResourceSpec:
+        kind: Deployment
+        componentNames:
+          - kibana
+          - nginx
+          - prometheus-mysql-exporter
+          - rsyslog
+      resourceMappingTemplates:
+        - srcPath: .spec.replicas
+          destPath: .{{.componentName}}.replicaCount
+    - srcResourceSpec:
+        kind: Deployment
+        componentNames:
+          - prometheus-alertmanager
+      resourceMappingTemplates:
+        - srcPath: .spec.replicas
+          destPath: .{{.componentName}}.alertmanager.replicaCount
+    - srcResourceSpec:
+        kind: Deployment
+        componentNames:
+          - prometheus-kube-state-metrics
+      resourceMappingTemplates:
+        - srcPath: .spec.replicas
+          destPath: .{{.componentName}}.kubeStateMetrics.replicaCount
+    - srcResourceSpec:
+        kind: Deployment
+        componentNames:
+          - prometheus-pushgateway
+      resourceMappingTemplates:
+        - srcPath: .spec.replicas
+          destPath: .{{.componentName}}.pushgateway.replicaCount

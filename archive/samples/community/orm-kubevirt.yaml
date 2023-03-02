@@ -1,0 +1,18 @@
+# This is a sample ORM CR for Kubevirt CRD.
+apiVersion: turbonomic.com/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  # Kubevirt operator CRD
+  name: virtualmachines.kubevirt.io
+spec:
+  resourceMappings:
+    - srcResourceSpec:
+        kind: VirtualMachineInstance
+        componentNames:
+          - rhel9
+          - win10
+      resourceMappingTemplates:
+        - srcPath: .spec.template.spec.containers[?(@.name=="compute")].resources.cpu.limit
+          destPath: .spec.template.spec.domain.cpu.cores
+        - srcPath: .spec.template.spec.containers[?(@.name=="compute")].resources.memory.limit
+          destPath: .spec.template.spec.domain.resources.requests.memory

@@ -1,0 +1,30 @@
+apiVersion: devops.turbonomic.io/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  labels:
+    app.kubernetes.io/name: operatorresourcemapping
+    app.kubernetes.io/instance: operatorresourcemapping-sample
+    app.kubernetes.io/part-of: orm
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: orm
+  name: sample-orm
+  namespace: default
+spec:
+  owner: # target same namespace by default
+    apiVersion: yourgroup.org/v1alpha1
+    kind: yourkind
+    name: myoperand
+  mappings:
+    patterns:
+    - ownerPath: ".spec.template.spec.containers[?(@.name==container1)].resources"
+      owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: yourdeploy
+        path: ".spec.template.spec.containers[?(@.name=container1)].resources"
+    - ownerPath: ".spec.template.spec.containers[?(@.name==container2)].resources"
+      owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: yourseconddeploy
+        path: ".spec.template.spec.containers[?(@.name=container2)].resources"

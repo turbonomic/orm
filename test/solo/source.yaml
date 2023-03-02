@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ormsource-solo
+  labels:
+    app: ormsource-solo
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ormsource-solo
+  template:
+    metadata:
+      labels:
+        app: ormsource-solo
+    spec:
+      containers:
+      - name: workload-0001
+        image: alpine:latest
+        command:
+        - /bin/sh
+        args:
+        - -c
+        - while sleep 3600; do :; done
+        ports:
+        - containerPort: 81
+          protocol: TCP
+        - containerPort: 10001
+          protocol: UDP
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+          requests:
+            cpu: 50m
+            memory: 50Mi

@@ -1,0 +1,17 @@
+apiVersion: devops.turbonomic.io/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  name: hierarchy-t2
+spec:
+  owner: # target same namespace by default
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ormoperand-hierarchy-t2
+  mappings:
+    patterns:
+    - ownerPath: .spec.template.spec.containers[?(@.name=="workload-0001")].resources
+      owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: ormoperand-hierarchy-t1
+        path: .spec.template.spec.containers[?(@.name=="workload-0001")].resources

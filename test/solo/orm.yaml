@@ -1,0 +1,23 @@
+apiVersion: devops.turbonomic.io/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  name: solo
+spec:
+  owner: # target same namespace by default
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ormoperand-solo
+  mappings:
+    patterns:
+    - ownerPath: .spec.replicas
+      owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: ormsource-solo
+        path: .spec.replicas
+    - ownerPath: .spec.template.spec.containers[?(@.name=="workload-0001")].resources
+      owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: ormsource-solo
+        path: .spec.template.spec.containers[?(@.name=="workload-0001")].resources
