@@ -2,7 +2,7 @@
 [![GoDoc](https://godoc.org/github.com/turbonomic/orm?status.svg)](https://godoc.org/github.com/turbonomic/orm)
 [![License](https://img.shields.io/:license-apache-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
 
-<em>Previous ORM CRD and Samples are moved to [archive](./archive/), please find doc for compatibility [here](./docs/compatibility.md).<em>
+<em>Previous ORM CRD and Samples are moved to [archive](./archive/), please find doc for compatibility [here](./docs/compatibility.md).</em>
 
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
@@ -29,9 +29,9 @@ This repo provides new ORM resource scheme, legacy ORM CRD and examples are in a
 - helping users to compose and test ORMs with the operands and deployed resources only.
 - generating ORM resource from legacy ORM resources for backward compatibility
 
-### Terminilogy
+### Terminology
 
-`Owner`: the operator resource who ownes actual deployed resources. Changes in `owner` trigger operator to update deployed/`owned` resources
+`Owner`: the operator resource who owns actual deployed resources. Changes in `owner` trigger operator to update deployed/`owned` resources
 
 `Owned` resource: resources deployed by operator, answer to changes in operand/`owner`
 
@@ -73,12 +73,8 @@ note: old orm crd is also created for backward compatibility controller
 Step 3. Start Controller with your outstanding access to kubernetes cluster
 
 ```script
-%test -s /Users/kuan/Workspace/src/github.com/kuanf/orm/bin/controller-gen || GOBIN=/Users/kuan/Workspace/src/github.com/kuanf/orm/bin go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.10.0
-/Users/kuan/Workspace/src/github.com/kuanf/orm/bin/controller-gen rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-/Users/kuan/Workspace/src/github.com/kuanf/orm/bin/controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
-go fmt ./...
-go vet ./...
-go run ./main.go
+%make run
+...
 1.676652505232917e+09   INFO    controller-runtime.metrics      Metrics server is starting to listen    {"addr": ":8080"}
 1.676652506578926e+09   INFO    setup   starting manager
 1.676652506579638e+09   INFO    Starting server {"path": "/metrics", "kind": "metrics", "addr": "[::]:8080"}
@@ -149,7 +145,7 @@ Step 5 Experience parameters for patterns
 
 Continue in the 2nd console.
 
-The `pattern` test case intends to show how to use (predefined) parameters ifor patterns.  It uses predefined parameter `.componentName` and parameter `ports` to generate 4 mappings.
+The `pattern` test case intends to show how to use (predefined) parameters in patterns.  It uses predefined parameter `.componentName` and parameter `ports` to generate 4 mappings.
 
 ```yaml
   status:
@@ -171,11 +167,11 @@ The `pattern` test case intends to show how to use (predefined) parameters ifor 
 
 ## Architecture
 
-A mapper controller is introduced to construct mapppings from patters and obtain the value from owner into orm status, the same controller is responsible for validating the paths set in patterns.
+A mapper controller is introduced to construct mappings from patters and obtain the value from owner into orm status, the same controller is responsible for validating the paths set in patterns.
 
 ### Extensions
 
-There is another use case of the mappings with operator resource. That is to retrieve recommended values from 3rd party `advisor` and use that to set the value in `owner`. We could add the `advisor` field into `pattern` to map to a `owner` path. Certain controllers can be introduced to monitor the change from `advisor` and enforec the change.
+There is another use case of the mappings with operator resource. That is to retrieve recommended values from 3rd party `advisor` and use that to set the value in `owner`. We could add the `advisor` field into `pattern` to map to a `owner` path. Certain controllers can be introduced to monitor the change from `advisor` and enforce the change.
 
 ## Next Step
 

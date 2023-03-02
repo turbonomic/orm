@@ -215,7 +215,12 @@ func (m *OwnershipMapper) SetupWithManager(mgr manager.Manager) error {
 	return mgr.Add(m)
 }
 
-func (m *OwnershipMapper) RegisterGroupVersionKind(gvk schema.GroupVersionKind) error {
+func (m *OwnershipMapper) RegisterForObject(gvk schema.GroupVersionKind, key types.NamespacedName) error {
+	obj, err := kubernetes.Toolbox.GetResourceWithGVK(gvk, key)
+	if err != nil {
+		return err
+	}
+	m.mapForOwner(obj)
 
 	if _, ok := m.watchingGVK[gvk]; !ok {
 		kubernetes.Toolbox.WatchResourceWithGVK(gvk, cache.ResourceEventHandlerFuncs{
