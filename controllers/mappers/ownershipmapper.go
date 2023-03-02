@@ -93,7 +93,7 @@ func (m *OwnershipMapper) validateOwnedResources(owner *unstructured.Unstructure
 	}
 	ownerRef.SetGroupVersionKind(owner.GetObjectKind().GroupVersionKind())
 
-	oe := m.reg.RetriveObjectEntryForOwnerAndORM(ownerRef, types.NamespacedName{
+	oe := m.reg.RetrieveObjectEntryForOwnerAndORM(ownerRef, types.NamespacedName{
 		Namespace: orm.GetNamespace(),
 		Name:      orm.GetName(),
 	})
@@ -152,7 +152,7 @@ func (m *OwnershipMapper) setORMStatus(owner *unstructured.Unstructured, orm *v1
 	}
 	ownerRef.SetGroupVersionKind(owner.GetObjectKind().GroupVersionKind())
 
-	oe := m.reg.RetriveObjectEntryForOwnerAndORM(ownerRef, types.NamespacedName{
+	oe := m.reg.RetrieveObjectEntryForOwnerAndORM(ownerRef, types.NamespacedName{
 		Namespace: orm.GetNamespace(),
 		Name:      orm.GetName(),
 	})

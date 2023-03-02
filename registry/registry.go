@@ -156,7 +156,7 @@ func (or *ORMRegistry) RetrieveORMEntryForOwner(ownerref corev1.ObjectReference)
 	return retriveORMEntryForObjectFromRegistry(or.ownerRegistry, ownerref)
 }
 
-func (or *ORMRegistry) RetriveObjectEntryForOwnerAndORM(ownerref corev1.ObjectReference, orm types.NamespacedName) *ObjectEntry {
+func (or *ORMRegistry) RetrieveObjectEntryForOwnerAndORM(ownerref corev1.ObjectReference, orm types.NamespacedName) *ObjectEntry {
 	return retriveObjectEntryForObjectAndORMFromRegistry(or.ownerRegistry, ownerref, orm)
 }
 
