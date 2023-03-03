@@ -105,24 +105,20 @@ deployment.apps/ormsource created
 After the resources are applied, you'll find the orm status already updated with values from ormoperand deployment. 
 
 ```yaml
-status:
-  mappings:
-  - mapped: ""
-    operandPath: .spec.template.spec.containers[?(@.name=="nginx")].resources
-    value:
-      resources:
-        limits:
-          cpu: 200m
-          memory: 900Mi
-        requests:
-          cpu: 50m
-          memory: 200Mi
-  - mapped: ""
-    operandPath: .spec.replicas
-    value:
-      replicas: 3
-  type: ok
-
+  status:
+    ownerValues:
+    - ownerPath: .spec.replicas
+      value:
+        replicas: 3
+    - ownerPath: .spec.template.spec.containers[?(@.name=="workload-0001")].resources
+      value:
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+          requests:
+            cpu: 50m
+            memory: 50Mi
 ```
 
 If there are errors in your ORM, or you modify the paths defined in your ORM, you can see message in ORM status helping you to fix the problem. Here are some example messages after we corrupt the paths
