@@ -8,6 +8,32 @@ rules:
 - apiGroups:
   - devops.turbonomic.io
   resources:
+  - advicemappings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - devops.turbonomic.io
+  resources:
+  - advicemappings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - devops.turbonomic.io
+  resources:
+  - advicemappings/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - devops.turbonomic.io
+  resources:
   - operatorresourcemappings
   verbs:
   - create

@@ -19,6 +19,7 @@ package kubernetes
 import (
 	"errors"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -73,6 +74,15 @@ func (c *Client) SearchResourceWithGVK(gvk schema.GroupVersionKind, req types.Na
 	}
 
 	return obj, nil
+}
+
+func (c *Client) GetResourceWithObjectReference(objref corev1.ObjectReference) (*unstructured.Unstructured, error) {
+	key := types.NamespacedName{
+		Name:      objref.Name,
+		Namespace: objref.Namespace,
+	}
+
+	return c.GetResourceWithGVK(objref.GroupVersionKind(), key)
 }
 
 func (c *Client) GetResourceWithGVK(gvk schema.GroupVersionKind, req types.NamespacedName) (*unstructured.Unstructured, error) {

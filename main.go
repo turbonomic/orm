@@ -33,6 +33,7 @@ import (
 
 	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/controllers"
+	"github.com/turbonomic/orm/enforcers"
 	"github.com/turbonomic/orm/kubernetes"
 	//+kubebuilder:scaffold:imports
 )
@@ -111,6 +112,18 @@ func main() {
 		setupLog.Error(err, "unable to create compatibility controller", "controller", "OperatorResourceMapping")
 		os.Exit(1)
 	}
+	if err = (&controllers.AdviceMappingReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "AdviceMapping")
+		os.Exit(1)
+	}
+	if err = enforcers.SetupAllEnforcersWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "AdviceMapping")
+		os.Exit(1)
+	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
