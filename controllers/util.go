@@ -30,7 +30,7 @@ import (
 const predefinedOwnedResourceName = ".owned.name"
 const predefinedParameterPlaceHolder = ".."
 
-func RegisterORM(reg *registry.ORMRegistry, orm *v1alpha1.OperatorResourceMapping) error {
+func RegisterORM(reg *registry.ResourceMappingRegistry, orm *v1alpha1.OperatorResourceMapping) error {
 	var err error
 
 	if orm == nil {
@@ -80,7 +80,7 @@ func RegisterORM(reg *registry.ORMRegistry, orm *v1alpha1.OperatorResourceMappin
 			patterns := populatePatterns(orm.Spec.Mappings.Parameters, p)
 
 			for _, pattern := range patterns {
-				err = reg.RegisterMapping(pattern.OwnerPath, pattern.OwnedResourcePath.Path,
+				err = reg.RegisterOwnershipMapping(pattern.OwnerPath, pattern.OwnedResourcePath.Path,
 					types.NamespacedName{Name: orm.Name, Namespace: orm.Namespace},
 					orm.Spec.Owner.ObjectReference,
 					p.OwnedResourcePath.ObjectReference)

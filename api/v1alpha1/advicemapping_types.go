@@ -22,16 +22,16 @@ import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
-type AdvisorResourcePath struct {
-	Advisor corev1.ObjectReference `json:",inline"`
-	Path    string                 `json:"path"`
+type ResourcePath struct {
+	corev1.ObjectReference `json:",inline"`
+	Path                   string `json:"path"`
 }
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 type AdviceMappingItem struct {
-	OwnerPath           string              `json:"ownerPath"`
-	AdvisorResourcePath AdvisorResourcePath `json:"advisor"`
+	OwnerPath           string       `json:"ownerPath"`
+	AdvisorResourcePath ResourcePath `json:"advisor"`
 }
 
 // AdviceMappingSpec defines the desired state of AdviceMapping
@@ -42,9 +42,9 @@ type AdviceMappingSpec struct {
 
 type Advice struct {
 	// path in owner resource
-	OwnerPath string `json:"ownerPath"`
+	Owner ResourcePath `json:"owner"`
 	// value of the path in advisor resource
-	Value *runtime.RawExtension `json:"value,omitempty"`
+	Value *runtime.RawExtension `json:"adviceValue,omitempty"`
 
 	// +optional
 	LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`

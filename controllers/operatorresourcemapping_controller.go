@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"os"
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -42,10 +41,10 @@ var (
 // OperatorResourceMappingReconciler reconciles a OperatorResourceMapping object
 type OperatorResourceMappingReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	Registry *registry.ResourceMappingRegistry
 
-	ownershipMapper mappers.Mapper
-	registry        registry.ORMRegistry
+	ownershipMapper *mappers.OwnershipMapper
 }
 
 //+kubebuilder:rbac:groups=devops.turbonomic.io,resources=operatorresourcemappings,verbs=get;list;watch;create;update;patch;delete
@@ -108,18 +107,7 @@ func (r *OperatorResourceMappingReconciler) checkAndUpdateStatus(oldStatus *v1al
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *OperatorResourceMappingReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	var err error
-
-	r.ownershipMapper, err = mappers.NewOwnershipMapper(&r.registry)
-	if err != nil {
-		ocLog.Error(err, "unable to init mapper")
-		os.Exit(1)
-	}
-
-	if err = r.ownershipMapper.SetupWithManager(mgr); err != nil {
-		ocLog.Error(err, "unable to setup mapper with manager", "mapper", r.ownershipMapper)
-		return err
-	}
+	r.ownershipMapper = mappers.NewOwnershipMapper(r.Registry)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.OperatorResourceMapping{}).
@@ -127,7 +115,7 @@ func (r *OperatorResourceMappingReconciler) SetupWithManager(mgr ctrl.Manager) e
 }
 
 func (r *OperatorResourceMappingReconciler) cleanupORM(key types.NamespacedName) {
-	r.registry.CleanupRegistryForORM(key)
+	r.Registry.CleanupRegistryForORM(key)
 }
 
 func (r *OperatorResourceMappingReconciler) parseORM(orm *v1alpha1.OperatorResourceMapping) error {
@@ -158,7 +146,7 @@ func (r *OperatorResourceMappingReconciler) parseORM(orm *v1alpha1.OperatorResou
 		obj = &objs[0]
 	}
 
-	err = RegisterORM(&r.registry, orm)
+	err = RegisterORM(r.Registry, orm)
 	if err != nil {
 		return err
 	}

@@ -35,7 +35,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 var (
@@ -46,7 +45,7 @@ var (
 
 // OperatorResourceMappingReconciler reconciles a OperatorResourceMapping object
 type OwnershipMapper struct {
-	reg *registry.ORMRegistry
+	reg *registry.ResourceMappingRegistry
 
 	watchingGVK map[schema.GroupVersionKind]bool
 }
@@ -207,14 +206,6 @@ func (m *OwnershipMapper) setORMStatus(owner *unstructured.Unstructured, orm *v1
 	m.validateOwnedResources(owner, orm)
 }
 
-func (m *OwnershipMapper) Start(context.Context) error {
-	return nil
-}
-
-func (m *OwnershipMapper) SetupWithManager(mgr manager.Manager) error {
-	return mgr.Add(m)
-}
-
 func (m *OwnershipMapper) RegisterForObject(gvk schema.GroupVersionKind, key types.NamespacedName) error {
 	obj, err := kubernetes.Toolbox.GetResourceWithGVK(gvk, key)
 	if err != nil {
@@ -238,17 +229,16 @@ func (m *OwnershipMapper) RegisterForObject(gvk schema.GroupVersionKind, key typ
 	return nil
 }
 
-func NewOwnershipMapper(reg *registry.ORMRegistry) (Mapper, error) {
-	var err error
+func NewOwnershipMapper(reg *registry.ResourceMappingRegistry) *OwnershipMapper {
 
-	mp := &OwnershipMapper{
+	om := &OwnershipMapper{
 		reg: reg,
 	}
-	if mp.watchingGVK == nil {
-		mp.watchingGVK = make(map[schema.GroupVersionKind]bool)
+	if om.watchingGVK == nil {
+		om.watchingGVK = make(map[schema.GroupVersionKind]bool)
 	}
 
-	return mp, err
+	return om
 }
 
 func PrepareMappingForObject(obj *unstructured.Unstructured, objPath string) *v1alpha1.OwnerMappingValue {

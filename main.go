@@ -33,8 +33,8 @@ import (
 
 	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/controllers"
-	"github.com/turbonomic/orm/enforcers"
 	"github.com/turbonomic/orm/kubernetes"
+	"github.com/turbonomic/orm/registry"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -97,30 +97,29 @@ func main() {
 		os.Exit(1)
 	}
 
+	var reg registry.ResourceMappingRegistry
+
 	if err = (&controllers.OperatorResourceMappingReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Registry: &reg,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create orm controller", "controller", "OperatorResourceMapping")
 		os.Exit(1)
 	}
-
+	if err = (&controllers.AdviceMappingReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Registry: &reg,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "AdviceMapping")
+		os.Exit(1)
+	}
 	if err = (&controllers.CompatibilityReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create compatibility controller", "controller", "OperatorResourceMapping")
-		os.Exit(1)
-	}
-	if err = (&controllers.AdviceMappingReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "AdviceMapping")
-		os.Exit(1)
-	}
-	if err = enforcers.SetupAllEnforcersWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "AdviceMapping")
 		os.Exit(1)
 	}
 

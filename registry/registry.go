@@ -26,17 +26,17 @@ import (
 type Mappings map[string]string
 type ObjectEntry map[corev1.ObjectReference]Mappings
 
-// ORMEntry is defined for registry to search orm and all registered mappings
-type ORMEntry map[types.NamespacedName]ObjectEntry
+// ResourceMappingEntry is defined for registry to search orm and all registered mappings
+type ResourceMappingEntry map[types.NamespacedName]ObjectEntry
 
-type ORMRegistry struct {
-	// registry is defined to find orm and mappings by Owned Object
-	registry map[corev1.ObjectReference]ORMEntry
+type ResourceMappingRegistry struct {
 	// ownerRegistry is defined to find orm and mappings by Owner Object
-	ownerRegistry map[corev1.ObjectReference]ORMEntry
+	ownerRegistry map[corev1.ObjectReference]ResourceMappingEntry
+	// advisorRegistry is defined to find am and mappings by advisor
+	advisorRegistry map[corev1.ObjectReference]ResourceMappingEntry
 }
 
-func registerMappingToRegistry(registry map[corev1.ObjectReference]ORMEntry, ownerPath string, objectPath string, orm types.NamespacedName, resource corev1.ObjectReference, index corev1.ObjectReference) error {
+func registerMappingToRegistry(registry map[corev1.ObjectReference]ResourceMappingEntry, ownerPath string, objectPath string, orm types.NamespacedName, resource corev1.ObjectReference, index corev1.ObjectReference) error {
 
 	if resource.Namespace == "" {
 		resource.Namespace = orm.Namespace
@@ -52,16 +52,16 @@ func registerMappingToRegistry(registry map[corev1.ObjectReference]ORMEntry, own
 	}
 	indexref.SetGroupVersionKind(index.GroupVersionKind())
 
-	var ormEntry ORMEntry
+	var ResourceMappingEntry ResourceMappingEntry
 	var exists bool
-	if ormEntry, exists = registry[indexref]; !exists {
-		ormEntry = make(map[types.NamespacedName]ObjectEntry)
+	if ResourceMappingEntry, exists = registry[indexref]; !exists {
+		ResourceMappingEntry = make(map[types.NamespacedName]ObjectEntry)
 	}
 
 	var oe ObjectEntry
 	var ok bool
 
-	if oe, ok = ormEntry[orm]; !ok {
+	if oe, ok = ResourceMappingEntry[orm]; !ok {
 		oe = make(map[corev1.ObjectReference]Mappings)
 	}
 
@@ -77,26 +77,30 @@ func registerMappingToRegistry(registry map[corev1.ObjectReference]ORMEntry, own
 	}
 	m[ownerPath] = objectPath
 	oe[resref] = m
-	ormEntry[orm] = oe
-	registry[indexref] = ormEntry
+	ResourceMappingEntry[orm] = oe
+	registry[indexref] = ResourceMappingEntry
 
 	return nil
 }
 
-func (or *ORMRegistry) RegisterMapping(ownerPath string, objectPath string, orm types.NamespacedName, owner corev1.ObjectReference, object corev1.ObjectReference) error {
+func (or *ResourceMappingRegistry) RegisterAdviceMapping(ownerPath string, advicePath string, am types.NamespacedName, owner corev1.ObjectReference, advisor corev1.ObjectReference) error {
+	var err error
+
+	if or.advisorRegistry == nil {
+		or.advisorRegistry = make(map[corev1.ObjectReference]ResourceMappingEntry)
+	}
+
+	err = registerMappingToRegistry(or.advisorRegistry, ownerPath, advicePath, am, owner, advisor)
+
+	return err
+}
+
+func (or *ResourceMappingRegistry) RegisterOwnershipMapping(ownerPath string, objectPath string, orm types.NamespacedName, owner corev1.ObjectReference, object corev1.ObjectReference) error {
 
 	var err error
 
-	if or.registry == nil {
-		or.registry = make(map[corev1.ObjectReference]ORMEntry)
-	}
-	err = registerMappingToRegistry(or.registry, ownerPath, objectPath, orm, owner, object)
-	if err != nil {
-		return err
-	}
-
 	if or.ownerRegistry == nil {
-		or.ownerRegistry = make(map[corev1.ObjectReference]ORMEntry)
+		or.ownerRegistry = make(map[corev1.ObjectReference]ResourceMappingEntry)
 	}
 
 	err = registerMappingToRegistry(or.ownerRegistry, ownerPath, objectPath, orm, object, owner)
@@ -104,23 +108,22 @@ func (or *ORMRegistry) RegisterMapping(ownerPath string, objectPath string, orm 
 	return err
 }
 
-func cleanupORMInRegistry(registry map[corev1.ObjectReference]ORMEntry, orm types.NamespacedName) {
+func cleanupORMInRegistry(registry map[corev1.ObjectReference]ResourceMappingEntry, orm types.NamespacedName) {
 	if registry == nil {
 		return
 	}
 
-	for _, ormEntry := range registry {
-		delete(ormEntry, orm)
+	for _, ResourceMappingEntry := range registry {
+		delete(ResourceMappingEntry, orm)
 	}
 }
 
-func (or *ORMRegistry) CleanupRegistryForORM(orm types.NamespacedName) {
-	cleanupORMInRegistry(or.registry, orm)
+func (or *ResourceMappingRegistry) CleanupRegistryForORM(orm types.NamespacedName) {
 
 	cleanupORMInRegistry(or.ownerRegistry, orm)
 }
 
-func retrieveORMEntryForObjectFromRegistry(registry map[corev1.ObjectReference]ORMEntry, objref corev1.ObjectReference) ORMEntry {
+func retrieveResourceMappingEntryForObjectFromRegistry(registry map[corev1.ObjectReference]ResourceMappingEntry, objref corev1.ObjectReference) ResourceMappingEntry {
 	if registry == nil {
 		return nil
 	}
@@ -128,8 +131,8 @@ func retrieveORMEntryForObjectFromRegistry(registry map[corev1.ObjectReference]O
 	return registry[objref]
 }
 
-func retrieveObjectEntryForObjectAndORMFromRegistry(registry map[corev1.ObjectReference]ORMEntry, obj corev1.ObjectReference, orm types.NamespacedName) *ObjectEntry {
-	orme := retrieveORMEntryForObjectFromRegistry(registry, obj)
+func retrieveObjectEntryForObjectAndORMFromRegistry(registry map[corev1.ObjectReference]ResourceMappingEntry, obj corev1.ObjectReference, orm types.NamespacedName) *ObjectEntry {
+	orme := retrieveResourceMappingEntryForObjectFromRegistry(registry, obj)
 	if orme == nil {
 		return nil
 	}
@@ -142,18 +145,10 @@ func retrieveObjectEntryForObjectAndORMFromRegistry(registry map[corev1.ObjectRe
 	return &oe
 }
 
-func (or *ORMRegistry) RetrieveORMEntryForOwner(owner corev1.ObjectReference) ORMEntry {
-	return retrieveORMEntryForObjectFromRegistry(or.ownerRegistry, owner)
+func (or *ResourceMappingRegistry) RetrieveORMEntryForOwner(owner corev1.ObjectReference) ResourceMappingEntry {
+	return retrieveResourceMappingEntryForObjectFromRegistry(or.ownerRegistry, owner)
 }
 
-func (or *ORMRegistry) RetrieveObjectEntryForOwnerAndORM(owner corev1.ObjectReference, orm types.NamespacedName) *ObjectEntry {
+func (or *ResourceMappingRegistry) RetrieveObjectEntryForOwnerAndORM(owner corev1.ObjectReference, orm types.NamespacedName) *ObjectEntry {
 	return retrieveObjectEntryForObjectAndORMFromRegistry(or.ownerRegistry, owner, orm)
-}
-
-func (or *ORMRegistry) RetrieveORMEntryForResource(objref corev1.ObjectReference) ORMEntry {
-	return retrieveORMEntryForObjectFromRegistry(or.registry, objref)
-}
-
-func (or *ORMRegistry) RetrieveObjectEntryForResourceAndORM(objref corev1.ObjectReference, orm types.NamespacedName) *ObjectEntry {
-	return retrieveObjectEntryForObjectAndORMFromRegistry(or.registry, objref, orm)
 }
