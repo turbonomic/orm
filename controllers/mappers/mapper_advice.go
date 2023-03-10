@@ -37,6 +37,8 @@ func NewAdviceMapper(reg *registry.ResourceMappingRegistry) (*AdviceMapper, erro
 		reg: reg,
 	}
 
+	mp.watchingGVK = make(map[schema.GroupVersionKind]bool)
+
 	return mp, nil
 }
 

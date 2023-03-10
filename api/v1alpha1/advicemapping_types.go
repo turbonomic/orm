@@ -30,19 +30,20 @@ type ResourcePath struct {
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 type AdviceMappingItem struct {
-	OwnerPath           string       `json:"ownerPath"`
+	TargetResourcePath  ResourcePath `json:"target"`
 	AdvisorResourcePath ResourcePath `json:"advisor"`
 }
 
 // AdviceMappingSpec defines the desired state of AdviceMapping
 type AdviceMappingSpec struct {
-	Owner    corev1.ObjectReference `json:"owner"`
-	Mappings []AdviceMappingItem    `json:"mappings"`
+	Mappings []AdviceMappingItem `json:"mappings"`
 }
 
 type Advice struct {
-	// path in owner resource
+	// object reference and path in owner resource
 	Owner ResourcePath `json:"owner"`
+	// path in owner resource
+	Target ResourcePath `json:"target"`
 	// value of the path in advisor resource
 	Value *runtime.RawExtension `json:"adviceValue,omitempty"`
 

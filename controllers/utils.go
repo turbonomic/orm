@@ -30,10 +30,35 @@ import (
 const predefinedOwnedResourceName = ".owned.name"
 const predefinedParameterPlaceHolder = ".."
 
+func RegisterAM(reg *registry.ResourceMappingRegistry, am *v1alpha1.AdviceMapping) error {
+	var err error
+
+	if am == nil || reg == nil {
+		return nil
+	}
+
+	if am.Spec.Mappings == nil || len(am.Spec.Mappings) == 0 {
+		return nil
+	}
+
+	for _, m := range am.Spec.Mappings {
+		reg.RegisterAdviceMapping(m.TargetResourcePath.Path, m.AdvisorResourcePath.Path,
+			types.NamespacedName{
+				Namespace: am.Namespace,
+				Name:      am.Name,
+			},
+			m.TargetResourcePath.ObjectReference,
+			m.AdvisorResourcePath.ObjectReference,
+		)
+	}
+
+	return err
+}
+
 func RegisterORM(reg *registry.ResourceMappingRegistry, orm *v1alpha1.OperatorResourceMapping) error {
 	var err error
 
-	if orm == nil {
+	if orm == nil || reg == nil {
 		return nil
 	}
 

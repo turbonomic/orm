@@ -22,7 +22,9 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -30,7 +32,7 @@ import (
 	"github.com/turbonomic/orm/controllers/mappers"
 	"github.com/turbonomic/orm/kubernetes"
 	"github.com/turbonomic/orm/registry"
-	"github.com/turbonomic/orm/util"
+	ormutils "github.com/turbonomic/orm/utils"
 )
 
 var (
@@ -74,6 +76,12 @@ func (r *AdviceMappingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	acLog.Info("reconciling advice mapping", "object", req.NamespacedName)
 
+	err = r.parseAM(am)
+	if err != nil {
+		acLog.Error(err, "parse advice mapping")
+		return ctrl.Result{}, nil
+	}
+
 	err = r.compareAndEnforce(am)
 	if err != nil {
 		acLog.Error(err, "simple enforcement")
@@ -97,23 +105,28 @@ func (r *AdviceMappingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+func (r *AdviceMappingReconciler) parseAM(am *devopsv1alpha1.AdviceMapping) error {
+	var err error
+
+	for _, m := range am.Spec.Mappings {
+		r.adviceMapper.RegisterForAdvisor(m.AdvisorResourcePath.GroupVersionKind(),
+			types.NamespacedName{
+				Namespace: m.AdvisorResourcePath.Namespace,
+				Name:      m.AdvisorResourcePath.Name,
+			})
+	}
+	return err
+}
+
 func (e *AdviceMappingReconciler) compareAndEnforce(am *devopsv1alpha1.AdviceMapping) error {
+	var err error
+	var obj *unstructured.Unstructured
 
-	if am.Spec.Owner.Namespace == "" {
-		am.Spec.Owner.Namespace = am.Namespace
-	}
-
-	original, err := kubernetes.Toolbox.GetResourceWithObjectReference(am.Spec.Owner)
-	if err != nil {
-		return err
-	}
-
-	updated := false
 	for _, m := range am.Status.Advices {
-		obj := original
-		if m.Owner.Name != "" {
-			obj, err = kubernetes.Toolbox.GetResourceWithObjectReference(m.Owner.ObjectReference)
+		if m.Owner.Namespace == "" {
+			m.Owner.Namespace = am.Namespace
 		}
+		obj, err = kubernetes.Toolbox.GetResourceWithObjectReference(m.Owner.ObjectReference)
 		if err != nil {
 			acLog.Error(err, "finding true owner", "owner", m.Owner)
 			continue
@@ -121,7 +134,7 @@ func (e *AdviceMappingReconciler) compareAndEnforce(am *devopsv1alpha1.AdviceMap
 
 		fields := strings.Split(m.Owner.Path, ".")
 		lastField := fields[len(fields)-1]
-		valueInOwner, found, err := util.NestedField(obj, lastField, m.Owner.Path)
+		valueInOwner, found, err := ormutils.NestedField(obj, lastField, m.Owner.Path)
 		if err != nil {
 			acLog.Error(err, "finding path in owner", "path", m.Owner.Path)
 			continue
@@ -134,24 +147,16 @@ func (e *AdviceMappingReconciler) compareAndEnforce(am *devopsv1alpha1.AdviceMap
 		}
 
 		for _, v := range value {
-			if found && !reflect.DeepEqual(v, valueInOwner) {
-				util.SetNestedField(obj.Object, v, m.Owner.Path)
+			if !found || !reflect.DeepEqual(v, valueInOwner) {
+				ormutils.SetNestedField(obj.Object, v, m.Owner.Path)
 
-				if obj != original {
-					err = kubernetes.Toolbox.UpdateResourceWithGVK(obj.GroupVersionKind(), obj)
-					if err != nil {
-						acLog.Error(err, "updating true owner", "owner", m.Owner)
-						continue
-					}
-				} else {
-					updated = true
+				err = kubernetes.Toolbox.UpdateResourceWithGVK(obj.GroupVersionKind(), obj)
+				if err != nil {
+					acLog.Error(err, "updating true owner", "owner", m.Owner)
+					continue
 				}
 			}
 		}
-	}
-
-	if updated {
-		err = kubernetes.Toolbox.UpdateResourceWithGVK(original.GroupVersionKind(), original)
 	}
 
 	return err

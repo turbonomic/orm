@@ -9,12 +9,26 @@ metadata:
     app.kubernetes.io/created-by: orm
   name: advicemapping-sample
 spec:
-  owner:
-    name: myowner
-    kind: Deployment
-    apiVersion: apps/v1
   mappings:
-  - ownerPath: .spec
-    advisor:
+  - advisor:
       name: myadvisor
       path: .spec
+    target:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: redis-master
+      path: .spec.replicas
+status:
+  advices:
+  - adviceValue:
+      replicas: 1
+    owner:
+      path: .spec.replicas
+      apiVersion: apps/v1
+      kind: Deployment
+      name: redis-master
+    target: 
+      path: .spec.replicas
+      apiVersion: apps/v1
+      kind: Deployment
+      name: redis-master

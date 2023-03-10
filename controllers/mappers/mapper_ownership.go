@@ -25,7 +25,7 @@ import (
 	"github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/kubernetes"
 	"github.com/turbonomic/orm/registry"
-	"github.com/turbonomic/orm/util"
+	ormutils "github.com/turbonomic/orm/utils"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -247,7 +247,7 @@ func PrepareMappingForObject(obj *unstructured.Unstructured, objPath string) *v1
 
 	fields := strings.Split(objPath, ".")
 	lastField := fields[len(fields)-1]
-	valueInObj, found, err := util.NestedField(obj, lastField, objPath)
+	valueInObj, found, err := ormutils.NestedField(obj, lastField, objPath)
 
 	valueMap := make(map[string]interface{})
 	valueMap[lastField] = valueInObj

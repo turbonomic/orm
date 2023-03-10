@@ -83,14 +83,14 @@ func registerMappingToRegistry(registry map[corev1.ObjectReference]ResourceMappi
 	return nil
 }
 
-func (or *ResourceMappingRegistry) RegisterAdviceMapping(ownerPath string, advicePath string, am types.NamespacedName, owner corev1.ObjectReference, advisor corev1.ObjectReference) error {
+func (or *ResourceMappingRegistry) RegisterAdviceMapping(targetPath string, advicePath string, am types.NamespacedName, target corev1.ObjectReference, advisor corev1.ObjectReference) error {
 	var err error
 
 	if or.advisorRegistry == nil {
 		or.advisorRegistry = make(map[corev1.ObjectReference]ResourceMappingEntry)
 	}
 
-	err = registerMappingToRegistry(or.advisorRegistry, ownerPath, advicePath, am, owner, advisor)
+	err = registerMappingToRegistry(or.advisorRegistry, targetPath, advicePath, am, target, advisor)
 
 	return err
 }
