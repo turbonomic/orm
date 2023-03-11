@@ -101,22 +101,22 @@ func (m *AdviceMapper) mapForAdvisorMapping(advisor *unstructured.Unstructured, 
 	advices := []devopsv1alpha1.Advice{}
 	for target, mappings := range entry {
 		for advisorPath, targetPath := range mappings {
-			ormEntry := m.reg.RetrieveORMEntryForOwned(target)
-			for _, oe := range ormEntry {
-				for owner, mappings := range oe {
-					advice := devopsv1alpha1.Advice{
-						Target: devopsv1alpha1.ResourcePath{
-							ObjectReference: target,
-							Path:            targetPath,
-						},
-						Value: ormutils.PrepareRawExtensionFromUnstructured(advisor, advisorPath),
-						Owner: devopsv1alpha1.ResourcePath{
-							ObjectReference: owner,
-							Path:            mappings[targetPath],
-						},
-					}
-					advices = append(advices, advice)
+
+			owners := ormutils.SeekTopOwnersResourcePathsForTarget(m.reg, devopsv1alpha1.ResourcePath{
+				ObjectReference: target,
+				Path:            targetPath,
+			})
+
+			for _, owner := range owners {
+				advice := devopsv1alpha1.Advice{
+					Target: devopsv1alpha1.ResourcePath{
+						ObjectReference: target,
+						Path:            targetPath,
+					},
+					Value: ormutils.PrepareRawExtensionFromUnstructured(advisor, advisorPath),
+					Owner: owner,
 				}
+				advices = append(advices, advice)
 			}
 		}
 	}

@@ -14,23 +14,58 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package util
 
 import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/turbonomic/orm/api/v1alpha1"
+	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/kubernetes"
 	"github.com/turbonomic/orm/registry"
 )
 
+var (
+	uoLog = ctrl.Log.WithName("util unstructured")
+)
+
+func SeekTopOwnersResourcePathsForTarget(reg *registry.ResourceMappingRegistry, target devopsv1alpha1.ResourcePath) []devopsv1alpha1.ResourcePath {
+	owners := []devopsv1alpha1.ResourcePath{target}
+
+	more := true
+	for more {
+		more = false
+		old := owners
+		owners = []devopsv1alpha1.ResourcePath{}
+		for _, rp := range old {
+			orme := reg.RetrieveORMEntryForOwned(rp.ObjectReference)
+			if len(orme) == 0 {
+				owners = append(owners, rp)
+			} else {
+				more = true
+				for _, oe := range orme {
+					for o, m := range oe {
+						owners = append(owners, devopsv1alpha1.ResourcePath{
+							ObjectReference: o,
+							Path:            m[rp.Path],
+						})
+					}
+				}
+			}
+		}
+	}
+
+	return owners
+
+}
+
 const predefinedOwnedResourceName = ".owned.name"
 const predefinedParameterPlaceHolder = ".."
 
-func RegisterAM(reg *registry.ResourceMappingRegistry, am *v1alpha1.AdviceMapping) error {
+func RegisterAM(reg *registry.ResourceMappingRegistry, am *devopsv1alpha1.AdviceMapping) error {
 	var err error
 
 	if am == nil || reg == nil {
@@ -55,7 +90,7 @@ func RegisterAM(reg *registry.ResourceMappingRegistry, am *v1alpha1.AdviceMappin
 	return err
 }
 
-func RegisterORM(reg *registry.ResourceMappingRegistry, orm *v1alpha1.OperatorResourceMapping) error {
+func RegisterORM(reg *registry.ResourceMappingRegistry, orm *devopsv1alpha1.OperatorResourceMapping) error {
 	var err error
 
 	if orm == nil || reg == nil {
@@ -83,7 +118,7 @@ func RegisterORM(reg *registry.ResourceMappingRegistry, orm *v1alpha1.OperatorRe
 			var srcObjs []unstructured.Unstructured
 			srcObjs, err = kubernetes.Toolbox.GetResourceListWithGVKWithSelector(p.OwnedResourcePath.GroupVersionKind(), k, &p.OwnedResourcePath.LabelSelector)
 			if err != nil {
-				ocLog.Error(err, "listing resource", "source", p.OwnedResourcePath)
+				uoLog.Error(err, "listing resource", "source", p.OwnedResourcePath)
 			}
 			for _, obj := range srcObjs {
 				srckeys = append(srckeys, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()})
@@ -120,8 +155,8 @@ func RegisterORM(reg *registry.ResourceMappingRegistry, orm *v1alpha1.OperatorRe
 	return nil
 }
 
-func populatePatterns(parameters map[string][]string, pattern v1alpha1.Pattern) []v1alpha1.Pattern {
-	var allpatterns []v1alpha1.Pattern
+func populatePatterns(parameters map[string][]string, pattern devopsv1alpha1.Pattern) []devopsv1alpha1.Pattern {
+	var allpatterns []devopsv1alpha1.Pattern
 
 	pattern.OwnerPath = strings.ReplaceAll(pattern.OwnerPath, "{{"+predefinedOwnedResourceName+"}}", pattern.OwnedResourcePath.Name)
 	pattern.OwnedResourcePath.Path = strings.ReplaceAll(pattern.OwnedResourcePath.Path, "{{"+predefinedOwnedResourceName+"}}", pattern.OwnedResourcePath.Name)
@@ -132,10 +167,10 @@ func populatePatterns(parameters map[string][]string, pattern v1alpha1.Pattern) 
 		parameters = make(map[string][]string)
 	}
 	parameters[predefinedParameterPlaceHolder] = []string{predefinedParameterPlaceHolder}
-	var prevpatterns []v1alpha1.Pattern
+	var prevpatterns []devopsv1alpha1.Pattern
 	for name, values := range parameters {
 		prevpatterns = allpatterns
-		allpatterns = []v1alpha1.Pattern{}
+		allpatterns = []devopsv1alpha1.Pattern{}
 
 		for _, p := range prevpatterns {
 			for _, v := range values {

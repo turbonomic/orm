@@ -32,6 +32,7 @@ import (
 	"github.com/turbonomic/orm/controllers/mappers"
 	"github.com/turbonomic/orm/kubernetes"
 	"github.com/turbonomic/orm/registry"
+	ormutils "github.com/turbonomic/orm/utils"
 )
 
 var (
@@ -146,7 +147,7 @@ func (r *OperatorResourceMappingReconciler) parseORM(orm *devopsv1alpha1.Operato
 		obj = &objs[0]
 	}
 
-	err = RegisterORM(r.Registry, orm)
+	err = ormutils.RegisterORM(r.Registry, orm)
 	if err != nil {
 		return err
 	}
