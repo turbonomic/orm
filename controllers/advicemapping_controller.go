@@ -88,6 +88,8 @@ func (r *AdviceMappingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
+	r.adviceMapper.MapAdvisorMapping(am)
+
 	return ctrl.Result{}, nil
 }
 
@@ -108,11 +110,15 @@ func (r *AdviceMappingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *AdviceMappingReconciler) parseAM(am *devopsv1alpha1.AdviceMapping) error {
 	var err error
 
+	amkey := types.NamespacedName{
+		Namespace: am.Namespace,
+		Name:      am.Name,
+	}
+
+	r.Registry.CleanupRegistryForAM(amkey)
+
 	for _, m := range am.Spec.Mappings {
-		r.Registry.RegisterAdviceMapping(m.TargetResourcePath.Path, m.AdvisorResourcePath.Path, types.NamespacedName{
-			Namespace: am.Namespace,
-			Name:      am.Name,
-		}, m.TargetResourcePath.ObjectReference, m.AdvisorResourcePath.ObjectReference)
+		r.Registry.RegisterAdviceMapping(m.TargetResourcePath.Path, m.AdvisorResourcePath.Path, amkey, m.TargetResourcePath.ObjectReference, m.AdvisorResourcePath.ObjectReference)
 		r.adviceMapper.RegisterForAdvisor(m.AdvisorResourcePath.GroupVersionKind(),
 			types.NamespacedName{
 				Namespace: m.AdvisorResourcePath.Namespace,

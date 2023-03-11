@@ -85,12 +85,41 @@ func (m *AdviceMapper) mapForAdvisor(obj *unstructured.Unstructured) {
 	allams := m.reg.RetrieveAMEntryForAdvisor(objref)
 
 	for amkey, entry := range allams {
-		m.mapForAdvisorMapping(obj, amkey, entry)
+		m.mapAdvisorMappingForAdvisor(obj, amkey, entry)
 	}
 
 }
 
-func (m *AdviceMapper) mapForAdvisorMapping(advisor *unstructured.Unstructured, amkey types.NamespacedName, entry registry.ObjectEntry) {
+func (m *AdviceMapper) MapAdvisorMapping(am *devopsv1alpha1.AdviceMapping) {
+
+	var err error
+	var obj *unstructured.Unstructured
+
+	objs := []*unstructured.Unstructured{}
+	objrefs := make(map[corev1.ObjectReference]bool)
+
+	for _, mappings := range am.Spec.Mappings {
+		if mappings.TargetResourcePath.ObjectReference.Namespace == "" {
+			mappings.TargetResourcePath.ObjectReference.Namespace = am.Namespace
+		}
+		if !objrefs[mappings.TargetResourcePath.ObjectReference] {
+			objrefs[mappings.TargetResourcePath.ObjectReference] = true
+			obj, err = kubernetes.Toolbox.GetResourceWithObjectReference(mappings.TargetResourcePath.ObjectReference)
+			if err != nil {
+				maLog.Error(err, "failed to locate target", "objref", mappings.TargetResourcePath.ObjectReference)
+				continue
+			}
+			objs = append(objs, obj)
+		}
+	}
+
+	for _, obj = range objs {
+		m.mapForAdvisor(obj)
+	}
+
+}
+
+func (m *AdviceMapper) mapAdvisorMappingForAdvisor(advisor *unstructured.Unstructured, amkey types.NamespacedName, entry registry.ObjectEntry) {
 	// for each AM, find out the targets objref and path to be advised
 	//   for each target objref and path, find out true owner from ORM
 	//   update AM status with the advisor value and target and owner
@@ -128,6 +157,13 @@ func (m *AdviceMapper) mapForAdvisorMapping(advisor *unstructured.Unstructured, 
 		return
 	}
 
+	m.updateAdvisorMappingStatusForAdvisors(am, advices)
+
+}
+
+func (m *AdviceMapper) updateAdvisorMappingStatusForAdvisors(am *devopsv1alpha1.AdviceMapping, advices []devopsv1alpha1.Advice) {
+	var err error
+
 	oldadvices := am.Status.Advices
 	am.Status.Advices = []devopsv1alpha1.Advice{}
 	added := make(map[devopsv1alpha1.ResourcePath]bool)
@@ -150,7 +186,8 @@ func (m *AdviceMapper) mapForAdvisorMapping(advisor *unstructured.Unstructured, 
 	if !reflect.DeepEqual(oldadvices, am.Status.Advices) {
 		err = m.Status().Update(context.TODO(), am)
 		if err != nil {
-			maLog.Error(err, "updating advisor mapping status", "advice mapping", amkey)
+			maLog.Error(err, "updating advisor mapping status", "advice mapping", am)
 		}
 	}
+
 }
