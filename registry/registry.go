@@ -31,8 +31,14 @@ type ResourceMappingEntry map[types.NamespacedName]ObjectEntry
 
 type ResourceMappingRegistry struct {
 	// ownerRegistry is defined to find orm and mappings by Owner Object
+	// legend: [owner objref][orm key][target objref][owner path]owned path
 	ownerRegistry map[corev1.ObjectReference]ResourceMappingEntry
+	// ownedRegistry is defined to find orm and mappings by owned resource
+	// legend: [owner objref][orm key][owner objref][owned path]owner path
+	ownedRegistry map[corev1.ObjectReference]ResourceMappingEntry
 	// advisorRegistry is defined to find am and mappings by advisor
+	// legend: [advisor objref][am key][target objref][advisor path]target path
+	// target is equivalent to owned
 	advisorRegistry map[corev1.ObjectReference]ResourceMappingEntry
 }
 
@@ -104,6 +110,15 @@ func (or *ResourceMappingRegistry) RegisterOwnershipMapping(ownerPath string, ob
 	}
 
 	err = registerMappingToRegistry(or.ownerRegistry, ownerPath, objectPath, orm, object, owner)
+	if err != nil {
+		return err
+	}
+
+	if or.ownedRegistry == nil {
+		or.ownedRegistry = make(map[corev1.ObjectReference]ResourceMappingEntry)
+	}
+
+	err = registerMappingToRegistry(or.ownedRegistry, objectPath, ownerPath, orm, owner, object)
 
 	return err
 }
@@ -147,6 +162,14 @@ func retrieveObjectEntryForObjectAndORMFromRegistry(registry map[corev1.ObjectRe
 
 func (or *ResourceMappingRegistry) RetrieveORMEntryForOwner(owner corev1.ObjectReference) ResourceMappingEntry {
 	return retrieveResourceMappingEntryForObjectFromRegistry(or.ownerRegistry, owner)
+}
+
+func (or *ResourceMappingRegistry) RetrieveORMEntryForOwned(owned corev1.ObjectReference) ResourceMappingEntry {
+	return retrieveResourceMappingEntryForObjectFromRegistry(or.ownedRegistry, owned)
+}
+
+func (or *ResourceMappingRegistry) RetrieveAMEntryForAdvisor(advisor corev1.ObjectReference) ResourceMappingEntry {
+	return retrieveResourceMappingEntryForObjectFromRegistry(or.advisorRegistry, advisor)
 }
 
 func (or *ResourceMappingRegistry) RetrieveObjectEntryForOwnerAndORM(owner corev1.ObjectReference, orm types.NamespacedName) *ObjectEntry {

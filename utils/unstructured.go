@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/util/jsonpath"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -74,4 +75,28 @@ func SetNestedField(obj interface{}, value interface{}, path string) error {
 	parent[lastfield] = value
 
 	return nil
+}
+
+func PrepareRawExtensionFromUnstructured(obj *unstructured.Unstructured, objPath string) *runtime.RawExtension {
+
+	fields := strings.Split(objPath, ".")
+	lastField := fields[len(fields)-1]
+	valueInObj, found, err := NestedField(obj, lastField, objPath)
+
+	valueMap := make(map[string]interface{})
+	valueMap[lastField] = valueInObj
+
+	if err != nil {
+		uuLog.Error(err, "parsing src", "fields", fields, "actual", obj.Object["metadata"])
+		return nil
+	}
+	if !found {
+		return nil
+	}
+
+	return &runtime.RawExtension{
+		Object: &unstructured.Unstructured{
+			Object: valueMap,
+		},
+	}
 }

@@ -20,21 +20,18 @@ import (
 	"context"
 	"errors"
 	"reflect"
-	"strings"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/kubernetes"
 	"github.com/turbonomic/orm/registry"
 	ormutils "github.com/turbonomic/orm/utils"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
-
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 var (
@@ -98,7 +95,7 @@ func (m *OwnershipMapper) validateOwnedResources(owner *unstructured.Unstructure
 	})
 
 	if oe == nil {
-		moLog.Error(errors.New("failed to locate owner in registry"), "oe", oe, "owner ref", ownerRef, "orm", orm)
+		moLog.Error(errors.New("failed to locate owner in registry"), "owner ref", ownerRef, "orm", orm)
 		return
 	}
 
@@ -245,27 +242,7 @@ func PrepareMappingForObject(obj *unstructured.Unstructured, objPath string) *v1
 	mapitem := v1alpha1.OwnerMappingValue{}
 	mapitem.OwnerPath = objPath
 
-	fields := strings.Split(objPath, ".")
-	lastField := fields[len(fields)-1]
-	valueInObj, found, err := ormutils.NestedField(obj, lastField, objPath)
-
-	valueMap := make(map[string]interface{})
-	valueMap[lastField] = valueInObj
-
-	if err != nil {
-		moLog.Error(err, "parsing src", "fields", fields, "actual", obj.Object["metadata"])
-		return nil
-	}
-	if !found {
-		return nil
-	}
-
-	valueObj := &unstructured.Unstructured{
-		Object: valueMap,
-	}
-	mapitem.Value = &runtime.RawExtension{
-		Object: valueObj,
-	}
+	mapitem.Value = ormutils.PrepareRawExtensionFromUnstructured(obj, objPath)
 
 	return &mapitem
 }

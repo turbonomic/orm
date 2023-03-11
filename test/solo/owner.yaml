@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ormsource-solo
+  name: ormowner-solo
   labels:
-    app: ormsource-solo
+    app: ormowner-solo
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: ormsource-solo
+      app: ormowner-solo
   template:
     metadata:
       labels:
-        app: ormsource-solo
+        app: ormowner-solo
     spec:
       containers:
       - name: workload-0001

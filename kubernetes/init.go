@@ -75,5 +75,7 @@ func InitToolbox(config *rest.Config, scheme *runtime.Scheme) error {
 	Toolbox.InformerFactory = InformerFactory{}
 	Toolbox.InformerFactory.DynamicSharedInformerFactory = dynamicinformer.NewDynamicSharedInformerFactory(Toolbox.Client, resync)
 
+	Toolbox.discoverSchemaMappings()
+
 	return err
 }

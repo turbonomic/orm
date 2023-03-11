@@ -1,0 +1,16 @@
+apiVersion: devops.turbonomic.io/v1alpha1
+kind: AdviceMapping
+metadata:
+  name: solo
+spec:
+  mappings:
+  - advisor:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: ormadvisor-solo
+      path: .spec.replicas
+    target:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: ormowned-solo
+      path: .spec.replicas

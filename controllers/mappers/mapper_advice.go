@@ -17,24 +17,38 @@ limitations under the License.
 package mappers
 
 import (
+	"context"
+	"reflect"
+
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/kubernetes"
 	"github.com/turbonomic/orm/registry"
+	ormutils "github.com/turbonomic/orm/utils"
+)
+
+var (
+	maLog = ctrl.Log.WithName("Mapper Advice")
 )
 
 type AdviceMapper struct {
-	reg *registry.ResourceMappingRegistry
-
+	reg         *registry.ResourceMappingRegistry
 	watchingGVK map[schema.GroupVersionKind]bool
+
+	client.Client
 }
 
-func NewAdviceMapper(reg *registry.ResourceMappingRegistry) (*AdviceMapper, error) {
+func NewAdviceMapper(client client.Client, reg *registry.ResourceMappingRegistry) (*AdviceMapper, error) {
 	mp := &AdviceMapper{
-		reg: reg,
+		Client: client,
+		reg:    reg,
 	}
 
 	mp.watchingGVK = make(map[schema.GroupVersionKind]bool)
@@ -62,4 +76,81 @@ func (m *AdviceMapper) RegisterForAdvisor(gvk schema.GroupVersionKind, key types
 
 func (m *AdviceMapper) mapForAdvisor(obj *unstructured.Unstructured) {
 
+	// retrieve all AMs associated with this advisor obj
+	objref := corev1.ObjectReference{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}
+	objref.SetGroupVersionKind(obj.GroupVersionKind())
+	allams := m.reg.RetrieveAMEntryForAdvisor(objref)
+
+	for amkey, entry := range allams {
+		m.mapForAdvisorMapping(obj, amkey, entry)
+	}
+
+}
+
+func (m *AdviceMapper) mapForAdvisorMapping(advisor *unstructured.Unstructured, amkey types.NamespacedName, entry registry.ObjectEntry) {
+	// for each AM, find out the targets objref and path to be advised
+	//   for each target objref and path, find out true owner from ORM
+	//   update AM status with the advisor value and target and owner
+	// 	 check if status is changed and update AM status
+
+	var err error
+
+	advices := []devopsv1alpha1.Advice{}
+	for target, mappings := range entry {
+		for advisorPath, targetPath := range mappings {
+			ormEntry := m.reg.RetrieveORMEntryForOwned(target)
+			for _, oe := range ormEntry {
+				for owner, mappings := range oe {
+					advice := devopsv1alpha1.Advice{
+						Target: devopsv1alpha1.ResourcePath{
+							ObjectReference: target,
+							Path:            targetPath,
+						},
+						Value: ormutils.PrepareRawExtensionFromUnstructured(advisor, advisorPath),
+						Owner: devopsv1alpha1.ResourcePath{
+							ObjectReference: owner,
+							Path:            mappings[targetPath],
+						},
+					}
+					advices = append(advices, advice)
+				}
+			}
+		}
+	}
+
+	am := &devopsv1alpha1.AdviceMapping{}
+	err = m.Get(context.TODO(), amkey, am)
+	if err != nil {
+		maLog.Error(err, "finding advice mapping", "key", amkey)
+		return
+	}
+
+	oldadvices := am.Status.Advices
+	am.Status.Advices = []devopsv1alpha1.Advice{}
+	added := make(map[devopsv1alpha1.ResourcePath]bool)
+	for _, oldad := range oldadvices {
+		for _, newad := range advices {
+			if reflect.DeepEqual(oldad.Target, newad.Target) {
+				am.Status.Advices = append(am.Status.Advices, newad)
+				added[newad.Target] = true
+				break
+			}
+		}
+	}
+
+	for _, newad := range advices {
+		if !added[newad.Target] {
+			am.Status.Advices = append(am.Status.Advices, newad)
+		}
+	}
+
+	if !reflect.DeepEqual(oldadvices, am.Status.Advices) {
+		err = m.Status().Update(context.TODO(), am)
+		if err != nil {
+			maLog.Error(err, "updating advisor mapping status", "advice mapping", amkey)
+		}
+	}
 }

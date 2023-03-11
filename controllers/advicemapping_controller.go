@@ -95,7 +95,7 @@ func (r *AdviceMappingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *AdviceMappingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	var err error
 
-	r.adviceMapper, err = mappers.NewAdviceMapper(r.Registry)
+	r.adviceMapper, err = mappers.NewAdviceMapper(mgr.GetClient(), r.Registry)
 	if err != nil {
 		return err
 	}
@@ -109,6 +109,10 @@ func (r *AdviceMappingReconciler) parseAM(am *devopsv1alpha1.AdviceMapping) erro
 	var err error
 
 	for _, m := range am.Spec.Mappings {
+		r.Registry.RegisterAdviceMapping(m.TargetResourcePath.Path, m.AdvisorResourcePath.Path, types.NamespacedName{
+			Namespace: am.Namespace,
+			Name:      am.Name,
+		}, m.TargetResourcePath.ObjectReference, m.AdvisorResourcePath.ObjectReference)
 		r.adviceMapper.RegisterForAdvisor(m.AdvisorResourcePath.GroupVersionKind(),
 			types.NamespacedName{
 				Namespace: m.AdvisorResourcePath.Namespace,
