@@ -42,18 +42,20 @@ func SeekTopOwnersResourcePathsForTarget(reg *registry.ResourceMappingRegistry, 
 		owners = []devopsv1alpha1.ResourcePath{}
 		for _, rp := range old {
 			orme := reg.RetrieveORMEntryForOwned(rp.ObjectReference)
-			if len(orme) == 0 {
-				owners = append(owners, rp)
-			} else {
-				more = true
-				for _, oe := range orme {
-					for o, m := range oe {
-						owners = append(owners, devopsv1alpha1.ResourcePath{
-							ObjectReference: o,
-							Path:            m[rp.Path],
-						})
+			for _, oe := range orme {
+				for o, m := range oe {
+					if m[rp.Path] == "" {
+						continue
 					}
+					more = true
+					owners = append(owners, devopsv1alpha1.ResourcePath{
+						ObjectReference: o,
+						Path:            m[rp.Path],
+					})
 				}
+			}
+			if !more {
+				owners = append(owners, rp)
 			}
 		}
 	}

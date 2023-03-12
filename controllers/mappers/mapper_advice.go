@@ -56,17 +56,28 @@ func NewAdviceMapper(client client.Client, reg *registry.ResourceMappingRegistry
 	return mp
 }
 
+func (m *AdviceMapper) checkAndReconcileAdvisor(obj *unstructured.Unstructured) {
+	objref := corev1.ObjectReference{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}
+	objref.SetGroupVersionKind(obj.GroupVersionKind())
+
+	if len(m.reg.RetrieveAMEntryForAdvisor(objref)) > 0 {
+		maLog.Info("reconciling advisor", "objref", objref)
+		m.mapForAdvisor(obj)
+	}
+}
+
 func (m *AdviceMapper) RegisterForAdvisor(gvk schema.GroupVersionKind, key types.NamespacedName) error {
 
 	if _, ok := m.watchingGVK[gvk]; !ok {
 		kubernetes.Toolbox.WatchResourceWithGVK(gvk, cache.ResourceEventHandlerFuncs{
 			AddFunc: func(new interface{}) {
-				obj := new.(*unstructured.Unstructured)
-				m.mapForAdvisor(obj)
+				m.checkAndReconcileAdvisor(new.(*unstructured.Unstructured))
 			},
 			UpdateFunc: func(old, new interface{}) {
-				obj := new.(*unstructured.Unstructured)
-				m.mapForAdvisor(obj)
+				m.checkAndReconcileAdvisor(new.(*unstructured.Unstructured))
 			}})
 		m.watchingGVK[gvk] = true
 	}
@@ -102,6 +113,7 @@ func (m *AdviceMapper) MapAdvisorMapping(am *devopsv1alpha1.AdviceMapping) {
 		if mappings.AdvisorResourcePath.ObjectReference.Namespace == "" {
 			mappings.AdvisorResourcePath.ObjectReference.Namespace = am.Namespace
 		}
+		// avoid to load same object multiple times
 		if !objrefs[mappings.AdvisorResourcePath.ObjectReference] {
 			objrefs[mappings.AdvisorResourcePath.ObjectReference] = true
 			obj, err = kubernetes.Toolbox.GetResourceWithObjectReference(mappings.AdvisorResourcePath.ObjectReference)
@@ -124,8 +136,6 @@ func (m *AdviceMapper) mapAdvisorMappingForAdvisor(advisor *unstructured.Unstruc
 	//   for each target objref and path, find out true owner from ORM
 	//   update AM status with the advisor value and target and owner
 	// 	 check if status is changed and update AM status
-
-	var err error
 
 	advices := []devopsv1alpha1.Advice{}
 	for target, mappings := range entry {
@@ -150,19 +160,18 @@ func (m *AdviceMapper) mapAdvisorMappingForAdvisor(advisor *unstructured.Unstruc
 		}
 	}
 
+	m.updateAdvisorMappingStatusForAdvisors(amkey, advices)
+}
+
+func (m *AdviceMapper) updateAdvisorMappingStatusForAdvisors(amkey types.NamespacedName, advices []devopsv1alpha1.Advice) {
+	var err error
+
 	am := &devopsv1alpha1.AdviceMapping{}
 	err = m.Get(context.TODO(), amkey, am)
 	if err != nil {
 		maLog.Error(err, "finding advice mapping", "key", amkey)
 		return
 	}
-
-	m.updateAdvisorMappingStatusForAdvisors(am, advices)
-
-}
-
-func (m *AdviceMapper) updateAdvisorMappingStatusForAdvisors(am *devopsv1alpha1.AdviceMapping, advices []devopsv1alpha1.Advice) {
-	var err error
 
 	oldadvices := am.Status.Advices
 	am.Status.Advices = []devopsv1alpha1.Advice{}
@@ -186,7 +195,7 @@ func (m *AdviceMapper) updateAdvisorMappingStatusForAdvisors(am *devopsv1alpha1.
 	if !reflect.DeepEqual(oldadvices, am.Status.Advices) {
 		err = m.Status().Update(context.TODO(), am)
 		if err != nil {
-			maLog.Error(err, "updating advisor mapping status", "advice mapping", am)
+			maLog.Error(err, "updating advisor mapping status", "advice mapping version", am.ObjectMeta.ResourceVersion)
 		}
 	}
 

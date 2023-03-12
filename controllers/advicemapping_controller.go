@@ -73,7 +73,7 @@ func (r *AdviceMappingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	acLog.Info("reconciling advice mapping", "object", req.NamespacedName)
+	acLog.Info("reconciling am", "object", req.NamespacedName)
 
 	err = r.parseAM(am)
 	if err != nil {
@@ -123,7 +123,7 @@ func (r *AdviceMappingReconciler) parseAM(am *devopsv1alpha1.AdviceMapping) erro
 	r.registry.CleanupRegistryForAM(amkey)
 
 	for _, m := range am.Spec.Mappings {
-		r.registry.RegisterAdviceMapping(m.TargetResourcePath.Path, m.AdvisorResourcePath.Path, amkey, m.TargetResourcePath.ObjectReference, m.AdvisorResourcePath.ObjectReference)
+		r.registry.RegisterAdviceMapping(m.AdvisorResourcePath.Path, m.TargetResourcePath.Path, amkey, m.TargetResourcePath.ObjectReference, m.AdvisorResourcePath.ObjectReference)
 		r.adviceMapper.RegisterForAdvisor(m.AdvisorResourcePath.GroupVersionKind(),
 			types.NamespacedName{
 				Namespace: m.AdvisorResourcePath.Namespace,

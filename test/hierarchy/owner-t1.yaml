@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ormsource-hierarchy
+  name: ormowner-hierarchy-t1
   labels:
-    app: ormsource-hierarchy
+    app: ormowner-hierarchy-t1
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ormsource-hierarchy
+      app: ormowner-hierarchy-t1
   template:
     metadata:
       labels:
-        app: ormsource-hierarchy
+        app: ormowner-hierarchy-t1
     spec:
       containers:
       - name: workload-0001
