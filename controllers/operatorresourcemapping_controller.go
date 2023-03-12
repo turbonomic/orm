@@ -42,9 +42,9 @@ var (
 // OperatorResourceMappingReconciler reconciles a OperatorResourceMapping object
 type OperatorResourceMappingReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Registry *registry.ResourceMappingRegistry
+	Scheme *runtime.Scheme
 
+	registry        *registry.ResourceMappingRegistry
 	ownershipMapper *mappers.OwnershipMapper
 }
 
@@ -107,8 +107,13 @@ func (r *OperatorResourceMappingReconciler) checkAndUpdateStatus(oldStatus *devo
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *OperatorResourceMappingReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.ownershipMapper = mappers.NewOwnershipMapper(r.Registry)
+func (r *OperatorResourceMappingReconciler) SetupWithManagerAndRegistry(mgr ctrl.Manager, registry *registry.ResourceMappingRegistry) error {
+
+	r.registry = registry
+	r.ownershipMapper = mappers.NewOwnershipMapper(r.registry)
+	if r.ownershipMapper == nil {
+		return errors.NewServiceUnavailable("Failed to initialize advice mapper")
+	}
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&devopsv1alpha1.OperatorResourceMapping{}).
@@ -116,7 +121,7 @@ func (r *OperatorResourceMappingReconciler) SetupWithManager(mgr ctrl.Manager) e
 }
 
 func (r *OperatorResourceMappingReconciler) cleanupORM(key types.NamespacedName) {
-	r.Registry.CleanupRegistryForORM(key)
+	r.registry.CleanupRegistryForORM(key)
 }
 
 func (r *OperatorResourceMappingReconciler) parseORM(orm *devopsv1alpha1.OperatorResourceMapping) error {
@@ -147,7 +152,7 @@ func (r *OperatorResourceMappingReconciler) parseORM(orm *devopsv1alpha1.Operato
 		obj = &objs[0]
 	}
 
-	err = ormutils.RegisterORM(r.Registry, orm)
+	err = ormutils.RegisterORM(r.registry, orm)
 	if err != nil {
 		return err
 	}

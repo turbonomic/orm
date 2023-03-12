@@ -100,18 +100,16 @@ func main() {
 	var reg registry.ResourceMappingRegistry
 
 	if err = (&controllers.OperatorResourceMappingReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Registry: &reg,
-	}).SetupWithManager(mgr); err != nil {
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManagerAndRegistry(mgr, &reg); err != nil {
 		setupLog.Error(err, "unable to create orm controller", "controller", "OperatorResourceMapping")
 		os.Exit(1)
 	}
 	if err = (&controllers.AdviceMappingReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Registry: &reg,
-	}).SetupWithManager(mgr); err != nil {
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManagerAndRegistry(mgr, &reg); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AdviceMapping")
 		os.Exit(1)
 	}

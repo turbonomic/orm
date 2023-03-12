@@ -45,7 +45,7 @@ type AdviceMapper struct {
 	client.Client
 }
 
-func NewAdviceMapper(client client.Client, reg *registry.ResourceMappingRegistry) (*AdviceMapper, error) {
+func NewAdviceMapper(client client.Client, reg *registry.ResourceMappingRegistry) *AdviceMapper {
 	mp := &AdviceMapper{
 		Client: client,
 		reg:    reg,
@@ -53,7 +53,7 @@ func NewAdviceMapper(client client.Client, reg *registry.ResourceMappingRegistry
 
 	mp.watchingGVK = make(map[schema.GroupVersionKind]bool)
 
-	return mp, nil
+	return mp
 }
 
 func (m *AdviceMapper) RegisterForAdvisor(gvk schema.GroupVersionKind, key types.NamespacedName) error {
@@ -99,14 +99,14 @@ func (m *AdviceMapper) MapAdvisorMapping(am *devopsv1alpha1.AdviceMapping) {
 	objrefs := make(map[corev1.ObjectReference]bool)
 
 	for _, mappings := range am.Spec.Mappings {
-		if mappings.TargetResourcePath.ObjectReference.Namespace == "" {
-			mappings.TargetResourcePath.ObjectReference.Namespace = am.Namespace
+		if mappings.AdvisorResourcePath.ObjectReference.Namespace == "" {
+			mappings.AdvisorResourcePath.ObjectReference.Namespace = am.Namespace
 		}
-		if !objrefs[mappings.TargetResourcePath.ObjectReference] {
-			objrefs[mappings.TargetResourcePath.ObjectReference] = true
-			obj, err = kubernetes.Toolbox.GetResourceWithObjectReference(mappings.TargetResourcePath.ObjectReference)
+		if !objrefs[mappings.AdvisorResourcePath.ObjectReference] {
+			objrefs[mappings.AdvisorResourcePath.ObjectReference] = true
+			obj, err = kubernetes.Toolbox.GetResourceWithObjectReference(mappings.AdvisorResourcePath.ObjectReference)
 			if err != nil {
-				maLog.Error(err, "failed to locate target", "objref", mappings.TargetResourcePath.ObjectReference)
+				maLog.Error(err, "failed to locate target", "objref", mappings.AdvisorResourcePath.ObjectReference)
 				continue
 			}
 			objs = append(objs, obj)

@@ -43,7 +43,7 @@ var (
 type AdviceMappingReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
-	Registry *registry.ResourceMappingRegistry
+	registry *registry.ResourceMappingRegistry
 
 	adviceMapper *mappers.AdviceMapper
 }
@@ -64,11 +64,10 @@ type AdviceMappingReconciler struct {
 func (r *AdviceMappingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	am := &devopsv1alpha1.AdviceMapping{}
 	err := r.Get(context.TODO(), req.NamespacedName, am)
-
 	if errors.IsNotFound(err) {
+		r.registry.CleanupRegistryForAM(req.NamespacedName)
 		return ctrl.Result{}, nil
 	}
-
 	if err != nil {
 		acLog.Error(err, "reconcile getting "+req.String())
 		return ctrl.Result{}, err
@@ -82,24 +81,30 @@ func (r *AdviceMappingReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
+	r.adviceMapper.MapAdvisorMapping(am)
+
+	// reload to pickup status
+	err = r.Get(context.TODO(), req.NamespacedName, am)
+	if errors.IsNotFound(err) {
+		return ctrl.Result{}, nil
+	}
 	err = r.compareAndEnforce(am)
 	if err != nil {
 		acLog.Error(err, "simple enforcement")
 		return ctrl.Result{}, nil
 	}
 
-	r.adviceMapper.MapAdvisorMapping(am)
-
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *AdviceMappingReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	var err error
+func (r *AdviceMappingReconciler) SetupWithManagerAndRegistry(mgr ctrl.Manager, registry *registry.ResourceMappingRegistry) error {
 
-	r.adviceMapper, err = mappers.NewAdviceMapper(mgr.GetClient(), r.Registry)
-	if err != nil {
-		return err
+	r.registry = registry
+	r.adviceMapper = mappers.NewAdviceMapper(mgr.GetClient(), r.registry)
+
+	if r.adviceMapper == nil {
+		return errors.NewServiceUnavailable("Failed to initialize advice mapper")
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
@@ -115,10 +120,10 @@ func (r *AdviceMappingReconciler) parseAM(am *devopsv1alpha1.AdviceMapping) erro
 		Name:      am.Name,
 	}
 
-	r.Registry.CleanupRegistryForAM(amkey)
+	r.registry.CleanupRegistryForAM(amkey)
 
 	for _, m := range am.Spec.Mappings {
-		r.Registry.RegisterAdviceMapping(m.TargetResourcePath.Path, m.AdvisorResourcePath.Path, amkey, m.TargetResourcePath.ObjectReference, m.AdvisorResourcePath.ObjectReference)
+		r.registry.RegisterAdviceMapping(m.TargetResourcePath.Path, m.AdvisorResourcePath.Path, amkey, m.TargetResourcePath.ObjectReference, m.AdvisorResourcePath.ObjectReference)
 		r.adviceMapper.RegisterForAdvisor(m.AdvisorResourcePath.GroupVersionKind(),
 			types.NamespacedName{
 				Namespace: m.AdvisorResourcePath.Namespace,

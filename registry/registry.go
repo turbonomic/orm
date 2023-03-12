@@ -135,13 +135,18 @@ func cleanupORMInRegistry(registry map[corev1.ObjectReference]ResourceMappingEnt
 
 func (or *ResourceMappingRegistry) CleanupRegistryForORM(orm types.NamespacedName) {
 
-	cleanupORMInRegistry(or.ownerRegistry, orm)
-	cleanupORMInRegistry(or.ownedRegistry, orm)
+	if or.ownerRegistry != nil {
+		cleanupORMInRegistry(or.ownerRegistry, orm)
+	}
+	if or.ownedRegistry != nil {
+		cleanupORMInRegistry(or.ownedRegistry, orm)
+	}
 }
 
 func (or *ResourceMappingRegistry) CleanupRegistryForAM(am types.NamespacedName) {
-
-	cleanupORMInRegistry(or.advisorRegistry, am)
+	if or.advisorRegistry != nil {
+		cleanupORMInRegistry(or.advisorRegistry, am)
+	}
 }
 
 func retrieveResourceMappingEntryForObjectFromRegistry(registry map[corev1.ObjectReference]ResourceMappingEntry, objref corev1.ObjectReference) ResourceMappingEntry {
