@@ -68,6 +68,10 @@ func (r *HorizontalPodAutoScalerGeneratorReconciler) Reconcile(ctx context.Conte
 	err := r.Get(context.TODO(), req.NamespacedName, hpa)
 
 	if errors.IsNotFound(err) {
+		am := &devopsv1alpha1.AdviceMapping{}
+		am.Name = req.Name
+		am.Namespace = req.Namespace
+		r.Delete(context.TODO(), am)
 		return ctrl.Result{}, nil
 	}
 

@@ -69,6 +69,10 @@ func (r *VerticalPodAutoScalerGeneratorReconciler) Reconcile(ctx context.Context
 	err := r.Get(context.TODO(), req.NamespacedName, vpav1Obj)
 
 	if errors.IsNotFound(err) {
+		am := &devopsv1alpha1.AdviceMapping{}
+		am.Name = req.Name
+		am.Namespace = req.Namespace
+		r.Delete(context.TODO(), am)
 		return ctrl.Result{}, nil
 	}
 
@@ -121,10 +125,16 @@ func (r *VerticalPodAutoScalerGeneratorReconciler) checkAndGenerateAdviceMapping
 		am.Namespace = vpa.GetNamespace()
 		am.Name = vpa.GetName()
 		r.updateAdviceMapping(am, vpa)
+		if len(am.Spec.Mappings) == 0 {
+			return
+		}
 		err = r.Create(context.TODO(), am)
 	} else {
 		m := am.Spec.Mappings
 		r.updateAdviceMapping(am, vpa)
+		if len(am.Spec.Mappings) == 0 {
+			return
+		}
 		if !reflect.DeepEqual(m, am.Spec.Mappings) {
 			err = r.Update(context.TODO(), am)
 		}
@@ -161,6 +171,9 @@ func (r *VerticalPodAutoScalerGeneratorReconciler) updateAdviceMapping(am *devop
 		Name:       vpa.Name,
 	}
 
+	if vpa.Status.Recommendation == nil {
+		return
+	}
 	for _, container := range vpa.Status.Recommendation.ContainerRecommendations {
 		req := devopsv1alpha1.AdviceMappingItem{
 			TargetResourcePath: devopsv1alpha1.ResourcePath{

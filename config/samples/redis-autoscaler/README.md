@@ -1,0 +1,434 @@
+# Operator Resource Mapping with Redis 
+
+This document describes how to use this project in Redis Operator with Auto Scalers. We need vpa and hpa generator controllers in utils folder.
+
+## Redis Cluster
+
+In order to show relationship between operator and the resource it manages we use Redis operator from [OT_CONTAINER-KIT](https://github.com/OT-CONTAINER-KIT/redis-operator#quickstart). We created redis cluster.
+
+```shell
+%helm list -A
+NAME            NAMESPACE       REVISION        UPDATED                                 STATUS          CHART                      APP VERSION
+redis-cluster   ot-operators    1               2023-03-13 12:52:52.716665 -0400 EDT    deployed        redis-cluster-0.14.3       0.14.0     
+redis-operator  ot-operators    1               2023-03-13 12:31:40.264923 -0400 EDT    deployed        redis-operator-0.14.3      0.14.0     
+
+% kubectl get rediscluster -A
+NAMESPACE      NAME            CLUSTERSIZE   LEADERREPLICAS   FOLLOWERREPLICAS   AGE
+ot-operators   redis-cluster   3             3                3                  4h7m
+
+% kubectl get sts -n ot-operators 
+NAME                     READY   AGE
+redis-cluster-follower   3/3     4h7m
+redis-cluster-leader     3/3     4h8m
+```
+
+## Horizontal Scaling
+
+The replicas of redis-cluster-leader is controlled by RedisCluster resource from Redis Operator
+
+```yaml
+% kubectl get rediscluster -n ot-operators   redis-cluster -o yaml
+apiVersion: redis.redis.opstreelabs.in/v1beta1
+kind: RedisCluster
+metadata:
+  annotations:
+    meta.helm.sh/release-name: redis-cluster
+    meta.helm.sh/release-namespace: ot-operators
+    test: value
+  name: redis-cluster
+  namespace: ot-operators
+...
+spec:
+  redisLeader:
+    replicas: 3
+...
+```
+
+We need the operatorresourcemapping resource defined in orm.yaml to declare the relationship
+
+```yaml
+% kubectl apply -f ./config/samples/redis-autoscaler/orm.yaml -o yaml
+apiVersion: devops.turbonomic.io/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  name: rediscluster
+  namespace: ot-operators
+...
+spec:
+  mappings:
+    patterns:
+    - owned:
+        apiVersion: apps/v1
+        kind: StatefulSet
+        name: redis-cluster-leader
+        path: .spec.replicas
+      ownerPath: .spec.redisLeader.replicas
+  owner:
+    apiVersion: redis.redis.opstreelabs.in/v1beta1
+    kind: RedisCluster
+    name: redis-cluster
+```
+
+This ORM let our controllers coordinate changes to the operand. if our controller is running, you'll find the value in status.
+
+Horizontal Pod Auto Scaler is part of kubernetes, we just need to create the HPA resource for it
+
+```yaml
+% kubectl apply -f ./config/samples/redis-autoscaler/redis-hpa.yaml -o yaml
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: redis-cluster-leader
+  namespace: ot-operators
+...
+spec:
+  maxReplicas: 5
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: redis-cluster-leader
+  targetCPUUtilizationPercentage: 80
+status:
+  currentReplicas: 0
+  desiredReplicas: 0
+```
+
+Without our project, kubernetes attempts to modify the `spec.replicas` in StatefulSet with value from its `status.desiredReplicas`. This change will eventually be reverted by operator controller back to the value defined in RedisCluster resource.
+
+In order to coordinate change to the Make sure our controller is started, you'll find an AdviceMapping resource is generated automatically with the right operator owner in it. 
+
+```yaml
+kubectl get am -n ot-operators -o yaml
+apiVersion: v1
+items:
+- apiVersion: devops.turbonomic.io/v1alpha1
+  kind: AdviceMapping
+  metadata:
+    name: redis-cluster-leader
+    namespace: ot-operators
+...
+  spec:
+    mappings:
+    - advisor:
+        apiVersion: autoscaling/v2
+        kind: HorizontalPodAutoscaler
+        name: redis-cluster-leader
+        namespace: ot-operators
+        path: .status.desiredReplicas
+      target:
+        apiVersion: apps/v1
+        kind: StatefulSet
+        name: redis-cluster-leader
+        namespace: ot-operators
+        path: .spec.replicas
+  status:
+    advices:
+    - adviceValue:
+        desiredReplicas: 0
+      owner:
+        apiVersion: redis.redis.opstreelabs.in/v1beta1
+        kind: RedisCluster
+        name: redis-cluster
+        namespace: ot-operators
+        path: .spec.redisLeader.replicas
+      target:
+        apiVersion: apps/v1
+        kind: StatefulSet
+        name: redis-cluster-leader
+        namespace: ot-operators
+        path: .spec.replicas
+```
+
+And you'll find the RedisCluster is updated by our controller. Therefore StatefulSet replicas is adjusted by operator
+
+```yaml
+% kubectl get rediscluster -n ot-operators   redis-cluster -o yaml
+apiVersion: redis.redis.opstreelabs.in/v1beta1
+kind: RedisCluster
+metadata:
+  annotations:
+    meta.helm.sh/release-name: redis-cluster
+    meta.helm.sh/release-namespace: ot-operators
+    test: value
+  name: redis-cluster
+  namespace: ot-operators
+...
+spec:
+  redisLeader:
+    replicas: 3
+...
+```
+
+```shell
+kubectl get sts -A     
+NAMESPACE      NAME                     READY   AGE
+ot-operators   redis-cluster-follower   3/3     4h27m
+ot-operators   redis-cluster-leader     0/0     4h27m
+```
+
+## Vertical Scaling
+
+Unfortunately, redis operator does not have control points for resources, so we have to disable the operator to avoid the resource to be reverted to empty. 
+
+```shell
+% kubectl scale deploy -n ot-operators   redis-operator --replicas=0 
+deployment.apps/redis-operator scaled
+% kubectl get deploy -n ot-operators                                 
+NAME             READY   UP-TO-DATE   AVAILABLE   AGE
+redis-operator   0/0     0            0           5h41m
+```
+
+The Vertical Pod Auto Scaler we used in this sample comes from [vpa](https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler#install-command)
+
+After VPA is started
+
+```shell
+% kubectl get pods -A | grep vpa
+kube-system    vpa-admission-controller-7c7666f6cd-4qt2z        1/1     Running   0               7h36m
+kube-system    vpa-recommender-786476d7cc-l7vrs                 1/1     Running   0               7h36m
+kube-system    vpa-updater-79d74db98b-9hmft                     1/1     Running   0               7h36m
+```
+
+Apply the vpa resource from this sample
+
+```yaml
+% kubectl apply -f config/samples/redis-autoscaler/redis-vpa.yaml -o yaml
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: redis-vpa
+  namespace: ot-operators
+...
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: redis-cluster-leader
+  updatePolicy:
+    updateMode: Auto
+```
+
+The VPA controller will provide recommendations shortly after
+```yaml
+kubectl get vpa -A -o yaml
+apiVersion: v1
+items:
+- apiVersion: autoscaling.k8s.io/v1
+  kind: VerticalPodAutoscaler
+  metadata:
+    name: redis-vpa
+    namespace: ot-operators
+...
+  spec:
+    targetRef:
+      apiVersion: apps/v1
+      kind: StatefulSet
+      name: redis-cluster-leader
+    updatePolicy:
+      updateMode: Auto
+  status:
+    recommendation:
+      containerRecommendations:
+      - containerName: redis-cluster-leader
+        lowerBound:
+          cpu: 12m
+          memory: 131072k
+        target:
+          cpu: 12m
+          memory: 131072k
+        uncappedTarget:
+          cpu: 12m
+          memory: 131072k
+        upperBound:
+          cpu: 71m
+          memory: 131072k
+      - containerName: redis-exporter
+        lowerBound:
+          cpu: 12m
+          memory: 131072k
+        target:
+          cpu: 12m
+          memory: 131072k
+        uncappedTarget:
+          cpu: 12m
+          memory: 131072k
+        upperBound:
+          cpu: 71m
+          memory: 131072k
+...
+```
+
+Without our project, in `Auto` mode, VPA controllers update the Pod, but leave the StatefulSet unchanged. In that case, things could be reverted by kubernetes controllers.
+
+If our controller is running, an ActiveMapping resource is generated for those 2 containers' recommendations:
+
+```yaml
+%kubectl get am -n ot-operators redis-vpa  -o yaml
+apiVersion: devops.turbonomic.io/v1alpha1
+kind: AdviceMapping
+metadata:
+  creationTimestamp: "2023-03-13T21:44:55Z"
+  generation: 1
+  name: redis-vpa
+  namespace: ot-operators
+  resourceVersion: "884646"
+  uid: b38cfcae-15b9-4c59-93e4-35aee518fdc0
+spec:
+  mappings:
+  - advisor:
+      apiVersion: autoscaling.k8s.io/v1
+      kind: VerticalPodAutoscaler
+      name: redis-vpa
+      namespace: ot-operators
+      path: .status.recommendation.containerRecommendations[?(@.containerName=="redis-cluster-leader")].lowerBound
+    target:
+      apiVersion: apps/v1
+      kind: StatefulSet
+      name: redis-cluster-leader
+      namespace: ot-operators
+      path: .spec.template.spec.containers[?(@.name=="redis-cluster-leader")].resources.requests
+  - advisor:
+      apiVersion: autoscaling.k8s.io/v1
+      kind: VerticalPodAutoscaler
+      name: redis-vpa
+      namespace: ot-operators
+      path: .status.recommendation.containerRecommendations[?(@.containerName=="redis-cluster-leader")].upperBound
+    target:
+      apiVersion: apps/v1
+      kind: StatefulSet
+      name: redis-cluster-leader
+      namespace: ot-operators
+      path: .spec.template.spec.containers[?(@.name=="redis-cluster-leader")].resources.limits
+  - advisor:
+      apiVersion: autoscaling.k8s.io/v1
+      kind: VerticalPodAutoscaler
+      name: redis-vpa
+      namespace: ot-operators
+      path: .status.recommendation.containerRecommendations[?(@.containerName=="redis-exporter")].lowerBound
+    target:
+      apiVersion: apps/v1
+      kind: StatefulSet
+      name: redis-cluster-leader
+      namespace: ot-operators
+      path: .spec.template.spec.containers[?(@.name=="redis-exporter")].resources.requests
+  - advisor:
+      apiVersion: autoscaling.k8s.io/v1
+      kind: VerticalPodAutoscaler
+      name: redis-vpa
+      namespace: ot-operators
+      path: .status.recommendation.containerRecommendations[?(@.containerName=="redis-exporter")].upperBound
+    target:
+      apiVersion: apps/v1
+      kind: StatefulSet
+      name: redis-cluster-leader
+      namespace: ot-operators
+      path: .spec.template.spec.containers[?(@.name=="redis-exporter")].resources.limits
+status:
+  advices:
+  - adviceValue:
+      lowerBound:
+        cpu: 12m
+        memory: 131072k
+    owner:
+      apiVersion: apps/v1
+      kind: StatefulSet
+      name: redis-cluster-leader
+      namespace: ot-operators
+      path: .spec.template.spec.containers[?(@.name=="redis-cluster-leader")].resources.requests
+    target:
+      apiVersion: apps/v1
+      kind: StatefulSet
+      name: redis-cluster-leader
+      namespace: ot-operators
+      path: .spec.template.spec.containers[?(@.name=="redis-cluster-leader")].resources.requests
+  - adviceValue:
+      upperBound:
+        cpu: 71m
+        memory: 131072k
+    owner:
+      apiVersion: apps/v1
+      kind: StatefulSet
+      name: redis-cluster-leader
+      namespace: ot-operators
+      path: .spec.template.spec.containers[?(@.name=="redis-cluster-leader")].resources.limits
+    target:
+      apiVersion: apps/v1
+      kind: StatefulSet
+      name: redis-cluster-leader
+      namespace: ot-operators
+      path: .spec.template.spec.containers[?(@.name=="redis-cluster-leader")].resources.limits
+  - adviceValue:
+      lowerBound:
+        cpu: 12m
+        memory: 131072k
+    owner:
+      apiVersion: apps/v1
+      kind: StatefulSet
+      name: redis-cluster-leader
+      namespace: ot-operators
+      path: .spec.template.spec.containers[?(@.name=="redis-exporter")].resources.requests
+    target:
+      apiVersion: apps/v1
+      kind: StatefulSet
+      name: redis-cluster-leader
+      namespace: ot-operators
+      path: .spec.template.spec.containers[?(@.name=="redis-exporter")].resources.requests
+  - adviceValue:
+      upperBound:
+        cpu: 71m
+        memory: 131072k
+    owner:
+      apiVersion: apps/v1
+      kind: StatefulSet
+      name: redis-cluster-leader
+      namespace: ot-operators
+      path: .spec.template.spec.containers[?(@.name=="redis-exporter")].resources.limits
+    target:
+      apiVersion: apps/v1
+      kind: StatefulSet
+      name: redis-cluster-leader
+      namespace: ot-operators
+      path: .spec.template.spec.containers[?(@.name=="redis-exporter")].resources.limits
+```
+
+And you can find the changes are applied to StatefulSet accordingly:
+
+```yaml
+% kubectl get sts -n ot-operators   redis-cluster-leader -o yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-cluster-leader
+  namespace: ot-operators
+  ownerReferences:
+  - apiVersion: redis.redis.opstreelabs.in/v1beta1
+    controller: true
+    kind: RedisCluster
+    name: redis-cluster
+    uid: 8d7ebb93-fef3-4306-b1a1-d98ab4ba8180
+  resourceVersion: "886798"
+  uid: 72bd7910-0546-4ccf-9aa4-fa99c7beb304
+spec:
+  template:
+    spec:
+      containers:
+    - name: redis-cluster-leader
+        resources:
+          limits:
+            cpu: 62m
+            memory: 131072k
+          requests:
+            cpu: 12m
+            memory: 131072k   
+    ...
+    - name: redis-exporter
+      resources:
+        limits:
+          cpu: 62m
+          memory: 131072k
+        requests:
+          cpu: 12m
+          memory: 131072k
+...
+```
