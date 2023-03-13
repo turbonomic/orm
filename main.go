@@ -115,7 +115,7 @@ func main() {
 		os.Exit(1)
 	}
 	if err = utilcontrollers.SetupAllWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create utility controller", "controller", "OperatorResourceMapping")
+		setupLog.Error(err, "unable to create utility controller")
 		os.Exit(1)
 	}
 

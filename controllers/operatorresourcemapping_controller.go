@@ -99,7 +99,7 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 func (r *OperatorResourceMappingReconciler) checkAndUpdateStatus(oldStatus *devopsv1alpha1.OperatorResourceMappingStatus, orm *devopsv1alpha1.OperatorResourceMapping) {
 	var err error
 	if !reflect.DeepEqual(orm.Status, *oldStatus) {
-		err = r.Status().Update(context.TODO(), orm, &client.UpdateOptions{})
+		err = r.Status().Update(context.TODO(), orm)
 	}
 	if err != nil {
 		ocLog.Error(err, "failed to update orm status "+orm.Namespace+"/"+orm.Name)

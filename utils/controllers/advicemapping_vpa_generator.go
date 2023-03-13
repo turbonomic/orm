@@ -36,7 +36,7 @@ import (
 	"github.com/turbonomic/orm/kubernetes"
 )
 
-type VPATargetReconciler struct {
+type VerticalPodAutoScalerGeneratorReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
@@ -61,7 +61,7 @@ var (
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
-func (r *VPATargetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *VerticalPodAutoScalerGeneratorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
 	vpav1Obj := &vpa_types.VerticalPodAutoscaler{}
@@ -85,7 +85,7 @@ func (r *VPATargetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (c *VPATargetReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (c *VerticalPodAutoScalerGeneratorReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	c.Client = mgr.GetClient()
 	c.Scheme = mgr.GetScheme()
 
@@ -107,7 +107,7 @@ func (c *VPATargetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(c)
 }
 
-func (r *VPATargetReconciler) checkAndGenerateAdviceMapping(vpa *vpa_types.VerticalPodAutoscaler) {
+func (r *VerticalPodAutoScalerGeneratorReconciler) checkAndGenerateAdviceMapping(vpa *vpa_types.VerticalPodAutoscaler) {
 	var err error
 	am := &devopsv1alpha1.AdviceMapping{}
 
@@ -143,7 +143,7 @@ const (
 	vpaUpperBoundPathTemplate   = ".status.recommendation.containerRecommendations[?(@.containerName==\"" + nameKeyInPath + "\")].upperBound"
 )
 
-func (r *VPATargetReconciler) updateAdviceMapping(am *devopsv1alpha1.AdviceMapping, vpa *vpa_types.VerticalPodAutoscaler) {
+func (r *VerticalPodAutoScalerGeneratorReconciler) updateAdviceMapping(am *devopsv1alpha1.AdviceMapping, vpa *vpa_types.VerticalPodAutoscaler) {
 	if vpa == nil || am == nil {
 		return
 	}

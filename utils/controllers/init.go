@@ -28,7 +28,8 @@ type UtilityController interface {
 
 var all = []UtilityController{
 	&CompatibilityReconciler{},
-	&VPATargetReconciler{},
+	&HorizontalPodAutoScalerGeneratorReconciler{},
+	&VerticalPodAutoScalerGeneratorReconciler{},
 }
 
 func SetupAllWithManager(mgr ctrl.Manager) error {
