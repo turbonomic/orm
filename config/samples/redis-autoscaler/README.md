@@ -94,7 +94,7 @@ This ORM let our controllers coordinate changes to the operand. if our controlle
 
 ### Horizontal Pod AutoScaler
 
-Horizontal Pod Auto Scaler is part of kubernetes, we just need to create the HPA resource for it
+Horizontal Pod AutoScaler is part of kubernetes, we just need to create the HPA resource for it
 
 ```yaml
 % kubectl apply -f ./config/samples/redis-autoscaler/redis-hpa.yaml -o yaml
@@ -121,7 +121,9 @@ Without our project, kubernetes attempts to modify the `spec.replicas` in Statef
 
 ### Coordinate the changes
 
-In order to coordinate change to the Make sure our controller is started, you'll find an AdviceMapping resource is generated automatically with the right operator owner in it. 
+Mke sure our controller is started, you'll find an AdviceMapping resource is generated automatically with the right operand as the owner in the mappings. 
+
+<em>In this quick example, we create AdviceMapping for all values in desiredReplicas. The controller could be upgraded to generate AdviceMapping for non-zero desiredReplicas. </em>
 
 ```yaml
 kubectl get am -n ot-operators -o yaml
@@ -167,7 +169,7 @@ items:
 
 ### Final Result
 
-And you'll find the RedisCluster is updated by our controller. Therefore StatefulSet replicas is adjusted by operator
+Now you'll find the RedisCluster is updated by our controller. Therefore `spec.replicas` in StatefulSet is adjusted by operator accordingly.
 
 ```yaml
 % kubectl get rediscluster -n ot-operators   redis-cluster -o yaml
@@ -198,7 +200,7 @@ ot-operators   redis-cluster-leader     0/0     4h27m
 
 ### Prerequisite
 
-Unfortunately, redis operator does not have control points for resources, so we have to disable the operator to avoid the resource to be reverted to empty. 
+Unfortunately, redis operand does not have control points for container resources, so we have to disable the operator to avoid the resource to be reverted back to empty. 
 
 ```shell
 % kubectl scale deploy -n ot-operators   redis-operator --replicas=0 
@@ -213,7 +215,7 @@ please also revert the `spec.redisLeader.replicas` back to 3, so that VPA has so
 
 ### Vertical Pod AutoScaler
 
-The Vertical Pod Auto Scaler we used in this sample comes from [vpa](https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler#install-command)
+We install Vertical Pod AutoScaler from [vpa git repo](https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler#install-command)
 
 After VPA is started
 
@@ -243,7 +245,7 @@ spec:
     updateMode: Auto
 ```
 
-The VPA controller will provide recommendations shortly after
+The VPA controller will provide recommendations shortly after 
 ```yaml
 kubectl get vpa -A -o yaml
 apiVersion: v1
@@ -293,23 +295,20 @@ items:
 ...
 ```
 
-Without our project, in `Auto` mode, VPA controllers update the Pod, but leave the StatefulSet unchanged. In that case, things could be reverted by kubernetes controllers.
+Without our project, in `Auto` mode, VPA controllers evict and update the Pod, but leave the spec in StatefulSet unchanged. In that case, things could be reverted by kubernetes controllers.
 
 ### Coordinate the changes
 
-If our controller is running, an ActiveMapping resource is generated for those 2 containers' recommendations:
+After our controller is started, an ActiveMapping resource is generated for those 2 containers' recommendations. And owners are route to the StatefulSet because there is no ORM describe the relationship to an operand. So our controllers will coordinate the `resource` back to StatefulSet itself.
 
 ```yaml
 %kubectl get am -n ot-operators redis-vpa  -o yaml
 apiVersion: devops.turbonomic.io/v1alpha1
 kind: AdviceMapping
 metadata:
-  creationTimestamp: "2023-03-13T21:44:55Z"
-  generation: 1
   name: redis-vpa
   namespace: ot-operators
-  resourceVersion: "884646"
-  uid: b38cfcae-15b9-4c59-93e4-35aee518fdc0
+...
 spec:
   mappings:
   - advisor:
@@ -430,7 +429,7 @@ status:
 
 ### Final Result
 
-And you can find the changes are applied to StatefulSet accordingly:
+Now you can find the changes are applied to StatefulSet accordingly:
 
 ```yaml
 % kubectl get sts -n ot-operators   redis-cluster-leader -o yaml
@@ -470,3 +469,7 @@ spec:
           memory: 131072k
 ...
 ```
+
+## Next Step
+
+Now you know how to use OperatorResourceMapping and AdviceMapping to coordinate changes to right resources, go ahead create your own mappings. 
