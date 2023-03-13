@@ -1,8 +1,27 @@
 # Operator Resource Mapping with Redis 
 
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [Prepare Redis Cluster](#prepare-redis-cluster)
+- [Horizontal Scaling](#horizontal-scaling)
+  - [Declare relationship between operator and owned resource](#declare-relationship-between-operator-and-owned-resource)
+  - [Horizontal Pod AutoScaler](#horizontal-pod-autoscaler)
+  - [Coordinate the changes](#coordinate-the-changes)
+  - [Final Result](#final-result)
+- [Vertical Scaling](#vertical-scaling)
+  - [Prerequisite](#prerequisite)
+  - [Vertical Pod AutoScaler](#vertical-pod-autoscaler)
+  - [Coordinate the changes](#coordinate-the-changes-1)
+  - [Final Result](#final-result-1)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+
 This document describes how to use this project in Redis Operator with Auto Scalers. We need vpa and hpa generator controllers in utils folder.
 
-## Redis Cluster
+## Prepare Redis Cluster
 
 In order to show relationship between operator and the resource it manages we use Redis operator from [OT_CONTAINER-KIT](https://github.com/OT-CONTAINER-KIT/redis-operator#quickstart). We created redis cluster.
 
@@ -44,6 +63,8 @@ spec:
 ...
 ```
 
+### Declare relationship between operator and owned resource
+
 We need the operatorresourcemapping resource defined in orm.yaml to declare the relationship
 
 ```yaml
@@ -71,6 +92,8 @@ spec:
 
 This ORM let our controllers coordinate changes to the operand. if our controller is running, you'll find the value in status.
 
+### Horizontal Pod AutoScaler
+
 Horizontal Pod Auto Scaler is part of kubernetes, we just need to create the HPA resource for it
 
 ```yaml
@@ -95,6 +118,8 @@ status:
 ```
 
 Without our project, kubernetes attempts to modify the `spec.replicas` in StatefulSet with value from its `status.desiredReplicas`. This change will eventually be reverted by operator controller back to the value defined in RedisCluster resource.
+
+### Coordinate the changes
 
 In order to coordinate change to the Make sure our controller is started, you'll find an AdviceMapping resource is generated automatically with the right operator owner in it. 
 
@@ -140,6 +165,8 @@ items:
         path: .spec.replicas
 ```
 
+### Final Result
+
 And you'll find the RedisCluster is updated by our controller. Therefore StatefulSet replicas is adjusted by operator
 
 ```yaml
@@ -169,6 +196,8 @@ ot-operators   redis-cluster-leader     0/0     4h27m
 
 ## Vertical Scaling
 
+### Prerequisite
+
 Unfortunately, redis operator does not have control points for resources, so we have to disable the operator to avoid the resource to be reverted to empty. 
 
 ```shell
@@ -178,6 +207,11 @@ deployment.apps/redis-operator scaled
 NAME             READY   UP-TO-DATE   AVAILABLE   AGE
 redis-operator   0/0     0            0           5h41m
 ```
+
+please also revert the `spec.redisLeader.replicas` back to 3, so that VPA has something to work with.
+
+
+### Vertical Pod AutoScaler
 
 The Vertical Pod Auto Scaler we used in this sample comes from [vpa](https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler#install-command)
 
@@ -260,6 +294,8 @@ items:
 ```
 
 Without our project, in `Auto` mode, VPA controllers update the Pod, but leave the StatefulSet unchanged. In that case, things could be reverted by kubernetes controllers.
+
+### Coordinate the changes
 
 If our controller is running, an ActiveMapping resource is generated for those 2 containers' recommendations:
 
@@ -391,6 +427,8 @@ status:
       namespace: ot-operators
       path: .spec.template.spec.containers[?(@.name=="redis-exporter")].resources.limits
 ```
+
+### Final Result
 
 And you can find the changes are applied to StatefulSet accordingly:
 
