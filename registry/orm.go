@@ -14,25 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package util
+package registry
 
 import (
 	"strings"
 
+	"github.com/turbonomic/orm/kubernetes"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
-	"github.com/turbonomic/orm/kubernetes"
-	"github.com/turbonomic/orm/registry"
 )
 
-var (
-	uoLog = ctrl.Log.WithName("util unstructured")
-)
-
-func SeekTopOwnersResourcePathsForTarget(reg *registry.ResourceMappingRegistry, target devopsv1alpha1.ResourcePath) []devopsv1alpha1.ResourcePath {
+func (or *ResourceMappingRegistry) SeekTopOwnersResourcePathsForTarget(target devopsv1alpha1.ResourcePath) []devopsv1alpha1.ResourcePath {
 	owners := []devopsv1alpha1.ResourcePath{target}
 
 	more := true
@@ -41,7 +36,7 @@ func SeekTopOwnersResourcePathsForTarget(reg *registry.ResourceMappingRegistry, 
 		old := owners
 		owners = []devopsv1alpha1.ResourcePath{}
 		for _, rp := range old {
-			orme := reg.RetrieveORMEntryForOwned(rp.ObjectReference)
+			orme := or.RetrieveORMEntryForOwned(rp.ObjectReference)
 			for _, oe := range orme {
 				for o, m := range oe {
 					if m[rp.Path] == "" {
@@ -67,35 +62,10 @@ func SeekTopOwnersResourcePathsForTarget(reg *registry.ResourceMappingRegistry, 
 const predefinedOwnedResourceName = ".owned.name"
 const predefinedParameterPlaceHolder = ".."
 
-func RegisterAM(reg *registry.ResourceMappingRegistry, am *devopsv1alpha1.AdviceMapping) error {
+func (or *ResourceMappingRegistry) RegisterORM(orm *devopsv1alpha1.OperatorResourceMapping) error {
 	var err error
 
-	if am == nil || reg == nil {
-		return nil
-	}
-
-	if am.Spec.Mappings == nil || len(am.Spec.Mappings) == 0 {
-		return nil
-	}
-
-	for _, m := range am.Spec.Mappings {
-		reg.RegisterAdviceMapping(m.TargetResourcePath.Path, m.AdvisorResourcePath.Path,
-			types.NamespacedName{
-				Namespace: am.Namespace,
-				Name:      am.Name,
-			},
-			m.TargetResourcePath.ObjectReference,
-			m.AdvisorResourcePath.ObjectReference,
-		)
-	}
-
-	return err
-}
-
-func RegisterORM(reg *registry.ResourceMappingRegistry, orm *devopsv1alpha1.OperatorResourceMapping) error {
-	var err error
-
-	if orm == nil || reg == nil {
+	if orm == nil {
 		return nil
 	}
 
@@ -120,7 +90,7 @@ func RegisterORM(reg *registry.ResourceMappingRegistry, orm *devopsv1alpha1.Oper
 			var srcObjs []unstructured.Unstructured
 			srcObjs, err = kubernetes.Toolbox.GetResourceListWithGVKWithSelector(p.OwnedResourcePath.GroupVersionKind(), k, &p.OwnedResourcePath.LabelSelector)
 			if err != nil {
-				uoLog.Error(err, "listing resource", "source", p.OwnedResourcePath)
+				rLog.Error(err, "listing resource", "source", p.OwnedResourcePath)
 			}
 			for _, obj := range srcObjs {
 				srckeys = append(srckeys, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()})
@@ -129,7 +99,7 @@ func RegisterORM(reg *registry.ResourceMappingRegistry, orm *devopsv1alpha1.Oper
 		srcmap[p.OwnedResourcePath.Path] = srckeys
 	}
 
-	reg.CleanupRegistryForORM(types.NamespacedName{
+	or.CleanupRegistryForORM(types.NamespacedName{
 		Namespace: orm.Namespace,
 		Name:      orm.Name,
 	})
@@ -142,7 +112,7 @@ func RegisterORM(reg *registry.ResourceMappingRegistry, orm *devopsv1alpha1.Oper
 			patterns := populatePatterns(orm.Spec.Mappings.Parameters, p)
 
 			for _, pattern := range patterns {
-				err = reg.RegisterOwnershipMapping(pattern.OwnerPath, pattern.OwnedResourcePath.Path,
+				err = or.registerOwnershipMapping(pattern.OwnerPath, pattern.OwnedResourcePath.Path,
 					types.NamespacedName{Name: orm.Name, Namespace: orm.Namespace},
 					orm.Spec.Owner.ObjectReference,
 					p.OwnedResourcePath.ObjectReference)
@@ -155,6 +125,28 @@ func RegisterORM(reg *registry.ResourceMappingRegistry, orm *devopsv1alpha1.Oper
 	}
 
 	return nil
+}
+
+func (or *ResourceMappingRegistry) CleanupRegistryForORM(orm types.NamespacedName) {
+
+	if or.ownerRegistry != nil {
+		cleanupORMInRegistry(or.ownerRegistry, orm)
+	}
+	if or.ownedRegistry != nil {
+		cleanupORMInRegistry(or.ownedRegistry, orm)
+	}
+}
+
+func (or *ResourceMappingRegistry) RetrieveORMEntryForOwner(owner corev1.ObjectReference) ResourceMappingEntry {
+	return retrieveResourceMappingEntryForObjectFromRegistry(or.ownerRegistry, owner)
+}
+
+func (or *ResourceMappingRegistry) RetrieveORMEntryForOwned(owned corev1.ObjectReference) ResourceMappingEntry {
+	return retrieveResourceMappingEntryForObjectFromRegistry(or.ownedRegistry, owned)
+}
+
+func (or *ResourceMappingRegistry) RetrieveObjectEntryForOwnerAndORM(owner corev1.ObjectReference, orm types.NamespacedName) *ObjectEntry {
+	return retrieveObjectEntryForObjectAndORMFromRegistry(or.ownerRegistry, owner, orm)
 }
 
 func populatePatterns(parameters map[string][]string, pattern devopsv1alpha1.Pattern) []devopsv1alpha1.Pattern {

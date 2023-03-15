@@ -19,6 +19,11 @@ package registry
 import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
+)
+
+var (
+	rLog = ctrl.Log.WithName("registry")
 )
 
 // namespacedname of ORM as key, in case 1 source maps to more than 1 ORM
@@ -89,7 +94,7 @@ func registerMappingToRegistry(registry map[corev1.ObjectReference]ResourceMappi
 	return nil
 }
 
-func (or *ResourceMappingRegistry) RegisterAdviceMapping(targetPath string, advicePath string, am types.NamespacedName, target corev1.ObjectReference, advisor corev1.ObjectReference) error {
+func (or *ResourceMappingRegistry) registerAdviceMappingItem(targetPath string, advicePath string, am types.NamespacedName, target corev1.ObjectReference, advisor corev1.ObjectReference) error {
 	var err error
 
 	if or.advisorRegistry == nil {
@@ -101,7 +106,7 @@ func (or *ResourceMappingRegistry) RegisterAdviceMapping(targetPath string, advi
 	return err
 }
 
-func (or *ResourceMappingRegistry) RegisterOwnershipMapping(ownerPath string, objectPath string, orm types.NamespacedName, owner corev1.ObjectReference, object corev1.ObjectReference) error {
+func (or *ResourceMappingRegistry) registerOwnershipMapping(ownerPath string, objectPath string, orm types.NamespacedName, owner corev1.ObjectReference, object corev1.ObjectReference) error {
 
 	var err error
 
@@ -133,22 +138,6 @@ func cleanupORMInRegistry(registry map[corev1.ObjectReference]ResourceMappingEnt
 	}
 }
 
-func (or *ResourceMappingRegistry) CleanupRegistryForORM(orm types.NamespacedName) {
-
-	if or.ownerRegistry != nil {
-		cleanupORMInRegistry(or.ownerRegistry, orm)
-	}
-	if or.ownedRegistry != nil {
-		cleanupORMInRegistry(or.ownedRegistry, orm)
-	}
-}
-
-func (or *ResourceMappingRegistry) CleanupRegistryForAM(am types.NamespacedName) {
-	if or.advisorRegistry != nil {
-		cleanupORMInRegistry(or.advisorRegistry, am)
-	}
-}
-
 func retrieveResourceMappingEntryForObjectFromRegistry(registry map[corev1.ObjectReference]ResourceMappingEntry, objref corev1.ObjectReference) ResourceMappingEntry {
 	if registry == nil {
 		return nil
@@ -169,20 +158,4 @@ func retrieveObjectEntryForObjectAndORMFromRegistry(registry map[corev1.ObjectRe
 	}
 
 	return &oe
-}
-
-func (or *ResourceMappingRegistry) RetrieveORMEntryForOwner(owner corev1.ObjectReference) ResourceMappingEntry {
-	return retrieveResourceMappingEntryForObjectFromRegistry(or.ownerRegistry, owner)
-}
-
-func (or *ResourceMappingRegistry) RetrieveORMEntryForOwned(owned corev1.ObjectReference) ResourceMappingEntry {
-	return retrieveResourceMappingEntryForObjectFromRegistry(or.ownedRegistry, owned)
-}
-
-func (or *ResourceMappingRegistry) RetrieveAMEntryForAdvisor(advisor corev1.ObjectReference) ResourceMappingEntry {
-	return retrieveResourceMappingEntryForObjectFromRegistry(or.advisorRegistry, advisor)
-}
-
-func (or *ResourceMappingRegistry) RetrieveObjectEntryForOwnerAndORM(owner corev1.ObjectReference, orm types.NamespacedName) *ObjectEntry {
-	return retrieveObjectEntryForObjectAndORMFromRegistry(or.ownerRegistry, owner, orm)
 }

@@ -141,10 +141,15 @@ func (m *AdviceMapper) mapAdvisorMappingForAdvisor(advisor *unstructured.Unstruc
 	for target, mappings := range entry {
 		for advisorPath, targetPath := range mappings {
 
-			owners := ormutils.SeekTopOwnersResourcePathsForTarget(m.reg, devopsv1alpha1.ResourcePath{
+			owners := m.reg.SeekTopOwnersResourcePathsForTarget(devopsv1alpha1.ResourcePath{
 				ObjectReference: target,
 				Path:            targetPath,
 			})
+
+			v := ormutils.PrepareRawExtensionFromUnstructured(advisor, advisorPath)
+			if v == nil {
+				continue
+			}
 
 			for _, owner := range owners {
 				advice := devopsv1alpha1.Advice{
@@ -152,7 +157,7 @@ func (m *AdviceMapper) mapAdvisorMappingForAdvisor(advisor *unstructured.Unstruc
 						ObjectReference: target,
 						Path:            targetPath,
 					},
-					Value: ormutils.PrepareRawExtensionFromUnstructured(advisor, advisorPath),
+					Value: v,
 					Owner: owner,
 				}
 				advices = append(advices, advice)

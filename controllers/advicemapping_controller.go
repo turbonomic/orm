@@ -115,21 +115,16 @@ func (r *AdviceMappingReconciler) SetupWithManagerAndRegistry(mgr ctrl.Manager, 
 func (r *AdviceMappingReconciler) parseAM(am *devopsv1alpha1.AdviceMapping) error {
 	var err error
 
-	amkey := types.NamespacedName{
-		Namespace: am.Namespace,
-		Name:      am.Name,
-	}
-
-	r.registry.CleanupRegistryForAM(amkey)
-
 	for _, m := range am.Spec.Mappings {
-		r.registry.RegisterAdviceMapping(m.AdvisorResourcePath.Path, m.TargetResourcePath.Path, amkey, m.TargetResourcePath.ObjectReference, m.AdvisorResourcePath.ObjectReference)
 		r.adviceMapper.RegisterForAdvisor(m.AdvisorResourcePath.GroupVersionKind(),
 			types.NamespacedName{
 				Namespace: m.AdvisorResourcePath.Namespace,
 				Name:      m.AdvisorResourcePath.Name,
 			})
 	}
+
+	err = r.registry.RegisterAM(am)
+
 	return err
 }
 
