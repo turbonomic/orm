@@ -141,7 +141,7 @@ func (m *AdviceMapper) mapAdvisorMappingForAdvisor(advisor *unstructured.Unstruc
 	for target, mappings := range entry {
 		for advisorPath, targetPath := range mappings {
 
-			owners := m.reg.SeekTopOwnersResourcePathsForTarget(devopsv1alpha1.ResourcePath{
+			owners := m.reg.SeekTopOwnersResourcePathsForOwnedResourcePath(devopsv1alpha1.ResourcePath{
 				ObjectReference: target,
 				Path:            targetPath,
 			})

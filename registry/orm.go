@@ -27,8 +27,8 @@ import (
 	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
 )
 
-func (or *ResourceMappingRegistry) SeekTopOwnersResourcePathsForTarget(target devopsv1alpha1.ResourcePath) []devopsv1alpha1.ResourcePath {
-	owners := []devopsv1alpha1.ResourcePath{target}
+func (or *ResourceMappingRegistry) SeekTopOwnersResourcePathsForOwnedResourcePath(owned devopsv1alpha1.ResourcePath) []devopsv1alpha1.ResourcePath {
+	owners := []devopsv1alpha1.ResourcePath{owned}
 
 	more := true
 	for more {
