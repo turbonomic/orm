@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ormsource-hierarchy
+  name: ormadvisor-solo
   labels:
-    app: ormsource-hierarchy
+    app: ormadvisor-solo
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
-      app: ormsource-hierarchy
+      app: ormadvisor-solo
   template:
     metadata:
       labels:
-        app: ormsource-hierarchy
+        app: ormadvisor-solo
     spec:
       containers:
       - name: workload-0001

@@ -73,11 +73,11 @@ func (r *CompatibilityReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if err != nil {
-		ocLog.Error(err, "reconcile getting "+req.String())
+		ccLog.Error(err, "reconcile getting "+req.String())
 		return ctrl.Result{}, err
 	}
 
-	ocLog.Info("reconciling legacy orm", "object", req.NamespacedName)
+	ccLog.Info("reconciling legacy orm", "object", req.NamespacedName)
 
 	r.compatibilityCheck(ormv1Obj)
 
@@ -86,15 +86,19 @@ func (r *CompatibilityReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 // SetupWithManager sets up the controller with the Manager.
 func (c *CompatibilityReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	var err error
+
+	c.Client = mgr.GetClient()
+	c.Scheme = mgr.GetScheme()
 
 	ormv1Obj := &unstructured.Unstructured{}
 	ormv1Obj.SetAPIVersion("turbonomic.com/v1alpha1")
 	ormv1Obj.SetKind("OperatorResourceMapping")
 
-	if err != nil {
-		return err
+	if kubernetes.Toolbox.FindGVRfromGVK(ormv1Obj.GroupVersionKind()) == nil {
+		return nil
 	}
+
+	ccLog.Info("Registering generator", "for", ormv1Obj.GroupVersionKind())
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(ormv1Obj).
@@ -116,7 +120,7 @@ func (c *CompatibilityReconciler) compatibilityCheck(ormv1Obj *unstructured.Unst
 	err := c.Get(context.TODO(), req, orm)
 
 	if err != nil && !errors.IsNotFound(err) {
-		ocLog.Error(err, "reconcile getting "+req.String())
+		ccLog.Error(err, "reconcile getting "+req.String())
 		return ctrl.Result{}, err
 	}
 

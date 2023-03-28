@@ -41,7 +41,7 @@ This repo provides new ORM resource scheme, legacy ORM CRD and examples are in a
 
 Predefined Parameters - all predefined parameters starts with "."
 
- - `.componentName`: refer to the name of the owned resource. Together with label selector of `owned` resource, a pattern can generate lots of mappings if the naming is right.
+ - `.owned.name`: refer to the name of the owned resource. Together with label selector of `owned` resource, a pattern can generate lots of mappings if the naming is right.
 
 ## QuickStart
 

@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"os"
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -29,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/turbonomic/orm/api/v1alpha1"
+	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/controllers/mappers"
 	"github.com/turbonomic/orm/kubernetes"
 	"github.com/turbonomic/orm/registry"
@@ -44,8 +43,8 @@ type OperatorResourceMappingReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
-	ownershipMapper mappers.Mapper
-	registry        registry.ORMRegistry
+	registry        *registry.ResourceMappingRegistry
+	ownershipMapper *mappers.OwnershipMapper
 }
 
 //+kubebuilder:rbac:groups=devops.turbonomic.io,resources=operatorresourcemappings,verbs=get;list;watch;create;update;patch;delete
@@ -64,7 +63,7 @@ type OperatorResourceMappingReconciler struct {
 func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
-	orm := &v1alpha1.OperatorResourceMapping{}
+	orm := &devopsv1alpha1.OperatorResourceMapping{}
 	err := r.Get(context.TODO(), req.NamespacedName, orm)
 
 	if errors.IsNotFound(err) {
@@ -80,14 +79,14 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 	ocLog.Info("reconciling orm", "object", req.NamespacedName)
 
 	oldStatus := orm.Status.DeepCopy()
-	orm.Status = v1alpha1.OperatorResourceMappingStatus{}
+	orm.Status = devopsv1alpha1.OperatorResourceMappingStatus{}
 
 	err = r.parseORM(orm)
 	if err != nil {
 		ocLog.Error(err, "registering sources of operator "+req.String()+" ... skipping")
 
-		orm.Status.State = v1alpha1.ORMTypeError
-		orm.Status.Reason = string(v1alpha1.ORMStatusReasonOwnerError)
+		orm.Status.State = devopsv1alpha1.ORMTypeError
+		orm.Status.Reason = string(devopsv1alpha1.ORMStatusReasonOwnerError)
 		orm.Status.Message = err.Error()
 		r.checkAndUpdateStatus(oldStatus, orm)
 		return ctrl.Result{}, nil
@@ -96,10 +95,10 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 	return ctrl.Result{}, nil
 }
 
-func (r *OperatorResourceMappingReconciler) checkAndUpdateStatus(oldStatus *v1alpha1.OperatorResourceMappingStatus, orm *v1alpha1.OperatorResourceMapping) {
+func (r *OperatorResourceMappingReconciler) checkAndUpdateStatus(oldStatus *devopsv1alpha1.OperatorResourceMappingStatus, orm *devopsv1alpha1.OperatorResourceMapping) {
 	var err error
 	if !reflect.DeepEqual(orm.Status, *oldStatus) {
-		err = r.Status().Update(context.TODO(), orm, &client.UpdateOptions{})
+		err = r.Status().Update(context.TODO(), orm)
 	}
 	if err != nil {
 		ocLog.Error(err, "failed to update orm status "+orm.Namespace+"/"+orm.Name)
@@ -107,22 +106,16 @@ func (r *OperatorResourceMappingReconciler) checkAndUpdateStatus(oldStatus *v1al
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *OperatorResourceMappingReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	var err error
+func (r *OperatorResourceMappingReconciler) SetupWithManagerAndRegistry(mgr ctrl.Manager, registry *registry.ResourceMappingRegistry) error {
 
-	r.ownershipMapper, err = mappers.NewOwnershipMapper(&r.registry)
-	if err != nil {
-		ocLog.Error(err, "unable to init mapper")
-		os.Exit(1)
-	}
-
-	if err = r.ownershipMapper.SetupWithManager(mgr); err != nil {
-		ocLog.Error(err, "unable to setup mapper with manager", "mapper", r.ownershipMapper)
-		return err
+	r.registry = registry
+	r.ownershipMapper = mappers.NewOwnershipMapper(r.registry)
+	if r.ownershipMapper == nil {
+		return errors.NewServiceUnavailable("Failed to initialize advice mapper")
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.OperatorResourceMapping{}).
+		For(&devopsv1alpha1.OperatorResourceMapping{}).
 		Complete(r)
 }
 
@@ -130,7 +123,7 @@ func (r *OperatorResourceMappingReconciler) cleanupORM(key types.NamespacedName)
 	r.registry.CleanupRegistryForORM(key)
 }
 
-func (r *OperatorResourceMappingReconciler) parseORM(orm *v1alpha1.OperatorResourceMapping) error {
+func (r *OperatorResourceMappingReconciler) parseORM(orm *devopsv1alpha1.OperatorResourceMapping) error {
 
 	var err error
 	// get owner
@@ -158,7 +151,7 @@ func (r *OperatorResourceMappingReconciler) parseORM(orm *v1alpha1.OperatorResou
 		obj = &objs[0]
 	}
 
-	err = RegisterORM(&r.registry, orm)
+	err = r.registry.RegisterORM(orm)
 	if err != nil {
 		return err
 	}

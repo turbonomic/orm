@@ -14,23 +14,55 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package registry
 
 import (
 	"strings"
 
+	"github.com/turbonomic/orm/kubernetes"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/turbonomic/orm/api/v1alpha1"
-	"github.com/turbonomic/orm/kubernetes"
-	"github.com/turbonomic/orm/registry"
+	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
 )
+
+func (or *ResourceMappingRegistry) SeekTopOwnersResourcePathsForOwnedResourcePath(owned devopsv1alpha1.ResourcePath) []devopsv1alpha1.ResourcePath {
+	owners := []devopsv1alpha1.ResourcePath{owned}
+
+	more := true
+	for more {
+		more = false
+		old := owners
+		owners = []devopsv1alpha1.ResourcePath{}
+		for _, rp := range old {
+			orme := or.RetrieveORMEntryForOwned(rp.ObjectReference)
+			for _, oe := range orme {
+				for o, m := range oe {
+					if m[rp.Path] == "" {
+						continue
+					}
+					more = true
+					owners = append(owners, devopsv1alpha1.ResourcePath{
+						ObjectReference: o,
+						Path:            m[rp.Path],
+					})
+				}
+			}
+			if !more {
+				owners = append(owners, rp)
+			}
+		}
+	}
+
+	return owners
+
+}
 
 const predefinedOwnedResourceName = ".owned.name"
 const predefinedParameterPlaceHolder = ".."
 
-func RegisterORM(reg *registry.ORMRegistry, orm *v1alpha1.OperatorResourceMapping) error {
+func (or *ResourceMappingRegistry) RegisterORM(orm *devopsv1alpha1.OperatorResourceMapping) error {
 	var err error
 
 	if orm == nil {
@@ -58,7 +90,7 @@ func RegisterORM(reg *registry.ORMRegistry, orm *v1alpha1.OperatorResourceMappin
 			var srcObjs []unstructured.Unstructured
 			srcObjs, err = kubernetes.Toolbox.GetResourceListWithGVKWithSelector(p.OwnedResourcePath.GroupVersionKind(), k, &p.OwnedResourcePath.LabelSelector)
 			if err != nil {
-				ocLog.Error(err, "listing resource", "source", p.OwnedResourcePath)
+				rLog.Error(err, "listing resource", "source", p.OwnedResourcePath)
 			}
 			for _, obj := range srcObjs {
 				srckeys = append(srckeys, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()})
@@ -67,7 +99,7 @@ func RegisterORM(reg *registry.ORMRegistry, orm *v1alpha1.OperatorResourceMappin
 		srcmap[p.OwnedResourcePath.Path] = srckeys
 	}
 
-	reg.CleanupRegistryForORM(types.NamespacedName{
+	or.CleanupRegistryForORM(types.NamespacedName{
 		Namespace: orm.Namespace,
 		Name:      orm.Name,
 	})
@@ -80,7 +112,7 @@ func RegisterORM(reg *registry.ORMRegistry, orm *v1alpha1.OperatorResourceMappin
 			patterns := populatePatterns(orm.Spec.Mappings.Parameters, p)
 
 			for _, pattern := range patterns {
-				err = reg.RegisterMapping(pattern.OwnerPath, pattern.OwnedResourcePath.Path,
+				err = or.registerOwnershipMapping(pattern.OwnerPath, pattern.OwnedResourcePath.Path,
 					types.NamespacedName{Name: orm.Name, Namespace: orm.Namespace},
 					orm.Spec.Owner.ObjectReference,
 					p.OwnedResourcePath.ObjectReference)
@@ -95,8 +127,30 @@ func RegisterORM(reg *registry.ORMRegistry, orm *v1alpha1.OperatorResourceMappin
 	return nil
 }
 
-func populatePatterns(parameters map[string][]string, pattern v1alpha1.Pattern) []v1alpha1.Pattern {
-	var allpatterns []v1alpha1.Pattern
+func (or *ResourceMappingRegistry) CleanupRegistryForORM(orm types.NamespacedName) {
+
+	if or.ownerRegistry != nil {
+		cleanupORMInRegistry(or.ownerRegistry, orm)
+	}
+	if or.ownedRegistry != nil {
+		cleanupORMInRegistry(or.ownedRegistry, orm)
+	}
+}
+
+func (or *ResourceMappingRegistry) RetrieveORMEntryForOwner(owner corev1.ObjectReference) ResourceMappingEntry {
+	return retrieveResourceMappingEntryForObjectFromRegistry(or.ownerRegistry, owner)
+}
+
+func (or *ResourceMappingRegistry) RetrieveORMEntryForOwned(owned corev1.ObjectReference) ResourceMappingEntry {
+	return retrieveResourceMappingEntryForObjectFromRegistry(or.ownedRegistry, owned)
+}
+
+func (or *ResourceMappingRegistry) RetrieveObjectEntryForOwnerAndORM(owner corev1.ObjectReference, orm types.NamespacedName) *ObjectEntry {
+	return retrieveObjectEntryForObjectAndORMFromRegistry(or.ownerRegistry, owner, orm)
+}
+
+func populatePatterns(parameters map[string][]string, pattern devopsv1alpha1.Pattern) []devopsv1alpha1.Pattern {
+	var allpatterns []devopsv1alpha1.Pattern
 
 	pattern.OwnerPath = strings.ReplaceAll(pattern.OwnerPath, "{{"+predefinedOwnedResourceName+"}}", pattern.OwnedResourcePath.Name)
 	pattern.OwnedResourcePath.Path = strings.ReplaceAll(pattern.OwnedResourcePath.Path, "{{"+predefinedOwnedResourceName+"}}", pattern.OwnedResourcePath.Name)
@@ -107,10 +161,10 @@ func populatePatterns(parameters map[string][]string, pattern v1alpha1.Pattern) 
 		parameters = make(map[string][]string)
 	}
 	parameters[predefinedParameterPlaceHolder] = []string{predefinedParameterPlaceHolder}
-	var prevpatterns []v1alpha1.Pattern
+	var prevpatterns []devopsv1alpha1.Pattern
 	for name, values := range parameters {
 		prevpatterns = allpatterns
-		allpatterns = []v1alpha1.Pattern{}
+		allpatterns = []devopsv1alpha1.Pattern{}
 
 		for _, p := range prevpatterns {
 			for _, v := range values {

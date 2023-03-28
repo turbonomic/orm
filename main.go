@@ -34,6 +34,8 @@ import (
 	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/controllers"
 	"github.com/turbonomic/orm/kubernetes"
+	"github.com/turbonomic/orm/registry"
+	utilcontrollers "github.com/turbonomic/orm/utils/controllers"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -96,21 +98,27 @@ func main() {
 		os.Exit(1)
 	}
 
+	var reg registry.ResourceMappingRegistry
+
 	if err = (&controllers.OperatorResourceMappingReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManagerAndRegistry(mgr, &reg); err != nil {
 		setupLog.Error(err, "unable to create orm controller", "controller", "OperatorResourceMapping")
 		os.Exit(1)
 	}
-
-	if err = (&controllers.CompatibilityReconciler{
+	if err = (&controllers.AdviceMappingReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create compatibility controller", "controller", "OperatorResourceMapping")
+	}).SetupWithManagerAndRegistry(mgr, &reg); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "AdviceMapping")
 		os.Exit(1)
 	}
+	if err = utilcontrollers.SetupAllWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create utility controller")
+		os.Exit(1)
+	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

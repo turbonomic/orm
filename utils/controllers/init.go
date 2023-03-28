@@ -14,15 +14,31 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package mappers
+package controllers
 
 import (
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-type Mapper interface {
-	SetupWithManager(manager.Manager) error
-	RegisterForObject(schema.GroupVersionKind, types.NamespacedName) error
+type UtilityController interface {
+	reconcile.Reconciler
+	SetupWithManager(ctrl.Manager) error
+}
+
+var all = []UtilityController{
+	&CompatibilityReconciler{},
+	&HorizontalPodAutoScalerGeneratorReconciler{},
+	&VerticalPodAutoScalerGeneratorReconciler{},
+}
+
+func SetupAllWithManager(mgr ctrl.Manager) error {
+	var err error
+	for _, c := range all {
+		err = c.SetupWithManager(mgr)
+		if err != nil {
+			return err
+		}
+	}
+	return err
 }
