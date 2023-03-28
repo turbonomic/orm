@@ -36,10 +36,10 @@ type ResourceMappingEntry map[types.NamespacedName]ObjectEntry
 
 type ResourceMappingRegistry struct {
 	// ownerRegistry is defined to find orm and mappings by Owner Object
-	// legend: [owner objref][orm key][target objref][owner path]owned path
+	// legend: [owner objref][orm key][owned objref][owner path]owned path
 	ownerRegistry map[corev1.ObjectReference]ResourceMappingEntry
 	// ownedRegistry is defined to find orm and mappings by owned resource
-	// legend: [owner objref][orm key][owner objref][owned path]owner path
+	// legend: [owned objref][orm key][owner objref][owned path]owner path
 	ownedRegistry map[corev1.ObjectReference]ResourceMappingEntry
 	// advisorRegistry is defined to find am and mappings by advisor
 	// legend: [advisor objref][am key][target objref][advisor path]target path
