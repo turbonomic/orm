@@ -78,6 +78,8 @@ type OwnerMappingValue struct {
 	OwnerPath string `json:"ownerPath"`
 	// value of the path in owner resource
 	Value *runtime.RawExtension `json:"value,omitempty"`
+	// owned resource and the path
+	OwnedResourcePath OwnedResourcePath `json:"owned"`
 
 	// +optional
 	LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`
@@ -116,6 +118,9 @@ type OperatorResourceMappingStatus struct {
 	// A human readable message indicating details about the transition.
 	// +optional
 	Message string `json:"message,omitempty"`
+
+	// owner object reference
+	Owner corev1.ObjectReference `json:"owner,omitempty"`
 
 	// +optional
 	// all mappings generated from the patterns defined in spec and their values
