@@ -106,11 +106,28 @@ After the resources are applied, you'll find the orm status already updated with
 
 ```yaml
   status:
+    owner:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: ormowner-solo
+      namespace: default
     ownerValues:
-    - ownerPath: .spec.replicas
+    - owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: ormowned-solo
+        namespace: default
+        path: .spec.replicas
+      ownerPath: .spec.replicas
       value:
         replicas: 3
-    - ownerPath: .spec.template.spec.containers[?(@.name=="workload-0001")].resources
+    - owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: ormowned-solo
+        namespace: default
+        path: .spec.template.spec.containers[?(@.name=="workload-0001")].resources
+      ownerPath: .spec.template.spec.containers[?(@.name=="workload-0001")].resources
       value:
         resources:
           limits:
@@ -119,6 +136,7 @@ After the resources are applied, you'll find the orm status already updated with
           requests:
             cpu: 50m
             memory: 50Mi
+    state: ok
 ```
 
 If there are errors in your ORM, or you modify the paths defined in your ORM, you can see message in ORM status helping you to fix the problem. Here are some example messages after we corrupt the paths
@@ -141,23 +159,52 @@ Step 5 Experience parameters for patterns
 
 Continue in the 2nd console.
 
-The `pattern` test case intends to show how to use (predefined) parameters in patterns.  It uses predefined parameter `.componentName` and parameter `ports` to generate 4 mappings.
+The `pattern` test case intends to show how to use (predefined) parameters in patterns.  It uses predefined parameter `.owned.name` and parameter `ports` to generate 4 mappings from 1 pattern definition in spec.
 
 ```yaml
   status:
+    owner:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: ormoperand-patterns
+      namespace: default
     ownerValues:
-    - ownerPath: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0002")].ports[?(@.protocol=="TCP")].containerPort
-      value:
-        containerPort: 82
-    - ownerPath: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0002")].ports[?(@.protocol=="UDP")].containerPort
-      value:
-        containerPort: 10002
-    - ownerPath: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0001")].ports[?(@.protocol=="TCP")].containerPort
+    - owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: ormsource-patterns-0001
+        namespace: default
+        path: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0001")].ports[?(@.protocol=="TCP")].containerPort
+      ownerPath: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0001")].ports[?(@.protocol=="TCP")].containerPort
       value:
         containerPort: 81
-    - ownerPath: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0001")].ports[?(@.protocol=="UDP")].containerPort
+    - owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: ormsource-patterns-0001
+        namespace: default
+        path: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0001")].ports[?(@.protocol=="UDP")].containerPort
+      ownerPath: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0001")].ports[?(@.protocol=="UDP")].containerPort
       value:
         containerPort: 10001
+    - owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: ormsource-patterns-0002
+        namespace: default
+        path: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0002")].ports[?(@.protocol=="TCP")].containerPort
+      ownerPath: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0002")].ports[?(@.protocol=="TCP")].containerPort
+      value:
+        containerPort: 82
+    - owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: ormsource-patterns-0002
+        namespace: default
+        path: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0002")].ports[?(@.protocol=="UDP")].containerPort
+      ownerPath: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0002")].ports[?(@.protocol=="UDP")].containerPort
+      value:
+        containerPort: 10002
     state: ok
 ```
 

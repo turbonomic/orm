@@ -21,7 +21,6 @@ import (
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -30,7 +29,6 @@ import (
 
 	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/controllers/mappers"
-	"github.com/turbonomic/orm/kubernetes"
 	"github.com/turbonomic/orm/registry"
 )
 
@@ -125,41 +123,15 @@ func (r *OperatorResourceMappingReconciler) cleanupORM(key types.NamespacedName)
 
 func (r *OperatorResourceMappingReconciler) parseORM(orm *devopsv1alpha1.OperatorResourceMapping) error {
 
-	var err error
-	// get owner
-	var obj *unstructured.Unstructured
-	if orm.Spec.Owner.Name != "" {
-		objk := types.NamespacedName{
+	err := r.registry.ValidateAndRegisterORM(orm)
+	if err != nil {
+		return err
+	}
+
+	return r.ownershipMapper.RegisterOwnerFromORM(orm.Spec.Owner.GroupVersionKind(),
+		types.NamespacedName{
 			Namespace: orm.Spec.Owner.Namespace,
 			Name:      orm.Spec.Owner.Name,
-		}
-		if objk.Namespace == "" {
-			objk.Namespace = orm.Namespace
-		}
-		obj, err = kubernetes.Toolbox.GetResourceWithGVK(orm.Spec.Owner.GroupVersionKind(), objk)
-		if err != nil {
-			ocLog.Error(err, "failed to find owner", "owner", orm.Spec.Owner)
-			return err
-		}
-	} else {
-		objs, err := kubernetes.Toolbox.GetResourceListWithGVKWithSelector(orm.Spec.Owner.GroupVersionKind(),
-			types.NamespacedName{Namespace: orm.Spec.Owner.Namespace, Name: orm.Spec.Owner.Name}, &orm.Spec.Owner.LabelSelector)
-		if err != nil || len(objs) == 0 {
-			ocLog.Error(err, "failed to find owner", "owner", orm.Spec.Owner)
-			return err
-		}
-		obj = &objs[0]
-	}
-
-	err = r.registry.RegisterORM(orm)
-	if err != nil {
-		return err
-	}
-
-	err = r.ownershipMapper.RegisterForObject(orm.Spec.Owner.GroupVersionKind(), types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()})
-	if err != nil {
-		return err
-	}
-
-	return err
+		},
+		orm)
 }
