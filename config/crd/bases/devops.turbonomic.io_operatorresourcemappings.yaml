@@ -383,7 +383,6 @@ spec:
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
                   required:
-                  - owned
                   - ownerPath
                   type: object
                 type: array

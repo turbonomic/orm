@@ -346,7 +346,11 @@ func (in *OwnerMappingValue) DeepCopyInto(out *OwnerMappingValue) {
 		*out = new(runtime.RawExtension)
 		(*in).DeepCopyInto(*out)
 	}
-	in.OwnedResourcePath.DeepCopyInto(&out.OwnedResourcePath)
+	if in.OwnedResourcePath != nil {
+		in, out := &in.OwnedResourcePath, &out.OwnedResourcePath
+		*out = new(OwnedResourcePath)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.LastTransitionTime != nil {
 		in, out := &in.LastTransitionTime, &out.LastTransitionTime
 		*out = (*in).DeepCopy()

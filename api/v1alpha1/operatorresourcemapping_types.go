@@ -79,7 +79,7 @@ type OwnerMappingValue struct {
 	// value of the path in owner resource
 	Value *runtime.RawExtension `json:"value,omitempty"`
 	// owned resource and the path
-	OwnedResourcePath OwnedResourcePath `json:"owned"`
+	OwnedResourcePath *OwnedResourcePath `json:"owned,omitempty"`
 
 	// +optional
 	LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`

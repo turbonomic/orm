@@ -32,7 +32,7 @@ import (
 )
 
 var (
-	messagePlaceHolder = "locating source path"
+	messagePlaceHolder = "owner path was found, need to find the source path"
 )
 
 func (or *ResourceMappingRegistry) SeekTopOwnersResourcePathsForOwnedResourcePath(owned devopsv1alpha1.ResourcePath) []devopsv1alpha1.ResourcePath {
@@ -165,31 +165,21 @@ func (or *ResourceMappingRegistry) setORMStatus(owner *unstructured.Unstructured
 		Name:      orm.GetName(),
 	})
 
-	allmappings := make(map[string]devopsv1alpha1.OwnedResourcePath)
+	allmappings := make(map[string]*devopsv1alpha1.OwnedResourcePath)
 	for o, mappings := range *oe {
 		for op, sp := range mappings {
 			owned := devopsv1alpha1.OwnedResourcePath{
 				Path: sp,
 			}
 			owned.ObjectReference = o
-			allmappings[op] = owned
+			allmappings[op] = &owned
 		}
 	}
 
 	// add mappings with owner path in old status first, to keep the order of array
 	for _, mapping := range existingMappings {
-		mapitem := PrepareMappingForObject(owner, mapping.OwnerPath, mapping.OwnedResourcePath.ObjectReference, mapping.OwnedResourcePath.Path)
-		if mapitem != nil {
-			mapitem.Message = messagePlaceHolder
-			orm.Status.OwnerMappingValues = append(orm.Status.OwnerMappingValues, *mapitem)
-		} else {
-			mapitem = &devopsv1alpha1.OwnerMappingValue{
-				OwnerPath: mapping.OwnerPath,
-				Message:   "Failed to locate ownerPath in owner",
-				Reason:    string(devopsv1alpha1.ORMStatusReasonOwnerError),
-			}
-			orm.Status.OwnerMappingValues = append(orm.Status.OwnerMappingValues, *mapitem)
-		}
+		mapitem := PrepareMappingForObject(owner, mapping.OwnerPath, mapping.OwnedResourcePath)
+		orm.Status.OwnerMappingValues = append(orm.Status.OwnerMappingValues, *mapitem)
 
 		// don't have to process it again
 		delete(allmappings, mapping.OwnerPath)
@@ -198,18 +188,8 @@ func (or *ResourceMappingRegistry) setORMStatus(owner *unstructured.Unstructured
 	// process remaining mappings generated this time and is not in previous status
 	if len(allmappings) != 0 {
 		for op, owned := range allmappings {
-			mapitem := PrepareMappingForObject(owner, op, owned.ObjectReference, owned.Path)
-			if mapitem != nil {
-				mapitem.Message = messagePlaceHolder
-				orm.Status.OwnerMappingValues = append(orm.Status.OwnerMappingValues, *mapitem)
-			} else {
-				mapitem = &devopsv1alpha1.OwnerMappingValue{
-					OwnerPath: op,
-					Message:   "Failed to locate ownerPath in owner",
-					Reason:    string(devopsv1alpha1.ORMStatusReasonOwnerError),
-				}
-				orm.Status.OwnerMappingValues = append(orm.Status.OwnerMappingValues, *mapitem)
-			}
+			mapitem := PrepareMappingForObject(owner, op, owned)
+			orm.Status.OwnerMappingValues = append(orm.Status.OwnerMappingValues, *mapitem)
 		}
 	}
 
@@ -393,13 +373,19 @@ func (or *ResourceMappingRegistry) validateOwnedResources(owner *unstructured.Un
 
 }
 
-func PrepareMappingForObject(obj *unstructured.Unstructured, objPath string, owned corev1.ObjectReference, ownedPath string) *devopsv1alpha1.OwnerMappingValue {
+func PrepareMappingForObject(obj *unstructured.Unstructured, objPath string, owned *devopsv1alpha1.OwnedResourcePath) *devopsv1alpha1.OwnerMappingValue {
 	mapitem := devopsv1alpha1.OwnerMappingValue{}
 	mapitem.OwnerPath = objPath
 
 	mapitem.Value = ormutils.PrepareRawExtensionFromUnstructured(obj, objPath)
-	mapitem.OwnedResourcePath.ObjectReference = owned
-	mapitem.OwnedResourcePath.Path = ownedPath
+	if mapitem.Value == nil {
+		mapitem.Message = "Failed to locate ownerPath in owner"
+		mapitem.Reason = string(devopsv1alpha1.ORMStatusReasonOwnerError)
+		return &mapitem
+	}
+
+	mapitem.Message = messagePlaceHolder
+	mapitem.OwnedResourcePath = owned
 
 	return &mapitem
 }
