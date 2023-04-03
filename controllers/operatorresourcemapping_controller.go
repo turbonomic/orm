@@ -123,7 +123,7 @@ func (r *OperatorResourceMappingReconciler) cleanupORM(key types.NamespacedName)
 
 func (r *OperatorResourceMappingReconciler) parseORM(orm *devopsv1alpha1.OperatorResourceMapping) error {
 
-	err := r.registry.ValidateAndRegisterORM(orm)
+	_, _, err := r.registry.ValidateAndRegisterORM(orm)
 	if err != nil {
 		return err
 	}
