@@ -70,10 +70,10 @@ func (or *ResourceMappingRegistry) SeekTopOwnersResourcePathsForOwnedResourcePat
 const predefinedOwnedResourceName = ".owned.name"
 const predefinedParameterPlaceHolder = ".."
 
-func (or *ResourceMappingRegistry) validateORMOwner(orm *devopsv1alpha1.OperatorResourceMapping) error {
+func (or *ResourceMappingRegistry) validateORMOwner(orm *devopsv1alpha1.OperatorResourceMapping) (*unstructured.Unstructured, error) {
 	var err error
 	if orm == nil {
-		return nil
+		return nil, nil
 	}
 
 	// get owner
@@ -89,14 +89,14 @@ func (or *ResourceMappingRegistry) validateORMOwner(orm *devopsv1alpha1.Operator
 		obj, err = kubernetes.Toolbox.GetResourceWithGVK(orm.Spec.Owner.GroupVersionKind(), objk)
 		if err != nil {
 			rLog.Error(err, "failed to find owner", "owner", orm.Spec.Owner)
-			return err
+			return nil, err
 		}
 	} else {
 		objs, err := kubernetes.Toolbox.GetResourceListWithGVKWithSelector(orm.Spec.Owner.GroupVersionKind(),
 			types.NamespacedName{Namespace: orm.Spec.Owner.Namespace, Name: orm.Spec.Owner.Name}, &orm.Spec.Owner.LabelSelector)
 		if err != nil || len(objs) == 0 {
 			rLog.Error(err, "failed to find owner", "owner", orm.Spec.Owner)
-			return err
+			return nil, err
 		}
 		obj = &objs[0]
 	}
@@ -104,7 +104,7 @@ func (or *ResourceMappingRegistry) validateORMOwner(orm *devopsv1alpha1.Operator
 	orm.Spec.Owner.Name = obj.GetName()
 	orm.Spec.Owner.Namespace = obj.GetNamespace()
 
-	return nil
+	return obj, nil
 }
 
 func (or *ResourceMappingRegistry) SetORMStatusForOwner(owner *unstructured.Unstructured, orm *devopsv1alpha1.OperatorResourceMapping) {
@@ -196,19 +196,21 @@ func (or *ResourceMappingRegistry) setORMStatus(owner *unstructured.Unstructured
 	or.validateOwnedResources(owner, orm)
 }
 
-func (or *ResourceMappingRegistry) ValidateAndRegisterORM(orm *devopsv1alpha1.OperatorResourceMapping) error {
+func (or *ResourceMappingRegistry) ValidateAndRegisterORM(orm *devopsv1alpha1.OperatorResourceMapping) (*devopsv1alpha1.OperatorResourceMapping, *unstructured.Unstructured, error) {
 	var err error
 
 	if orm == nil {
-		return nil
+		return nil, nil, nil
 	}
 
-	if or.validateORMOwner(orm) != nil {
-		return err
+	var owner *unstructured.Unstructured
+	owner, err = or.validateORMOwner(orm)
+	if err != nil {
+		return orm, owner, err
 	}
 
 	if orm.Spec.Mappings.Patterns == nil || len(orm.Spec.Mappings.Patterns) == 0 {
-		return nil
+		return orm, owner, nil
 	}
 
 	srcmap := make(map[string][]types.NamespacedName)
@@ -255,14 +257,14 @@ func (or *ResourceMappingRegistry) ValidateAndRegisterORM(orm *devopsv1alpha1.Op
 					orm.Spec.Owner.ObjectReference,
 					p.OwnedResourcePath.ObjectReference)
 				if err != nil {
-					return err
+					return orm, owner, err
 				}
 			}
 		}
 
 	}
 
-	return nil
+	return orm, owner, nil
 }
 
 func (or *ResourceMappingRegistry) CleanupRegistryForORM(orm types.NamespacedName) {
