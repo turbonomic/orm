@@ -32,6 +32,7 @@ import (
 
 	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/kubernetes"
+	ormutils "github.com/turbonomic/orm/utils"
 )
 
 type CompatibilityReconciler struct {
@@ -228,20 +229,25 @@ func (c *CompatibilityReconciler) constructCompatibleORMv2(ormv1Obj *unstructure
 
 			var opPathStr, srcPathStr string
 			for _, template := range templates {
-				opPathStr = template.(map[string]interface{})[dstPathKey].(string)
-				opPathStr = strings.ReplaceAll(opPathStr, parameterStr, component)
 				srcPathStr = template.(map[string]interface{})[srcPathKey].(string)
 				srcPathStr = strings.ReplaceAll(srcPathStr, parameterStr, component)
+				srcref := corev1.ObjectReference{
+					Kind:       srcKind,
+					APIVersion: "apps/v1",
+					Name:       component,
+					Namespace:  orm.Namespace,
+				}
+				if !c.isResourcePathExists(srcref, srcPathStr) {
+					continue
+				}
+				opPathStr = template.(map[string]interface{})[dstPathKey].(string)
+				opPathStr = strings.ReplaceAll(opPathStr, parameterStr, component)
 				pattern := devopsv1alpha1.Pattern{
 					OwnerPath: opPathStr,
 					OwnedResourcePath: devopsv1alpha1.OwnedResourcePath{
 						Path: srcPathStr,
 						ObjectLocator: devopsv1alpha1.ObjectLocator{
-							ObjectReference: corev1.ObjectReference{
-								Kind:       srcKind,
-								APIVersion: "apps/v1",
-								Name:       component,
-							},
+							ObjectReference: srcref,
 						},
 					},
 				}
@@ -251,4 +257,16 @@ func (c *CompatibilityReconciler) constructCompatibleORMv2(ormv1Obj *unstructure
 	}
 
 	return orm, nil
+}
+
+func (c *CompatibilityReconciler) isResourcePathExists(objref corev1.ObjectReference, path string) bool {
+
+	obj, err := kubernetes.Toolbox.GetResourceWithObjectReference(objref)
+	if err != nil {
+		return false
+	}
+
+	value := ormutils.PrepareRawExtensionFromUnstructured(obj, path)
+
+	return (value != nil)
 }
