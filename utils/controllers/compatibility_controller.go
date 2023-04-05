@@ -95,7 +95,8 @@ func (c *CompatibilityReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	ormv1Obj.SetAPIVersion("turbonomic.com/v1alpha1")
 	ormv1Obj.SetKind("OperatorResourceMapping")
 
-	if kubernetes.Toolbox.FindGVRfromGVK(ormv1Obj.GroupVersionKind()) == nil {
+	gvr, _ := kubernetes.Toolbox.FindGVRfromGVK(ormv1Obj.GroupVersionKind())
+	if gvr == nil {
 		return nil
 	}
 
@@ -235,11 +236,12 @@ func (c *CompatibilityReconciler) constructCompatibleORMv2(ormv1Obj *unstructure
 					Kind:       srcKind,
 					APIVersion: "apps/v1",
 					Name:       component,
-					Namespace:  orm.Namespace,
+					Namespace:  orm.Namespace, // need the namespace to check resource existence
 				}
 				if !c.isResourcePathExists(srcref, srcPathStr) {
 					continue
 				}
+				srcref.Namespace = "" // remove the namespace to make the pattern more reusable
 				opPathStr = template.(map[string]interface{})[dstPathKey].(string)
 				opPathStr = strings.ReplaceAll(opPathStr, parameterStr, component)
 				pattern := devopsv1alpha1.Pattern{

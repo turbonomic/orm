@@ -36,7 +36,7 @@ type Client struct {
 func (c *Client) GetResourceListWithGVKWithSelector(gvk schema.GroupVersionKind, req types.NamespacedName, selector *metav1.LabelSelector) ([]unstructured.Unstructured, error) {
 
 	var err error
-	gvr := Toolbox.FindGVRfromGVK(gvk)
+	gvr, namespaced := Toolbox.FindGVRfromGVK(gvk)
 	if gvr == nil {
 		return nil, errors.New("Operator " + gvk.String() + "is not installed")
 	}
@@ -46,9 +46,16 @@ func (c *Client) GetResourceListWithGVKWithSelector(gvk schema.GroupVersionKind,
 		return nil, err
 	}
 
-	list, err := Toolbox.Resource(*gvr).Namespace(req.Namespace).List(Toolbox.ctx, metav1.ListOptions{
-		LabelSelector: ls.String(),
-	})
+	var list *unstructured.UnstructuredList
+	if namespaced {
+		list, err = Toolbox.Resource(*gvr).Namespace(req.Namespace).List(Toolbox.ctx, metav1.ListOptions{
+			LabelSelector: ls.String(),
+		})
+	} else {
+		list, err = Toolbox.Resource(*gvr).List(Toolbox.ctx, metav1.ListOptions{
+			LabelSelector: ls.String(),
+		})
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -88,13 +95,17 @@ func (c *Client) GetResourceWithObjectReference(objref corev1.ObjectReference) (
 func (c *Client) GetResourceWithGVK(gvk schema.GroupVersionKind, req types.NamespacedName) (*unstructured.Unstructured, error) {
 
 	var err error
-	gvr := Toolbox.FindGVRfromGVK(gvk)
+	gvr, namespaced := Toolbox.FindGVRfromGVK(gvk)
 	if gvr == nil {
 		return nil, errors.New("Operator " + gvk.String() + "is not installed")
 	}
 
 	obj := &unstructured.Unstructured{}
-	obj, err = Toolbox.Resource(*gvr).Namespace(req.Namespace).Get(Toolbox.ctx, req.Name, metav1.GetOptions{})
+	if namespaced {
+		obj, err = Toolbox.Resource(*gvr).Namespace(req.Namespace).Get(Toolbox.ctx, req.Name, metav1.GetOptions{})
+	} else {
+		obj, err = Toolbox.Resource(*gvr).Get(Toolbox.ctx, req.Name, metav1.GetOptions{})
+	}
 
 	return obj, err
 }
@@ -102,7 +113,7 @@ func (c *Client) GetResourceWithGVK(gvk schema.GroupVersionKind, req types.Names
 func (c *Client) UpdateResourceWithGVK(gvk schema.GroupVersionKind, obj *unstructured.Unstructured) error {
 	var err error
 
-	gvr := Toolbox.FindGVRfromGVK(gvk)
+	gvr, namespaced := Toolbox.FindGVRfromGVK(gvk)
 	if gvr == nil {
 		return errors.New("Resource " + gvk.String() + "is not installed")
 	}
@@ -111,7 +122,11 @@ func (c *Client) UpdateResourceWithGVK(gvk schema.GroupVersionKind, obj *unstruc
 		return errors.New("Target resource is not available: " + gvk.String())
 	}
 
-	_, err = c.Resource(*gvr).Namespace(obj.GetNamespace()).Update(Toolbox.ctx, obj, metav1.UpdateOptions{})
+	if namespaced {
+		_, err = c.Resource(*gvr).Namespace(obj.GetNamespace()).Update(Toolbox.ctx, obj, metav1.UpdateOptions{})
+	} else {
+		_, err = c.Resource(*gvr).Update(Toolbox.ctx, obj, metav1.UpdateOptions{})
+	}
 
 	return err
 

@@ -92,6 +92,9 @@ func (or *ResourceMappingRegistry) validateORMOwner(orm *devopsv1alpha1.Operator
 			return nil, err
 		}
 	} else {
+		if orm.Spec.Owner.Namespace == "" {
+			orm.Spec.Owner.Namespace = orm.Namespace
+		}
 		objs, err := kubernetes.Toolbox.GetResourceListWithGVKWithSelector(orm.Spec.Owner.GroupVersionKind(),
 			types.NamespacedName{Namespace: orm.Spec.Owner.Namespace, Name: orm.Spec.Owner.Name}, &orm.Spec.Owner.LabelSelector)
 		if err != nil || len(objs) == 0 {

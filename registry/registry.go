@@ -17,6 +17,7 @@ limitations under the License.
 package registry
 
 import (
+	"github.com/turbonomic/orm/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -53,8 +54,11 @@ func registerMappingToRegistry(registry map[corev1.ObjectReference]ResourceMappi
 		resource.Namespace = orm.Namespace
 	}
 
-	if index.Namespace == "" {
-		index.Namespace = orm.Namespace
+	_, namespaced := kubernetes.Toolbox.FindGVRfromGVK(index.GroupVersionKind())
+	if namespaced {
+		if index.Namespace == "" {
+			index.Namespace = orm.Namespace
+		}
 	}
 
 	indexref := corev1.ObjectReference{
