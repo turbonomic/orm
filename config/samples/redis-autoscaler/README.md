@@ -15,6 +15,7 @@
   - [Vertical Pod AutoScaler](#vertical-pod-autoscaler)
   - [Coordinate the changes](#coordinate-the-changes-1)
   - [Final Result](#final-result-1)
+- [Next Step](#next-step)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 

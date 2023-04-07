@@ -10,10 +10,17 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Overview](#overview)
+  - [Terminology](#terminology)
 - [QuickStart](#quickstart)
+  - [Step 0. Prerequisite - ensure you have CLI access your target kubernetes cluster](#step-0-prerequisite---ensure-you-have-cli-access-your-target-kubernetes-cluster)
+  - [Step 1. Clone the repository](#step-1-clone-the-repository)
+  - [Step 2. Install CRD](#step-2-install-crd)
+  - [Step 3. Start Controller with your outstanding access to kubernetes cluster](#step-3-start-controller-with-your-outstanding-access-to-kubernetes-cluster)
+  - [Step 4 Try our `solo` test resources](#step-4-try-our-solo-test-resources)
+  - [Step 5 Experience parameters for patterns](#step-5-experience-parameters-for-patterns)
 - [Architecture](#architecture)
-  - [Simple Implementation](#simple-implementation)
-  - [Extensions](#extensions)
+  - [Core Controllers:](#core-controllers)
+  - [Utility Controllers](#utility-controllers)
 - [Next Step](#next-step)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -49,9 +56,9 @@ ORM leverages operator sdk to create/build project, follow the standard operator
 
 Here are the instructions to run it locally outside cluster with our testing resources. 
 
-Step 0. Prerequisite - ensure you have CLI access your target kubernetes cluster
+### Step 0. Prerequisite - ensure you have CLI access your target kubernetes cluster
 
-Step 1. Clone the repository
+### Step 1. Clone the repository
 
 ```script
 mkdir turbonomic
@@ -59,7 +66,7 @@ cd turbonomic
 git clone https://github.com/turbonomic/orm.git
 ```
 
-Step 2. Install CRD
+### Step 2. Install CRD
 
 ```script
 cd orm
@@ -70,7 +77,7 @@ customresourcedefinition.apiextensions.k8s.io/operatorresourcemappings.turbonomi
 
 note: old orm crd is also created for backward compatibility controller
 
-Step 3. Start Controller with your outstanding access to kubernetes cluster
+### Step 3. Start Controller with your outstanding access to kubernetes cluster
 
 ```script
 %make run
@@ -88,7 +95,7 @@ Step 3. Start Controller with your outstanding access to kubernetes cluster
 ...
 ```
 
-Step 4 Try our `solo` test resources 
+### Step 4 Try our `solo` test resources 
 
 Previous console is occupied by controller running in foreground. You need another one for the commands in this step. Make sure the 2nd console also access the same kubernetes cluster as the first one.
 
@@ -155,7 +162,7 @@ If there are errors in your ORM, or you modify the paths defined in your ORM, yo
       reason: OwnedResourceError
 ```
 
-Step 5 Experience parameters for patterns
+### Step 5 Experience parameters for patterns
 
 Continue in the 2nd console.
 
@@ -210,11 +217,22 @@ The `pattern` test case intends to show how to use (predefined) parameters in pa
 
 ## Architecture
 
-A mapper controller is introduced to construct mappings from patters and obtain the value from owner into orm status, the same controller is responsible for validating the paths set in patterns.
+System architecture is described in the figure below:
 
-### Extensions
+![image](./docs/images/arch.png)
 
-There is another use case of the mappings with operator resource. That is to retrieve recommended values from 3rd party `advisor` and use that to set the value in `owner`. We could add the `advisor` field into `pattern` to map to a `owner` path. Certain controllers can be introduced to monitor the change from `advisor` and enforce the change.
+### Core Controllers: 
+
+ORM Controller – watch ORM resource and update registry with mappings
+AM Controller – watch AM resource and update the owner
+Mapper Advice – retrieve value from advice resource and update AM status with actual owner
+Mapper Ownership – retrieve value from owner resource and update ORM status
+
+### Utility Controllers
+
+Compatibility Controller - Generate new ORM from legacy ORM
+HPA-AM Generator - Generate AM from HPA
+VPA-AM Generator - Generate AM from VPA
 
 ## Next Step
 
