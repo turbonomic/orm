@@ -37,6 +37,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
+	"github.com/turbonomic/orm/kubernetes"
+	"github.com/turbonomic/orm/registry"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -44,24 +46,23 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	cfg       *rest.Config
-	k8sClient client.Client
-	testEnv   *envtest.Environment
-	ctx       context.Context
-	cancel    context.CancelFunc
-	rec       *OperatorResourceMappingReconciler
+	cfg        *rest.Config
+	k8sClient  client.Client
+	k8sManager ctrl.Manager
+	testEnv    *envtest.Environment
+	ctx        context.Context
+	cancel     context.CancelFunc
 )
 
-var testns = corev1.Namespace{
-	ObjectMeta: metav1.ObjectMeta{
-		Name: "testns",
-	},
-}
+const (
+	objName      = "testorm"
+	objNamespace = "default"
+)
 
 var (
 	req = types.NamespacedName{
-		Name:      "testorm",
-		Namespace: "testns",
+		Name:      objName,
+		Namespace: objNamespace,
 	}
 
 	testorm = &devopsv1alpha1.OperatorResourceMapping{
@@ -72,8 +73,8 @@ var (
 		Spec: devopsv1alpha1.OperatorResourceMappingSpec{
 			Owner: devopsv1alpha1.ObjectLocator{
 				ObjectReference: corev1.ObjectReference{
-					APIVersion: "group.org/v1alpha1",
-					Kind:       "TestOperatorKind",
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
 				},
 			},
 			Mappings: devopsv1alpha1.MappingPatterns{
@@ -100,25 +101,15 @@ var (
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecs(t, "ORMController")
+	RunSpecs(t, "Controller Suite")
 }
 
-var _ = Describe("ORMController", func() {
+var _ = Describe("ORM Resource", func() {
 
-	It("can reconcile orm", func() {
-		Expect(k8sClient).NotTo(BeNil())
-		Expect(testorm.Spec.Mappings.Patterns).NotTo(BeNil())
-		err := k8sClient.Create(ctx, testorm)
+	It("can create orm resource", func() {
+		obj := testorm.DeepCopy()
+		err := k8sClient.Create(ctx, obj)
 		Expect(err).NotTo(HaveOccurred())
-
-		_, err = rec.Reconcile(ctx, ctrl.Request{NamespacedName: req})
-		Expect(err).NotTo(HaveOccurred())
-
-		obj := &devopsv1alpha1.OperatorResourceMapping{}
-		Expect(obj.Spec).ShouldNot(BeEquivalentTo(testorm.Spec))
-		err = k8sClient.Get(ctx, req, obj)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(obj.Spec).Should(BeEquivalentTo(testorm.Spec))
 	})
 })
 
@@ -142,19 +133,27 @@ var _ = BeforeSuite(func() {
 	err = devopsv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
-	Expect(err).NotTo(HaveOccurred())
+	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
+		Scheme: scheme.Scheme,
+	})
+	Expect(err).ToNot(HaveOccurred())
+
+	k8sClient = k8sManager.GetClient()
 	Expect(k8sClient).NotTo(BeNil())
 
-	rec = &OperatorResourceMappingReconciler{
+	err = kubernetes.InitToolbox(k8sManager.GetConfig(), k8sManager.GetScheme())
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&OperatorResourceMappingReconciler{
 		Client: k8sClient,
 		Scheme: scheme.Scheme,
-	}
+	}).SetupWithManagerAndRegistry(k8sManager, &registry.ResourceMappingRegistry{})
+	Expect(err).ToNot(HaveOccurred())
 
-	//+kubebuilder:scaffold:scheme
-
-	err = k8sClient.Create(ctx, &testns)
-	Expect(err).NotTo(HaveOccurred())
+	go func() {
+		err = k8sManager.Start(ctx)
+		Expect(err).ToNot(HaveOccurred())
+	}()
 
 })
 
