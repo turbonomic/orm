@@ -98,7 +98,8 @@ func (c *HorizontalPodAutoScalerGeneratorReconciler) SetupWithManager(mgr ctrl.M
 		Kind:    "HorizontalPodAutoscaler",
 	}
 
-	if kubernetes.Toolbox.FindGVRfromGVK(gvk) == nil {
+	gvr, _ := kubernetes.Toolbox.FindGVRfromGVK(gvk)
+	if gvr == nil {
 		return nil
 	}
 

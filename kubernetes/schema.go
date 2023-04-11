@@ -25,8 +25,13 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+type resourceEntry struct {
+	schema.GroupVersionResource
+	Namespaced bool
+}
+
 type Schema struct {
-	gvkGVRMap map[schema.GroupVersionKind]*schema.GroupVersionResource
+	gvkGVRMap map[schema.GroupVersionKind]*resourceEntry
 }
 
 var (
@@ -80,12 +85,12 @@ func (s *Schema) bestEffortForGvkForMissingResource(resource string) *schema.Gro
 	return &gvk
 }
 
-func (s *Schema) FindGVRfromGVK(gvk schema.GroupVersionKind) *schema.GroupVersionResource {
+func (s *Schema) FindGVRfromGVK(gvk schema.GroupVersionKind) (*schema.GroupVersionResource, bool) {
 	if s.gvkGVRMap == nil || s.gvkGVRMap[gvk] == nil {
 		s.discoverSchemaMappings()
 	}
 
-	return s.gvkGVRMap[gvk]
+	return &s.gvkGVRMap[gvk].GroupVersionResource, s.gvkGVRMap[gvk].Namespaced
 }
 
 func (s *Schema) discoverSchemaMappings() {
@@ -99,7 +104,7 @@ func (s *Schema) discoverSchemaMappings() {
 	filteredResources := discovery.FilteredBy(resourcePredicate, resources)
 
 	if s.gvkGVRMap == nil {
-		s.gvkGVRMap = make(map[schema.GroupVersionKind]*schema.GroupVersionResource)
+		s.gvkGVRMap = make(map[schema.GroupVersionKind]*resourceEntry)
 	}
 
 	for _, rl := range filteredResources {
@@ -119,12 +124,15 @@ func (s *Schema) buildGVKGVRMap(rl *metav1.APIResourceList) {
 			Group:   gv.Group,
 			Version: gv.Version,
 		}
-		gvr := &schema.GroupVersionResource{
-			Group:    gv.Group,
-			Version:  gv.Version,
-			Resource: res.Name,
+		entry := &resourceEntry{
+			GroupVersionResource: schema.GroupVersionResource{
+				Group:    gv.Group,
+				Version:  gv.Version,
+				Resource: res.Name,
+			},
+			Namespaced: res.Namespaced,
 		}
 
-		s.gvkGVRMap[gvk] = gvr
+		s.gvkGVRMap[gvk] = entry
 	}
 }

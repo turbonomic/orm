@@ -32,6 +32,7 @@ import (
 
 	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/kubernetes"
+	ormutils "github.com/turbonomic/orm/utils"
 )
 
 type CompatibilityReconciler struct {
@@ -94,7 +95,8 @@ func (c *CompatibilityReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	ormv1Obj.SetAPIVersion("turbonomic.com/v1alpha1")
 	ormv1Obj.SetKind("OperatorResourceMapping")
 
-	if kubernetes.Toolbox.FindGVRfromGVK(ormv1Obj.GroupVersionKind()) == nil {
+	gvr, _ := kubernetes.Toolbox.FindGVRfromGVK(ormv1Obj.GroupVersionKind())
+	if gvr == nil {
 		return nil
 	}
 
@@ -228,20 +230,26 @@ func (c *CompatibilityReconciler) constructCompatibleORMv2(ormv1Obj *unstructure
 
 			var opPathStr, srcPathStr string
 			for _, template := range templates {
-				opPathStr = template.(map[string]interface{})[dstPathKey].(string)
-				opPathStr = strings.ReplaceAll(opPathStr, parameterStr, component)
 				srcPathStr = template.(map[string]interface{})[srcPathKey].(string)
 				srcPathStr = strings.ReplaceAll(srcPathStr, parameterStr, component)
+				srcref := corev1.ObjectReference{
+					Kind:       srcKind,
+					APIVersion: "apps/v1",
+					Name:       component,
+					Namespace:  orm.Namespace, // need the namespace to check resource existence
+				}
+				if !c.isResourcePathExists(srcref, srcPathStr) {
+					continue
+				}
+				srcref.Namespace = "" // remove the namespace to make the pattern more reusable
+				opPathStr = template.(map[string]interface{})[dstPathKey].(string)
+				opPathStr = strings.ReplaceAll(opPathStr, parameterStr, component)
 				pattern := devopsv1alpha1.Pattern{
 					OwnerPath: opPathStr,
 					OwnedResourcePath: devopsv1alpha1.OwnedResourcePath{
 						Path: srcPathStr,
 						ObjectLocator: devopsv1alpha1.ObjectLocator{
-							ObjectReference: corev1.ObjectReference{
-								Kind:       srcKind,
-								APIVersion: "apps/v1",
-								Name:       component,
-							},
+							ObjectReference: srcref,
 						},
 					},
 				}
@@ -251,4 +259,16 @@ func (c *CompatibilityReconciler) constructCompatibleORMv2(ormv1Obj *unstructure
 	}
 
 	return orm, nil
+}
+
+func (c *CompatibilityReconciler) isResourcePathExists(objref corev1.ObjectReference, path string) bool {
+
+	obj, err := kubernetes.Toolbox.GetResourceWithObjectReference(objref)
+	if err != nil {
+		return false
+	}
+
+	value := ormutils.PrepareRawExtensionFromUnstructured(obj, path)
+
+	return (value != nil)
 }

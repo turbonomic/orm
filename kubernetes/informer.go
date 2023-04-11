@@ -30,7 +30,7 @@ type InformerFactory struct {
 
 func (i *InformerFactory) WatchResourceWithGVK(gvk schema.GroupVersionKind, handler cache.ResourceEventHandler) error {
 
-	gvr := Toolbox.FindGVRfromGVK(gvk)
+	gvr, _ := Toolbox.FindGVRfromGVK(gvk)
 	if gvr == nil {
 		return errors.New("Source resource " + gvk.String() + "is not installed")
 	}
