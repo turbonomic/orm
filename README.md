@@ -1,6 +1,7 @@
 # Operator Resource Mapping
 [![GoDoc](https://godoc.org/github.com/turbonomic/orm?status.svg)](https://godoc.org/github.com/turbonomic/orm)
 [![License](https://img.shields.io/:license-apache-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
+![workflow](https://github.com/turbonomic/orm/actions/workflows/go.yaml/badge.svg)
 
 <em>Previous ORM CRD and Samples are moved to [archive](./archive/), please find doc for compatibility [here](./docs/compatibility.md).</em>
 
@@ -221,17 +222,22 @@ System architecture is described in the figure below:
 
 ![image](./docs/images/arch.png)
 
-### Core Controllers: 
+### Core Controllers
 
 ORM Controller – watch ORM resource and update registry with mappings
+
 AM Controller – watch AM resource and update the owner
+
 Mapper Advice – retrieve value from advice resource and update AM status with actual owner
+
 Mapper Ownership – retrieve value from owner resource and update ORM status
 
 ### Utility Controllers
 
 Compatibility Controller - Generate new ORM from legacy ORM
+
 HPA-AM Generator - Generate AM from HPA
+
 VPA-AM Generator - Generate AM from VPA
 
 ## Next Step
