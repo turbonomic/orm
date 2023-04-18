@@ -90,6 +90,10 @@ func (s *Schema) FindGVRfromGVK(gvk schema.GroupVersionKind) (*schema.GroupVersi
 		s.discoverSchemaMappings()
 	}
 
+	if s.gvkGVRMap[gvk] == nil {
+		return nil, true
+	}
+
 	return &s.gvkGVRMap[gvk].GroupVersionResource, s.gvkGVRMap[gvk].Namespaced
 }
 
