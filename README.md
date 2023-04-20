@@ -47,6 +47,10 @@ This repo provides new ORM resource scheme, legacy ORM CRD and examples are in a
 
 `Pattern`: pair of paths in `owner` and `owned` resource. Parameters can be defined in `patters` in order to generate multiple `mapping` from one `pattern`.
 
+`Selectors`: predefined label selectors to be reused in patterns
+
+`Parameters`: predefined list of strings for mapping generation
+
 Predefined Parameters - all predefined parameters starts with "."
 
  - `.owned.name`: refer to the name of the owned resource. Together with label selector of `owned` resource, a pattern can generate lots of mappings if the naming is right.
@@ -163,7 +167,7 @@ If there are errors in your ORM, or you modify the paths defined in your ORM, yo
       reason: OwnedResourceError
 ```
 
-### Step 5 Experience parameters for patterns
+### Step 5 Experience selectors, parameters for patterns
 
 Continue in the 2nd console.
 
@@ -214,6 +218,24 @@ The `pattern` test case intends to show how to use (predefined) parameters in pa
       value:
         containerPort: 10002
     state: ok
+```
+
+Please be advised that we allow 1 and only 1 input from owned.name, owned.selector and owned.labelSelector. An error will be reported if there are more than one.
+
+```yaml
+  status:
+    owner: {}
+    ownerValues:
+    - message: allow 1 and only 1 input from owned.name, owned.selector, owner.labelSelector
+      owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: ormsource-patterns-0002
+        path: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].ports[?(@.protocol=="{{ports}}")].containerPort
+        selector: core
+      ownerPath: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].ports[?(@.protocol=="{{ports}}")].containerPort
+      reason: OwnedResourceError
+    state: error
 ```
 
 ## Architecture

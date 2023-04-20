@@ -136,8 +136,8 @@ spec:
                               type: string
                             selector:
                               description: Selector is the key of predefined selectors
-                                if ObjectReference.name is not provided, try to use
-                                predefined selector referenced in this field
+                                Allow and Only allow 1 input from name, selector and
+                                labelSelector
                               type: string
                             uid:
                               description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
@@ -282,9 +282,8 @@ spec:
                       is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
                     type: string
                   selector:
-                    description: Selector is the key of predefined selectors if ObjectReference.name
-                      is not provided, try to use predefined selector referenced in
-                      this field
+                    description: Selector is the key of predefined selectors Allow
+                      and Only allow 1 input from name, selector and labelSelector
                     type: string
                   uid:
                     description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
@@ -429,8 +428,7 @@ spec:
                           type: string
                         selector:
                           description: Selector is the key of predefined selectors
-                            if ObjectReference.name is not provided, try to use predefined
-                            selector referenced in this field
+                            Allow and Only allow 1 input from name, selector and labelSelector
                           type: string
                         uid:
                           description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'

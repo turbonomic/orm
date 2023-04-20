@@ -30,10 +30,12 @@ type ObjectLocator struct {
 	// if namespace is empty, use the owner's namespace as default;
 	corev1.ObjectReference `json:",inline"`
 
-	// Selector is the key of predefined selectors if ObjectReference.name is not provided, try to use predefined selector referenced in this field
+	// Selector is the key of predefined selectors
+	// Allow and Only allow 1 input from name, selector and labelSelector
 	Selector *string `json:"selector,omitempty"`
 
-	// if ObjectReference.name and selector are not provided, use this label selector to find target resource(s)
+	// labelSelector to select resource
+	// Allow and Only allow 1 input from name, selector and labelSelector
 	metav1.LabelSelector `json:",inline"`
 }
 
