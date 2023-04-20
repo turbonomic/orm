@@ -231,7 +231,11 @@ func (or *ResourceMappingRegistry) ValidateAndRegisterORM(orm *devopsv1alpha1.Op
 			srckeys = append(srckeys, k)
 		} else {
 			var srcObjs []unstructured.Unstructured
-			srcObjs, err = kubernetes.Toolbox.GetResourceListWithGVKWithSelector(p.OwnedResourcePath.GroupVersionKind(), k, &p.OwnedResourcePath.LabelSelector)
+			selector := p.OwnedResourcePath.LabelSelector
+			if p.OwnedResourcePath.Selector != nil && *p.OwnedResourcePath.Selector != "" {
+				selector = orm.Spec.Mappings.Selectors[*p.OwnedResourcePath.Selector]
+			}
+			srcObjs, err = kubernetes.Toolbox.GetResourceListWithGVKWithSelector(p.OwnedResourcePath.GroupVersionKind(), k, &selector)
 			if err != nil {
 				rLog.Error(err, "listing resource", "source", p.OwnedResourcePath)
 			}

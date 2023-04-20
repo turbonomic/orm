@@ -30,7 +30,10 @@ type ObjectLocator struct {
 	// if namespace is empty, use the owner's namespace as default;
 	corev1.ObjectReference `json:",inline"`
 
-	// if ObjectReference.name is provided use the name, otherwise, use this label selector to find target resource(s)
+	// Selector is the key of predefined selectors if ObjectReference.name is not provided, try to use predefined selector referenced in this field
+	Selector *string `json:"selector,omitempty"`
+
+	// if ObjectReference.name and selector are not provided, use this label selector to find target resource(s)
 	metav1.LabelSelector `json:",inline"`
 }
 
@@ -58,6 +61,9 @@ type MappingPatterns struct {
 	// parameters defined here can be used in owner and owned resource paths
 	// user can also use .owner.name to refer owner's name without defining it
 	Parameters map[string][]string `json:"parameters,omitempty"`
+
+	// Selectors defined here can be used in owned resource object locator
+	Selectors map[string]metav1.LabelSelector `json:"selectors,omitempty"`
 }
 
 // OperatorResourceMappingSpec defines the desired state of OperatorResourceMapping
