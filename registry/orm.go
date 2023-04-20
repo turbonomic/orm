@@ -24,6 +24,7 @@ import (
 
 	"github.com/turbonomic/orm/kubernetes"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -32,7 +33,8 @@ import (
 )
 
 var (
-	messagePlaceHolder = "owner path was found, need to find the source path"
+	messagePlaceHolder                 = "owner path located"
+	errorMessageMultipleSourceForOwner = "allow 1 and only 1 input from owned.name, owned.selector, owner.labelSelector"
 )
 
 func (or *ResourceMappingRegistry) SeekTopOwnersResourcePathsForOwnedResourcePath(owned devopsv1alpha1.ResourcePath) []devopsv1alpha1.ResourcePath {
@@ -113,6 +115,14 @@ func (or *ResourceMappingRegistry) validateORMOwner(orm *devopsv1alpha1.Operator
 func (or *ResourceMappingRegistry) SetORMStatusForOwner(owner *unstructured.Unstructured, orm *devopsv1alpha1.OperatorResourceMapping) {
 	var err error
 
+	if orm != nil && !or.staticCheckORMSpec(orm) {
+		err = kubernetes.Toolbox.OrmClient.Status().Update(context.TODO(), orm)
+		if err != nil {
+			rLog.Error(err, "retry status")
+		}
+		return
+	}
+
 	var orgStatus devopsv1alpha1.OperatorResourceMappingStatus
 
 	objref := corev1.ObjectReference{}
@@ -141,6 +151,52 @@ func (or *ResourceMappingRegistry) SetORMStatusForOwner(owner *unstructured.Unst
 			}
 		}
 	}
+}
+
+func (or *ResourceMappingRegistry) staticCheckPattern(p *devopsv1alpha1.Pattern) bool {
+	count := 0
+	if p.OwnedResourcePath.Name != "" {
+		count++
+	}
+	if p.OwnedResourcePath.Selector != nil {
+		count++
+	}
+
+	if !reflect.DeepEqual(p.OwnedResourcePath.LabelSelector, metav1.LabelSelector{}) {
+		count++
+	}
+
+	if count != 1 {
+		return false
+	}
+
+	return true
+}
+
+func (or *ResourceMappingRegistry) staticCheckORMSpec(orm *devopsv1alpha1.OperatorResourceMapping) bool {
+	var passed = true
+
+	errMappingValues := []devopsv1alpha1.OwnerMappingValue{}
+	// only allow 1 way to choose target
+	for _, p := range orm.Spec.Mappings.Patterns {
+		if !or.staticCheckPattern(&p) {
+			mv := devopsv1alpha1.OwnerMappingValue{
+				OwnerPath:         p.OwnerPath,
+				OwnedResourcePath: &p.OwnedResourcePath,
+				Reason:            string(devopsv1alpha1.ORMStatusReasonOwnedResourceError),
+				Message:           errorMessageMultipleSourceForOwner,
+			}
+			errMappingValues = append(errMappingValues, mv)
+			passed = false
+		}
+	}
+
+	if !passed {
+		orm.Status.OwnerMappingValues = errMappingValues
+		orm.Status.State = devopsv1alpha1.ORMTypeError
+	}
+
+	return passed
 }
 
 func (or *ResourceMappingRegistry) setORMStatus(owner *unstructured.Unstructured, orm *devopsv1alpha1.OperatorResourceMapping) {
@@ -219,6 +275,10 @@ func (or *ResourceMappingRegistry) ValidateAndRegisterORM(orm *devopsv1alpha1.Op
 	srcmap := make(map[string][]types.NamespacedName)
 	for _, p := range orm.Spec.Mappings.Patterns {
 
+		if !or.staticCheckPattern(&p) {
+			continue
+		}
+
 		var srckeys []types.NamespacedName
 
 		k := types.NamespacedName{Namespace: p.OwnedResourcePath.Namespace, Name: p.OwnedResourcePath.Name}
@@ -238,6 +298,7 @@ func (or *ResourceMappingRegistry) ValidateAndRegisterORM(orm *devopsv1alpha1.Op
 			srcObjs, err = kubernetes.Toolbox.GetResourceListWithGVKWithSelector(p.OwnedResourcePath.GroupVersionKind(), k, &selector)
 			if err != nil {
 				rLog.Error(err, "listing resource", "source", p.OwnedResourcePath)
+				continue
 			}
 			for _, obj := range srcObjs {
 				srckeys = append(srckeys, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()})
