@@ -8,6 +8,10 @@ spec:
     kind: Deployment
     name: ormoperand-patterns
   mappings:
+    selectors:
+      my_selector:
+        matchLabels:
+          app: ormsource-patterns
     parameters:
       ports:
       - "TCP"
@@ -17,6 +21,5 @@ spec:
       owned:
         apiVersion: apps/v1
         kind: Deployment
-        matchLabels:
-          app: ormsource-patterns
+        selector: my_selector
         path: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].ports[?(@.protocol=="{{ports}}")].containerPort

@@ -18,9 +18,9 @@
   - [Step 2. Install CRD](#step-2-install-crd)
   - [Step 3. Start Controller with your outstanding access to kubernetes cluster](#step-3-start-controller-with-your-outstanding-access-to-kubernetes-cluster)
   - [Step 4 Try our `solo` test resources](#step-4-try-our-solo-test-resources)
-  - [Step 5 Experience parameters for patterns](#step-5-experience-parameters-for-patterns)
+  - [Step 5 Try Patterns with selectors and parameters](#step-5-try-patterns-with-selectors-and-parameters)
 - [Architecture](#architecture)
-  - [Core Controllers:](#core-controllers)
+  - [Core Controllers](#core-controllers)
   - [Utility Controllers](#utility-controllers)
 - [Next Step](#next-step)
 
@@ -46,6 +46,10 @@ This repo provides new ORM resource scheme, legacy ORM CRD and examples are in a
 `Mapping`: pair of paths in `owner` and `owned` resources
 
 `Pattern`: pair of paths in `owner` and `owned` resource. Parameters can be defined in `patters` in order to generate multiple `mapping` from one `pattern`.
+
+`Selectors`: predefined label selectors to be reused in patterns
+
+`Parameters`: predefined list of strings for mapping generation
 
 Predefined Parameters - all predefined parameters starts with "."
 
@@ -163,11 +167,11 @@ If there are errors in your ORM, or you modify the paths defined in your ORM, yo
       reason: OwnedResourceError
 ```
 
-### Step 5 Experience parameters for patterns
+### Step 5 Try Patterns with selectors and parameters
 
 Continue in the 2nd console.
 
-The `pattern` test case intends to show how to use (predefined) parameters in patterns.  It uses predefined parameter `.owned.name` and parameter `ports` to generate 4 mappings from 1 pattern definition in spec.
+The `pattern` test case intends to show how to use selectors, (predefined) parameters in patterns.  It uses predefined selector `my_selector`, predefined parameter `.owned.name` and parameter `ports` to generate 4 mappings from 1 pattern definition in spec.
 
 ```yaml
   status:
@@ -214,6 +218,25 @@ The `pattern` test case intends to show how to use (predefined) parameters in pa
       value:
         containerPort: 10002
     state: ok
+```
+
+The identifier of the owned resource(s) are defined by one and only one of the following:
+name, selector, labelSelector. An error will be reported if there are more than one.
+
+```yaml
+  status:
+    owner: {}
+    ownerValues:
+    - message: allow 1 and only 1 input from owned.name, owned.selector, owner.labelSelector
+      owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: ormsource-patterns-0002
+        path: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].ports[?(@.protocol=="{{ports}}")].containerPort
+        selector: my_selector
+      ownerPath: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].ports[?(@.protocol=="{{ports}}")].containerPort
+      reason: OwnedResourceError
+    state: error
 ```
 
 ## Architecture
