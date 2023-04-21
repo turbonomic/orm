@@ -25,7 +25,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	devopsv1alpha1 "github.com/turbonomic/orm/api/v1alpha1"
 	"github.com/turbonomic/orm/controllers/mappers"
@@ -114,6 +116,10 @@ func (r *OperatorResourceMappingReconciler) SetupWithManagerAndRegistry(mgr ctrl
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&devopsv1alpha1.OperatorResourceMapping{}).
+		WithEventFilter(predicate.Funcs{
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+			}}).
 		Complete(r)
 }
 

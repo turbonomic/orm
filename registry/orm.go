@@ -124,8 +124,6 @@ func (or *ResourceMappingRegistry) SetORMStatusForOwner(owner *unstructured.Unst
 		return
 	}
 
-	var orgStatus devopsv1alpha1.OperatorResourceMappingStatus
-
 	objref := corev1.ObjectReference{}
 	objref.Name = owner.GetName()
 	objref.Namespace = owner.GetNamespace()
@@ -142,14 +140,10 @@ func (or *ResourceMappingRegistry) SetORMStatusForOwner(owner *unstructured.Unst
 				rLog.Error(err, "retrieving ", "orm", ormk)
 			}
 		}
-		orm.Status.DeepCopyInto(&orgStatus)
 		or.setORMStatus(owner, orm)
-
-		if !reflect.DeepEqual(orgStatus, orm.Status) {
-			err = kubernetes.Toolbox.OrmClient.Status().Update(context.TODO(), orm)
-			if err != nil {
-				rLog.Error(err, "retry status")
-			}
+		err = kubernetes.Toolbox.OrmClient.Status().Update(context.TODO(), orm)
+		if err != nil {
+			rLog.Error(err, "retry status")
 		}
 	}
 }
@@ -210,6 +204,8 @@ func (or *ResourceMappingRegistry) staticCheckORMSpec(orm *devopsv1alpha1.Operat
 func (or *ResourceMappingRegistry) setORMStatus(owner *unstructured.Unstructured, orm *devopsv1alpha1.OperatorResourceMapping) {
 
 	// set owner info and clean previous error status at status top level
+	orm.Status = devopsv1alpha1.OperatorResourceMappingStatus{}
+
 	orm.Status.Owner.APIVersion = owner.GetAPIVersion()
 	orm.Status.Owner.Kind = owner.GetKind()
 	orm.Status.Owner.Namespace = owner.GetNamespace()
