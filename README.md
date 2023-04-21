@@ -18,9 +18,9 @@
   - [Step 2. Install CRD](#step-2-install-crd)
   - [Step 3. Start Controller with your outstanding access to kubernetes cluster](#step-3-start-controller-with-your-outstanding-access-to-kubernetes-cluster)
   - [Step 4 Try our `solo` test resources](#step-4-try-our-solo-test-resources)
-  - [Step 5 Experience parameters for patterns](#step-5-experience-parameters-for-patterns)
+  - [Step 5 Try Patterns with selectors and parameters](#step-5-try-patterns-with-selectors-and-parameters)
 - [Architecture](#architecture)
-  - [Core Controllers:](#core-controllers)
+  - [Core Controllers](#core-controllers)
   - [Utility Controllers](#utility-controllers)
 - [Next Step](#next-step)
 
@@ -167,7 +167,7 @@ If there are errors in your ORM, or you modify the paths defined in your ORM, yo
       reason: OwnedResourceError
 ```
 
-### Step 5 Experience selectors, parameters for patterns
+### Step 5 Try Patterns with selectors and parameters
 
 Continue in the 2nd console.
 
