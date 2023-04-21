@@ -227,21 +227,13 @@ func (or *ResourceMappingRegistry) setORMStatus(owner *unstructured.Unstructured
 		Name:      orm.GetName(),
 	})
 
-	allmappings := make(map[string]*devopsv1alpha1.OwnedResourcePath)
 	for o, mappings := range *oe {
 		for op, sp := range mappings {
 			owned := devopsv1alpha1.OwnedResourcePath{
 				Path: sp,
 			}
 			owned.ObjectReference = o
-			allmappings[op] = &owned
-		}
-	}
-
-	// process remaining mappings generated this time and is not in previous status
-	if len(allmappings) != 0 {
-		for op, owned := range allmappings {
-			mapitem := PrepareMappingForObject(owner, op, owned)
+			mapitem := PrepareMappingForObject(owner, op, &owned)
 			orm.Status.OwnerMappingValues = append(orm.Status.OwnerMappingValues, *mapitem)
 		}
 	}
