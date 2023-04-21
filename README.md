@@ -220,7 +220,8 @@ The `pattern` test case intends to show how to use selectors, (predefined) param
     state: ok
 ```
 
-Please be advised that we allow 1 and only 1 input from owned.name, owned.selector and owned.labelSelector. An error will be reported if there are more than one.
+The identifier of the owned resource(s) are defined by one and only one of the following:
+name, selector, labelSelector. An error will be reported if there are more than one.
 
 ```yaml
   status:
