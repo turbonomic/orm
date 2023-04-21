@@ -35,6 +35,7 @@ import (
 var (
 	messagePlaceHolder                 = "owner path located"
 	errorMessageMultipleSourceForOwner = "allow 1 and only 1 input from owned.name, owned.selector, owner.labelSelector"
+	errorMessageUnknownSelector        = "unknown selector"
 )
 
 func (or *ResourceMappingRegistry) SeekTopOwnersResourcePathsForOwnedResourcePath(owned devopsv1alpha1.ResourcePath) []devopsv1alpha1.ResourcePath {
@@ -153,12 +154,19 @@ func (or *ResourceMappingRegistry) SetORMStatusForOwner(owner *unstructured.Unst
 	}
 }
 
-func (or *ResourceMappingRegistry) staticCheckPattern(p *devopsv1alpha1.Pattern) bool {
+func (or *ResourceMappingRegistry) staticCheckPattern(p *devopsv1alpha1.Pattern, selectors map[string]metav1.LabelSelector, parameters map[string][]string) error {
 	count := 0
 	if p.OwnedResourcePath.Name != "" {
 		count++
 	}
 	if p.OwnedResourcePath.Selector != nil {
+		if selectors == nil {
+			return errors.New(errorMessageUnknownSelector)
+		}
+
+		if _, ok := selectors[*p.OwnedResourcePath.Selector]; !ok {
+			return errors.New(errorMessageUnknownSelector)
+		}
 		count++
 	}
 
@@ -167,10 +175,10 @@ func (or *ResourceMappingRegistry) staticCheckPattern(p *devopsv1alpha1.Pattern)
 	}
 
 	if count != 1 {
-		return false
+		return errors.New(errorMessageMultipleSourceForOwner)
 	}
 
-	return true
+	return nil
 }
 
 func (or *ResourceMappingRegistry) staticCheckORMSpec(orm *devopsv1alpha1.OperatorResourceMapping) bool {
@@ -179,12 +187,12 @@ func (or *ResourceMappingRegistry) staticCheckORMSpec(orm *devopsv1alpha1.Operat
 	errMappingValues := []devopsv1alpha1.OwnerMappingValue{}
 	// only allow 1 way to choose target
 	for _, p := range orm.Spec.Mappings.Patterns {
-		if !or.staticCheckPattern(&p) {
+		if err := or.staticCheckPattern(&p, orm.Spec.Mappings.Selectors, orm.Spec.Mappings.Parameters); err != nil {
 			mv := devopsv1alpha1.OwnerMappingValue{
 				OwnerPath:         p.OwnerPath,
 				OwnedResourcePath: &p.OwnedResourcePath,
 				Reason:            string(devopsv1alpha1.ORMStatusReasonOwnedResourceError),
-				Message:           errorMessageMultipleSourceForOwner,
+				Message:           err.Error(),
 			}
 			errMappingValues = append(errMappingValues, mv)
 			passed = false
@@ -275,7 +283,7 @@ func (or *ResourceMappingRegistry) ValidateAndRegisterORM(orm *devopsv1alpha1.Op
 	srcmap := make(map[string][]types.NamespacedName)
 	for _, p := range orm.Spec.Mappings.Patterns {
 
-		if !or.staticCheckPattern(&p) {
+		if or.staticCheckPattern(&p, orm.Spec.Mappings.Selectors, orm.Spec.Mappings.Parameters) != nil {
 			continue
 		}
 
