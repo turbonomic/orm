@@ -171,7 +171,7 @@ If there are errors in your ORM, or you modify the paths defined in your ORM, yo
 
 Continue in the 2nd console.
 
-The `pattern` test case intends to show how to use selectors, (predefined) parameters in patterns.  It uses predefined selector `core`, predefined parameter `.owned.name` and parameter `ports` to generate 4 mappings from 1 pattern definition in spec.
+The `pattern` test case intends to show how to use selectors, (predefined) parameters in patterns.  It uses predefined selector `my_selector`, predefined parameter `.owned.name` and parameter `ports` to generate 4 mappings from 1 pattern definition in spec.
 
 ```yaml
   status:
@@ -233,7 +233,7 @@ name, selector, labelSelector. An error will be reported if there are more than 
         kind: Deployment
         name: ormsource-patterns-0002
         path: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].ports[?(@.protocol=="{{ports}}")].containerPort
-        selector: core
+        selector: my_selector
       ownerPath: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].ports[?(@.protocol=="{{ports}}")].containerPort
       reason: OwnedResourceError
     state: error
