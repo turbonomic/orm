@@ -214,7 +214,6 @@ func (or *ResourceMappingRegistry) setORMStatus(owner *unstructured.Unstructured
 	orm.Status.Reason = ""
 	orm.Status.State = devopsv1alpha1.ORMTypeOK
 
-	existingMappings := orm.Status.OwnerMappingValues
 	orm.Status.OwnerMappingValues = nil
 
 	ownerRef := corev1.ObjectReference{
@@ -237,15 +236,6 @@ func (or *ResourceMappingRegistry) setORMStatus(owner *unstructured.Unstructured
 			owned.ObjectReference = o
 			allmappings[op] = &owned
 		}
-	}
-
-	// add mappings with owner path in old status first, to keep the order of array
-	for _, mapping := range existingMappings {
-		mapitem := PrepareMappingForObject(owner, mapping.OwnerPath, mapping.OwnedResourcePath)
-		orm.Status.OwnerMappingValues = append(orm.Status.OwnerMappingValues, *mapitem)
-
-		// don't have to process it again
-		delete(allmappings, mapping.OwnerPath)
 	}
 
 	// process remaining mappings generated this time and is not in previous status
