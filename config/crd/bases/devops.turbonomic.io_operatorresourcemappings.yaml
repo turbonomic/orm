@@ -297,6 +297,9 @@ spec:
             description: OperatorResourceMappingStatus defines the observed state
               of OperatorResourceMapping
             properties:
+              lastTransitionTime:
+                format: date-time
+                type: string
               message:
                 description: A human readable message indicating details about the
                   transition.
@@ -343,9 +346,6 @@ spec:
                   and their values
                 items:
                   properties:
-                    lastTransitionTime:
-                      format: date-time
-                      type: string
                     message:
                       description: A human readable message indicating details about
                         the transition.

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/turbonomic/orm/kubernetes"
 	corev1 "k8s.io/api/core/v1"
@@ -239,6 +240,10 @@ func (or *ResourceMappingRegistry) setORMStatus(owner *unstructured.Unstructured
 	}
 
 	or.validateOwnedResources(owner, orm)
+
+	orm.Status.LastTransitionTime = &metav1.Time{
+		Time: time.Now(),
+	}
 }
 
 func (or *ResourceMappingRegistry) ValidateAndRegisterORM(orm *devopsv1alpha1.OperatorResourceMapping) (*devopsv1alpha1.OperatorResourceMapping, *unstructured.Unstructured, error) {
