@@ -21,6 +21,7 @@ import (
 	"errors"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/turbonomic/orm/kubernetes"
 	corev1 "k8s.io/api/core/v1"
@@ -124,8 +125,6 @@ func (or *ResourceMappingRegistry) SetORMStatusForOwner(owner *unstructured.Unst
 		return
 	}
 
-	var orgStatus devopsv1alpha1.OperatorResourceMappingStatus
-
 	objref := corev1.ObjectReference{}
 	objref.Name = owner.GetName()
 	objref.Namespace = owner.GetNamespace()
@@ -142,14 +141,10 @@ func (or *ResourceMappingRegistry) SetORMStatusForOwner(owner *unstructured.Unst
 				rLog.Error(err, "retrieving ", "orm", ormk)
 			}
 		}
-		orm.Status.DeepCopyInto(&orgStatus)
 		or.setORMStatus(owner, orm)
-
-		if !reflect.DeepEqual(orgStatus, orm.Status) {
-			err = kubernetes.Toolbox.OrmClient.Status().Update(context.TODO(), orm)
-			if err != nil {
-				rLog.Error(err, "retry status")
-			}
+		err = kubernetes.Toolbox.OrmClient.Status().Update(context.TODO(), orm)
+		if err != nil {
+			rLog.Error(err, "retry status")
 		}
 	}
 }
@@ -210,6 +205,8 @@ func (or *ResourceMappingRegistry) staticCheckORMSpec(orm *devopsv1alpha1.Operat
 func (or *ResourceMappingRegistry) setORMStatus(owner *unstructured.Unstructured, orm *devopsv1alpha1.OperatorResourceMapping) {
 
 	// set owner info and clean previous error status at status top level
+	orm.Status = devopsv1alpha1.OperatorResourceMappingStatus{}
+
 	orm.Status.Owner.APIVersion = owner.GetAPIVersion()
 	orm.Status.Owner.Kind = owner.GetKind()
 	orm.Status.Owner.Namespace = owner.GetNamespace()
@@ -218,7 +215,6 @@ func (or *ResourceMappingRegistry) setORMStatus(owner *unstructured.Unstructured
 	orm.Status.Reason = ""
 	orm.Status.State = devopsv1alpha1.ORMTypeOK
 
-	existingMappings := orm.Status.OwnerMappingValues
 	orm.Status.OwnerMappingValues = nil
 
 	ownerRef := corev1.ObjectReference{
@@ -232,35 +228,22 @@ func (or *ResourceMappingRegistry) setORMStatus(owner *unstructured.Unstructured
 		Name:      orm.GetName(),
 	})
 
-	allmappings := make(map[string]*devopsv1alpha1.OwnedResourcePath)
 	for o, mappings := range *oe {
 		for op, sp := range mappings {
 			owned := devopsv1alpha1.OwnedResourcePath{
 				Path: sp,
 			}
 			owned.ObjectReference = o
-			allmappings[op] = &owned
-		}
-	}
-
-	// add mappings with owner path in old status first, to keep the order of array
-	for _, mapping := range existingMappings {
-		mapitem := PrepareMappingForObject(owner, mapping.OwnerPath, mapping.OwnedResourcePath)
-		orm.Status.OwnerMappingValues = append(orm.Status.OwnerMappingValues, *mapitem)
-
-		// don't have to process it again
-		delete(allmappings, mapping.OwnerPath)
-	}
-
-	// process remaining mappings generated this time and is not in previous status
-	if len(allmappings) != 0 {
-		for op, owned := range allmappings {
-			mapitem := PrepareMappingForObject(owner, op, owned)
+			mapitem := PrepareMappingForObject(owner, op, &owned)
 			orm.Status.OwnerMappingValues = append(orm.Status.OwnerMappingValues, *mapitem)
 		}
 	}
 
 	or.validateOwnedResources(owner, orm)
+
+	orm.Status.LastTransitionTime = &metav1.Time{
+		Time: time.Now(),
+	}
 }
 
 func (or *ResourceMappingRegistry) ValidateAndRegisterORM(orm *devopsv1alpha1.OperatorResourceMapping) (*devopsv1alpha1.OperatorResourceMapping, *unstructured.Unstructured, error) {
