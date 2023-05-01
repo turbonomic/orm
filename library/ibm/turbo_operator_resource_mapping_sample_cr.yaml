@@ -10,114 +10,8 @@ spec:
     name: xl-release
     namespace: turbonomic
   mappings:
-    patterns:
-    - ownerPath: .spec.{{.owned.name}}.resources
-      owned:
-        path: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].resources
-        apiVersion: apps/v1
-        kind: Deployment
-        matchExpressions:
-        - key: app.kubernetes.io/name
-          operator: In
-          values:
-          - action-orchestrator
-          - api
-          - auth
-          - clustermgr
-          - cost
-          - extractor
-          - db
-          - group
-          - history
-          - intersight-integration
-          - kafka
-          - kubeturbo
-          - market
-          - mediation-acims
-          - mediation-actionscript
-          - mediation-actionstream-kafka
-          - mediation-aix
-          - mediation-apic
-          - mediation-appdynamics
-          - mediation-appinsights
-          - mediation-aws
-          - mediation-awsbilling
-          - mediation-awscloudbilling
-          - mediation-awscost
-          - mediation-awslambda
-          - mediation-azure
-          - mediation-azurecost
-          - mediation-azureea
-          - mediation-azuresp
-          - mediation-azurevolumes
-          - mediation-baremetal
-          - mediation-cloudfoundry
-          - mediation-compellent
-          - mediation-datadog
-          - mediation-dynatrace
-          - mediation-flexera
-          - mediation-gcpproject
-          - mediation-gcpbilling
-          - mediation-gcpcost
-          - mediation-gcpsa
-          - mediation-hds
-          - mediation-horizon
-          - mediation-hpe3par
-          - mediation-hyperflex
-          - mediation-hyperv
-          - mediation-ibmstorage-flashsystem
-          - mediation-instana
-          - mediation-intersight
-          - mediation-intersighthyperflex
-          - mediation-intersightucs
-          - mediation-istio
-          - mediation-jboss
-          - mediation-jvm
-          - mediation-mssql
-          - mediation-mysql
-          - mediation-netapp
-          - mediation-netflow
-          - mediation-newrelic
-          - mediation-nutanix
-          - mediation-oneview
-          - mediation-openstack
-          - mediation-oracle
-          - mediation-pivotal
-          - mediation-pure
-          - mediation-rhv
-          - mediation-scaleio
-          - mediation-servicenow
-          - mediation-snmp
-          - mediation-tanium
-          - mediation-terraform
-          - mediation-tetration
-          - mediation-tomcat
-          - mediation-ucs
-          - mediation-ucsdirector
-          - mediation-udt
-          - mediation-vcd
-          - mediation-vcenter
-          - mediation-vcenterbrowsing
-          - mediation-vmax
-          - mediation-vmm
-          - mediation-vplex
-          - mediation-webhook
-          - mediation-weblogic
-          - mediation-websphere
-          - mediation-wmi
-          - mediation-xtremio
-          - ml-datastore
-          - ml-training
-          - plan-orchestrator
-          - reporting
-          - repository
-          - topology-processorws
-        
-    - ownerPath: .spec.{{.owned.name}}.replicaCount
-      owned:
-        path: .spec.replicas
-        apiVersion: apps/v1
-        kind: Deployment
+    selectors:
+      turbo_core_components:
         matchExpressions:
         - key: app.kubernetes.io/name
           operator: In
@@ -215,6 +109,21 @@ spec:
           - repository
           - topology-processorws
 
+    patterns:
+    - ownerPath: .spec.{{.owned.name}}.resources
+      owned:
+        selector: turbo_core_components
+        path: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].resources
+        apiVersion: apps/v1
+        kind: Deployment
+        
+    - ownerPath: .spec.{{.owned.name}}.replicaCount
+      owned:
+        selector: turbo_core_components
+        path: .spec.replicas
+        apiVersion: apps/v1
+        kind: Deployment
+       
     - ownerPath: .spec.{{.owned.name}}.resources
       owned:
         path: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].resources
@@ -231,30 +140,31 @@ spec:
     
     - ownerPath: .{{.owned.name}}.service.replicas
       owned:
+        name: chronograf
         path: .spec.replicas
         apiVersion: apps/v1
         kind: Deployment
-        name: chronograf
+        
     - ownerPath: .spec.{{.owned.name}}.resources
       owned:
+        name: chronograf
         path: .spec.replicas
         apiVersion: apps/v1
         kind: Deployment
-        name: chronograf
 
     - ownerPath: .{{.owned.name}}.client.resources
       owned:
+        name: elasticsearch
         path: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].resources
         apiVersion: apps/v1
         kind: Deployment
-        name: elasticsearch
 
     - ownerPath: .{{.owned.name}}.replicas
       owned:
+        name: grafana
         path: .spec.replicas
         apiVersion: apps/v1
         kind: Deployment
-        name: grafana
 
     - ownerPath: .{{.owned.name}}.replicaCount
       owned:
@@ -272,21 +182,21 @@ spec:
 
     - ownerPath: .{{.owned.name}}.alertmanager.replicaCount
       owned:
+        name: prometheus-alertmanager
         path: .spec.replicas
         kind: Deployment
         apiVersion: apps/v1
-        name: prometheus-alertmanager
 
     - ownerPath: .spec.{{.owned.name}}.kubeStateMetrics.replicaCount
       owned:
+        name: prometheus-kube-state-metrics
         path: .spec.replicas
         apiVersion: apps/v1
         kind: Deployment
-        name: prometheus-kube-state-metrics
         
     - ownerPath: .spec.{{.owned.name}}.pushgateway.replicaCount
       owned:
-        apiVersion: apps/v1
-        kind: Deployment
         name: prometheus-pushgateway
         path: .spec.replicas
+        apiVersion: apps/v1
+        kind: Deployment        
