@@ -291,8 +291,10 @@ func (or *ResourceMappingRegistry) ValidateAndRegisterORM(orm *devopsv1alpha1.Op
 			}
 
 			if len(srcObjs) == 0 {
-				// add a fake pattern to generate error message
-				allpatterns = append(allpatterns, *p.DeepCopy())
+				// add a fake pattern to generate error message, use name to carry label selector info
+				fakep := *p.DeepCopy()
+				fakep.OwnedResourcePath.ObjectReference.Name = p.OwnedResourcePath.ObjectLocator.LabelSelector.String()
+				allpatterns = append(allpatterns, fakep)
 				continue
 			}
 			for _, obj := range srcObjs {
