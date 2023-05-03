@@ -48,7 +48,7 @@ func (or *ResourceMappingRegistry) SeekTopOwnersResourcePathsForOwnedResourcePat
 		old := owners
 		owners = []devopsv1alpha1.ResourcePath{}
 		for _, rp := range old {
-			orme := or.RetrieveORMEntryForOwned(rp.ObjectReference)
+			orme := or.retrieveORMEntryForOwned(rp.ObjectReference)
 			for _, oe := range orme {
 				for o, m := range oe {
 					if m[rp.Path] == "" {
@@ -130,7 +130,7 @@ func (or *ResourceMappingRegistry) SetORMStatusForOwner(owner *unstructured.Unst
 	objref.Namespace = owner.GetNamespace()
 	objref.SetGroupVersionKind(owner.GetObjectKind().GroupVersionKind())
 
-	ormEntry := or.RetrieveORMEntryForOwner(objref)
+	ormEntry := or.retrieveORMEntryForOwner(objref)
 	// orm and owner are 1-1 mapping, ormEntry should be 1 only
 	for ormk := range ormEntry {
 
@@ -223,7 +223,7 @@ func (or *ResourceMappingRegistry) setORMStatus(owner *unstructured.Unstructured
 	}
 	ownerRef.SetGroupVersionKind(owner.GetObjectKind().GroupVersionKind())
 
-	oe := or.RetrieveObjectEntryForOwnerAndORM(ownerRef, types.NamespacedName{
+	oe := or.retrieveObjectEntryForOwnerAndORM(ownerRef, types.NamespacedName{
 		Namespace: orm.GetNamespace(),
 		Name:      orm.GetName(),
 	})
@@ -263,14 +263,12 @@ func (or *ResourceMappingRegistry) ValidateAndRegisterORM(orm *devopsv1alpha1.Op
 		return orm, owner, nil
 	}
 
-	srcmap := make(map[string][]types.NamespacedName)
+	allpatterns := []devopsv1alpha1.Pattern{}
 	for _, p := range orm.Spec.Mappings.Patterns {
 
 		if or.staticCheckPattern(&p, orm.Spec.Mappings.Selectors, orm.Spec.Mappings.Parameters) != nil {
 			continue
 		}
-
-		var srckeys []types.NamespacedName
 
 		k := types.NamespacedName{Namespace: p.OwnedResourcePath.Namespace, Name: p.OwnedResourcePath.Name}
 		if k.Namespace == "" {
@@ -279,7 +277,7 @@ func (or *ResourceMappingRegistry) ValidateAndRegisterORM(orm *devopsv1alpha1.Op
 
 		// TODO: avoid to retrieve same source repeatedly
 		if k.Name != "" {
-			srckeys = append(srckeys, k)
+			allpatterns = append(allpatterns, *p.DeepCopy())
 		} else {
 			var srcObjs []unstructured.Unstructured
 			selector := p.OwnedResourcePath.LabelSelector
@@ -291,11 +289,19 @@ func (or *ResourceMappingRegistry) ValidateAndRegisterORM(orm *devopsv1alpha1.Op
 				rLog.Error(err, "listing resource", "source", p.OwnedResourcePath)
 				continue
 			}
+
+			if len(srcObjs) == 0 {
+				// add a fake pattern to generate error message
+				allpatterns = append(allpatterns, *p.DeepCopy())
+				continue
+			}
 			for _, obj := range srcObjs {
-				srckeys = append(srckeys, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()})
+				newp := *p.DeepCopy()
+				newp.OwnedResourcePath.ObjectReference.Name = obj.GetName()
+				newp.OwnedResourcePath.ObjectReference.Namespace = obj.GetNamespace()
+				allpatterns = append(allpatterns, newp)
 			}
 		}
-		srcmap[p.OwnedResourcePath.Path] = srckeys
 	}
 
 	or.CleanupRegistryForORM(types.NamespacedName{
@@ -303,21 +309,16 @@ func (or *ResourceMappingRegistry) ValidateAndRegisterORM(orm *devopsv1alpha1.Op
 		Name:      orm.Name,
 	})
 
-	for _, p := range orm.Spec.Mappings.Patterns {
-		for _, k := range srcmap[p.OwnedResourcePath.Path] {
-			p.OwnedResourcePath.Namespace = k.Namespace
-			p.OwnedResourcePath.Name = k.Name
+	for _, p := range allpatterns {
 
-			patterns := populatePatterns(orm.Spec.Mappings.Parameters, p)
-
-			for _, pattern := range patterns {
-				err = or.registerOwnershipMapping(pattern.OwnerPath, pattern.OwnedResourcePath.Path,
-					types.NamespacedName{Name: orm.Name, Namespace: orm.Namespace},
-					orm.Spec.Owner.ObjectReference,
-					p.OwnedResourcePath.ObjectReference)
-				if err != nil {
-					return orm, owner, err
-				}
+		patterns := populatePatterns(orm.Spec.Mappings.Parameters, p)
+		for _, pattern := range patterns {
+			err = or.registerOwnershipMapping(pattern.OwnerPath, pattern.OwnedResourcePath.Path,
+				types.NamespacedName{Name: orm.Name, Namespace: orm.Namespace},
+				orm.Spec.Owner.ObjectReference,
+				p.OwnedResourcePath.ObjectReference)
+			if err != nil {
+				return orm, owner, err
 			}
 		}
 
@@ -336,15 +337,15 @@ func (or *ResourceMappingRegistry) CleanupRegistryForORM(orm types.NamespacedNam
 	}
 }
 
-func (or *ResourceMappingRegistry) RetrieveORMEntryForOwner(owner corev1.ObjectReference) ResourceMappingEntry {
+func (or *ResourceMappingRegistry) retrieveORMEntryForOwner(owner corev1.ObjectReference) ResourceMappingEntry {
 	return retrieveResourceMappingEntryForObjectFromRegistry(or.ownerRegistry, owner)
 }
 
-func (or *ResourceMappingRegistry) RetrieveORMEntryForOwned(owned corev1.ObjectReference) ResourceMappingEntry {
+func (or *ResourceMappingRegistry) retrieveORMEntryForOwned(owned corev1.ObjectReference) ResourceMappingEntry {
 	return retrieveResourceMappingEntryForObjectFromRegistry(or.ownedRegistry, owned)
 }
 
-func (or *ResourceMappingRegistry) RetrieveObjectEntryForOwnerAndORM(owner corev1.ObjectReference, orm types.NamespacedName) *ObjectEntry {
+func (or *ResourceMappingRegistry) retrieveObjectEntryForOwnerAndORM(owner corev1.ObjectReference, orm types.NamespacedName) *ObjectEntry {
 	return retrieveObjectEntryForObjectAndORMFromRegistry(or.ownerRegistry, owner, orm)
 }
 
@@ -386,7 +387,7 @@ func (or *ResourceMappingRegistry) validateOwnedResources(owner *unstructured.Un
 	}
 	ownerRef.SetGroupVersionKind(owner.GetObjectKind().GroupVersionKind())
 
-	oe := or.RetrieveObjectEntryForOwnerAndORM(ownerRef, types.NamespacedName{
+	oe := or.retrieveObjectEntryForOwnerAndORM(ownerRef, types.NamespacedName{
 		Namespace: orm.GetNamespace(),
 		Name:      orm.GetName(),
 	})
