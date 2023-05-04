@@ -41,7 +41,7 @@ This repo provides new ORM resource scheme, legacy ORM CRD and examples are in a
 
 ### Terminology
 
-`Advisor`: controllers provide recommendations to workloads (e.g. Turbonomic, HorizontalPodAutoscaler, VerticalPodAutoScaler)
+`Advisor`: Tools providing recommendations to workloads (e.g. Turbonomic, HorizontalPodAutoscaler, VerticalPodAutoScaler). In this phase 1, Advisor can get the mapping from ORM resource and modify the owner for recommendation.
 
 `Owner`: the operator resource who owns actual deployed resources. Changes in `owner` trigger operator to update deployed/`owned` resources
 
