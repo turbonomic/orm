@@ -1,0 +1,23 @@
+apiVersion: devops.turbonomic.io/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  annotations:
+  name: redis-orm
+  namespace: ot-operators
+spec:
+  mappings:
+    parameters:
+      containers:
+      - redis
+    patterns:
+    - owned:
+        apiVersion: apps/v1
+        kind: StatefulSet
+        matchLabels:
+          app: redis
+        path: .spec.template.spec.containers[?(@.name=="{{containers}}")].resources
+      ownerPath: .spec.kubernetesConfig.resources
+  owner:
+    apiVersion: redis.redis.opstreelabs.in/v1beta1
+    kind: Redis
+    name: redis
