@@ -4,6 +4,7 @@ metadata:
   name: ormsource-patterns-0001
   labels:
     app: ormsource-patterns
+    id: "0001"
 spec:
   replicas: 1
   selector:
