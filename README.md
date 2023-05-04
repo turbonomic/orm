@@ -22,7 +22,7 @@
     - [Run locally](#run-locally)
     - [Other options](#other-options)
   - [Step 3 Try Redis example](#step-3-try-redis-example)
-    - [Prepare Redis Cluster](#prepare-redis-cluster)
+    - [Prepare Standalone Redis](#prepare-standalone-redis)
     - [Apply OperatorResourceMapping for Redis](#apply-operatorresourcemapping-for-redis)
 - [Next Step](#next-step)
 
@@ -107,9 +107,9 @@ Feel free to try other approaches in Operator SDK such as [OLM deployment](https
 
 ### Step 3 Try Redis example
 
-#### Prepare Redis Cluster
+#### Prepare Standalone Redis
 
-In order to show relationship between operator and the resource it manages we use Redis operator from [OT_CONTAINER-KIT](https://github.com/OT-CONTAINER-KIT/redis-operator#quickstart). We created redis cluster.
+In order to show relationship between operator and the resource it manages we use Redis operator from [OT_CONTAINER-KIT](https://github.com/OT-CONTAINER-KIT/redis-operator#quickstart). We created redis standalone.
 
 ```shell
 helm list -A
