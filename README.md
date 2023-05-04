@@ -1,6 +1,7 @@
 # Operator Resource Mapping
 [![GoDoc](https://godoc.org/github.com/turbonomic/orm?status.svg)](https://godoc.org/github.com/turbonomic/orm)
 [![License](https://img.shields.io/:license-apache-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
+[![Go Report Card](https://goreportcard.com/badge/github.com/turbonomic/orm)](https://goreportcard.com/report/github.com/turbonomic/orm)
 ![workflow](https://github.com/turbonomic/orm/actions/workflows/go.yaml/badge.svg)
 
 <em>Previous ORM CRD and Samples are moved to [archive](./archive/), please find doc for compatibility [here](./docs/compatibility.md).</em>
@@ -12,16 +13,17 @@
 
 - [Overview](#overview)
   - [Terminology](#terminology)
-- [QuickStart](#quickstart)
-  - [Step 0. Prerequisite - ensure you have CLI access your target kubernetes cluster](#step-0-prerequisite---ensure-you-have-cli-access-your-target-kubernetes-cluster)
-  - [Step 1. Clone the repository](#step-1-clone-the-repository)
-  - [Step 2. Install CRD](#step-2-install-crd)
-  - [Step 3. Start Controller with your outstanding access to kubernetes cluster](#step-3-start-controller-with-your-outstanding-access-to-kubernetes-cluster)
-  - [Step 4 Try our `solo` test resources](#step-4-try-our-solo-test-resources)
-  - [Step 5 Try Patterns with selectors and parameters](#step-5-try-patterns-with-selectors-and-parameters)
 - [Architecture](#architecture)
   - [Core Controllers](#core-controllers)
   - [Utility Controllers](#utility-controllers)
+- [QuickStart](#quickstart)
+  - [Step 1. Clone the repository](#step-1-clone-the-repository)
+  - [Step 2. Build and Run](#step-2-build-and-run)
+    - [Run locally](#run-locally)
+    - [Other options](#other-options)
+  - [Step 3 Try Redis example](#step-3-try-redis-example)
+    - [Prepare Redis Cluster](#prepare-redis-cluster)
+    - [Apply OperatorResourceMapping for Redis](#apply-operatorresourcemapping-for-redis)
 - [Next Step](#next-step)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -55,203 +57,15 @@ Predefined Parameters - all predefined parameters starts with "."
 
  - `.owned.name`: refer to the name of the owned resource. Together with label selector of `owned` resource, a pattern can generate lots of mappings if the naming is right.
 
-## QuickStart
-
-ORM leverages operator sdk to create/build project, follow the standard operator sdk approach to run it locally or generate images to deploy to a target cluster with right RBAC settings. 
-
-Here are the instructions to run it locally outside cluster with our testing resources. 
-
-### Step 0. Prerequisite - ensure you have CLI access your target kubernetes cluster
-
-### Step 1. Clone the repository
-
-```script
-mkdir turbonomic
-cd turbonomic
-git clone https://github.com/turbonomic/orm.git
-```
-
-### Step 2. Install CRD
-
-```script
-cd orm
-% kubectl apply -f ./config/crd/bases 
-customresourcedefinition.apiextensions.k8s.io/operatorresourcemappings.devops.turbonomic.io created
-customresourcedefinition.apiextensions.k8s.io/operatorresourcemappings.turbonomic.com created
-```
-
-note: old orm crd is also created for backward compatibility controller
-
-### Step 3. Start Controller with your outstanding access to kubernetes cluster
-
-```script
-%make run
-...
-1.676652505232917e+09   INFO    controller-runtime.metrics      Metrics server is starting to listen    {"addr": ":8080"}
-1.676652506578926e+09   INFO    setup   starting manager
-1.676652506579638e+09   INFO    Starting server {"path": "/metrics", "kind": "metrics", "addr": "[::]:8080"}
-1.676652506579651e+09   INFO    Starting server {"kind": "health probe", "addr": "[::]:8081"}
-1.67665250658025e+09    INFO    Starting EventSource    {"controller": "operatorresourcemapping", "controllerGroup": "turbonomic.com", "controllerKind": "OperatorResourceMapping", "source": "kind source: *unstructured.Unstructured"}
-1.676652506580307e+09   INFO    Starting Controller     {"controller": "operatorresourcemapping", "controllerGroup": "turbonomic.com", "controllerKind": "OperatorResourceMapping"}
-1.6766525065802581e+09  INFO    Starting EventSource    {"controller": "operatorresourcemapping", "controllerGroup": "devops.turbonomic.io", "controllerKind": "OperatorResourceMapping", "source": "kind source: *v1alpha1.OperatorResourceMapping"}
-1.6766525065803242e+09  INFO    Starting Controller     {"controller": "operatorresourcemapping", "controllerGroup": "devops.turbonomic.io", "controllerKind": "OperatorResourceMapping"}
-1.676652506782094e+09   INFO    Starting workers        {"controller": "operatorresourcemapping", "controllerGroup": "devops.turbonomic.io", "controllerKind": "OperatorResourceMapping", "worker count": 1}
-1.6766525067822971e+09  INFO    Starting workers        {"controller": "operatorresourcemapping", "controllerGroup": "turbonomic.com", "controllerKind": "OperatorResourceMapping", "worker count": 1}
-...
-```
-
-### Step 4 Try our `solo` test resources 
-
-Previous console is occupied by controller running in foreground. You need another one for the commands in this step. Make sure the 2nd console also access the same kubernetes cluster as the first one.
-
-The `solo` test case creates mapping from one deployment to another. It consists of 3 resources as follow:
-
-```scripts
-kubectl apply -f ./test/solo/.
-
-deployment.apps/ormoperand created
-operatorresourcemapping.devops.turbonomic.io/solo created
-deployment.apps/ormsource created
-```
-
-After the resources are applied, you'll find the orm status already updated with values from ormoperand deployment. 
-
-```yaml
-  status:
-    owner:
-      apiVersion: apps/v1
-      kind: Deployment
-      name: ormowner-solo
-      namespace: default
-    ownerValues:
-    - owned:
-        apiVersion: apps/v1
-        kind: Deployment
-        name: ormowned-solo
-        namespace: default
-        path: .spec.replicas
-      ownerPath: .spec.replicas
-      value:
-        replicas: 3
-    - owned:
-        apiVersion: apps/v1
-        kind: Deployment
-        name: ormowned-solo
-        namespace: default
-        path: .spec.template.spec.containers[?(@.name=="workload-0001")].resources
-      ownerPath: .spec.template.spec.containers[?(@.name=="workload-0001")].resources
-      value:
-        resources:
-          limits:
-            cpu: 100m
-            memory: 100Mi
-          requests:
-            cpu: 50m
-            memory: 50Mi
-    state: ok
-```
-
-If there are errors in your ORM, or you modify the paths defined in your ORM, you can see message in ORM status helping you to fix the problem. Here are some example messages after we corrupt the paths
-
-
-```yaml
-    - message: Failed to locate ownerPath in owner
-      ownerPath: .spec.template.spec.containers[?(@.name=="workload-001")].resources
-      reason: OwnerError
-```
-
-```yaml
-    - message: Failed to locate mapping path .spec.template.spec.containers[?(@.name=="workload-OOO1")].resources
-        in owned resource
-      ownerPath: .spec.template.spec.containers[?(@.name=="workload-0001")].resources
-      reason: OwnedResourceError
-```
-
-### Step 5 Try Patterns with selectors and parameters
-
-Continue in the 2nd console.
-
-The `pattern` test case intends to show how to use selectors, (predefined) parameters in patterns.  It uses predefined selector `my_selector`, predefined parameter `.owned.name` and parameter `ports` to generate 4 mappings from 1 pattern definition in spec.
-
-```yaml
-  status:
-    owner:
-      apiVersion: apps/v1
-      kind: Deployment
-      name: ormoperand-patterns
-      namespace: default
-    ownerValues:
-    - owned:
-        apiVersion: apps/v1
-        kind: Deployment
-        name: ormsource-patterns-0001
-        namespace: default
-        path: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0001")].ports[?(@.protocol=="TCP")].containerPort
-      ownerPath: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0001")].ports[?(@.protocol=="TCP")].containerPort
-      value:
-        containerPort: 81
-    - owned:
-        apiVersion: apps/v1
-        kind: Deployment
-        name: ormsource-patterns-0001
-        namespace: default
-        path: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0001")].ports[?(@.protocol=="UDP")].containerPort
-      ownerPath: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0001")].ports[?(@.protocol=="UDP")].containerPort
-      value:
-        containerPort: 10001
-    - owned:
-        apiVersion: apps/v1
-        kind: Deployment
-        name: ormsource-patterns-0002
-        namespace: default
-        path: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0002")].ports[?(@.protocol=="TCP")].containerPort
-      ownerPath: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0002")].ports[?(@.protocol=="TCP")].containerPort
-      value:
-        containerPort: 82
-    - owned:
-        apiVersion: apps/v1
-        kind: Deployment
-        name: ormsource-patterns-0002
-        namespace: default
-        path: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0002")].ports[?(@.protocol=="UDP")].containerPort
-      ownerPath: .spec.template.spec.containers[?(@.name=="ormsource-patterns-0002")].ports[?(@.protocol=="UDP")].containerPort
-      value:
-        containerPort: 10002
-    state: ok
-```
-
-The identifier of the owned resource(s) are defined by one and only one of the following:
-name, selector, labelSelector. An error will be reported if there are more than one.
-
-```yaml
-  status:
-    owner: {}
-    ownerValues:
-    - message: allow 1 and only 1 input from owned.name, owned.selector, owner.labelSelector
-      owned:
-        apiVersion: apps/v1
-        kind: Deployment
-        name: ormsource-patterns-0002
-        path: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].ports[?(@.protocol=="{{ports}}")].containerPort
-        selector: my_selector
-      ownerPath: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].ports[?(@.protocol=="{{ports}}")].containerPort
-      reason: OwnedResourceError
-    state: error
-```
-
 ## Architecture
 
 System architecture is described in the figure below:
 
-![image](./docs/images/arch.png)
+![image](./docs/images/arch-p1.png)
 
 ### Core Controllers
 
 ORM Controller – watch ORM resource and update registry with mappings
-
-AM Controller – watch AM resource and update the owner
-
-Mapper Advice – retrieve value from advice resource and update AM status with actual owner
 
 Mapper Ownership – retrieve value from owner resource and update ORM status
 
@@ -259,10 +73,104 @@ Mapper Ownership – retrieve value from owner resource and update ORM status
 
 Compatibility Controller - Generate new ORM from legacy ORM
 
-HPA-AM Generator - Generate AM from HPA
 
-VPA-AM Generator - Generate AM from VPA
+## QuickStart
+
+ORM leverages operator sdk to create/build project, follow the standard operator sdk approach to run it locally or generate images to deploy to a target cluster with right RBAC settings. 
+
+### Step 1. Clone the repository
+
+```script
+mkdir turbonomic
+cd turbonomic
+git clone https://github.com/turbonomic/orm.git
+cd orm
+```
+
+### Step 2. Build and Run
+
+#### Run locally
+
+You're able to run the orm controllers if you have access to a kubernetes cluster. Please ensure the rbac of your current access is able to cover the resources you want map.
+
+```shell
+make install run
+```
+
+You terminal is occupied by the controller after it is started, you need to start another terminal to try examples
+
+#### Other options
+
+Feel free to try other approaches in Operator SDK such as [OLM deployment](https://master.sdk.operatorframework.io/docs/building-operators/golang/quickstart/#olm-deployment), [Direct deployment](https://master.sdk.operatorframework.io/docs/building-operators/golang/quickstart/#direct-deployment).
+
+### Step 3 Try Redis example
+
+#### Prepare Redis Cluster
+
+In order to show relationship between operator and the resource it manages we use Redis operator from [OT_CONTAINER-KIT](https://github.com/OT-CONTAINER-KIT/redis-operator#quickstart). We created redis cluster.
+
+```shell
+helm list -A
+```
+
+```
+NAME            NAMESPACE       REVISION        UPDATED                                 STATUS          CHART                      APP VERSION
+redis           ot-operators    1               2023-05-04 12:27:31.051399 -0400 EDT    deployed        redis-0.14.2           0.14.0     
+redis-operator  ot-operators    1               2023-03-13 12:31:40.264923 -0400 EDT    deployed        redis-operator-0.14.3      0.14.0     
+```
+
+#### Apply OperatorResourceMapping for Redis
+
+Apply the redis standalone orm from library and you can see the pattern defined in `spec` are located in the cluster. Details are showed in `status`.
+
+```shell
+kubectl get orm -n ot-operators redis-orm -o yaml
+```
+
+```yaml
+apiVersion: devops.turbonomic.io/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  name: redis-orm
+  namespace: ot-operators
+...
+spec:
+  mappings:
+    patterns:
+    - owned:
+        apiVersion: apps/v1
+        kind: StatefulSet
+        path: .spec.template.spec.containers[?(@.name=="redis")].resources
+        selector: my_redis_sts
+      ownerPath: .spec.kubernetesConfig.resources
+    selectors:
+      my_redis_sts:
+        matchLabels:
+          app: redis
+  owner:
+    apiVersion: redis.redis.opstreelabs.in/v1beta1
+    kind: Redis
+    name: redis
+status:
+  lastTransitionTime: "2023-05-04T17:27:05Z"
+  owner:
+    apiVersion: redis.redis.opstreelabs.in/v1beta1
+    kind: Redis
+    name: redis
+    namespace: ot-operators
+  ownerValues:
+  - owned:
+      apiVersion: apps/v1
+      kind: StatefulSet
+      name: redis
+      namespace: ot-operators
+      path: .spec.template.spec.containers[?(@.name=="redis")].resources
+    ownerPath: .spec.kubernetesConfig.resources
+    value:
+      resources: {}
+  state: ok
+```
 
 ## Next Step
 
-Now you understand the architecture of ORM and tried our test resources, go ahead create your own ORM for your operators
+In the phase 2 of this project, we're introducing more Advice Mapping related controllers to automate changes from community assets. Details are described [here](./docs/p2/README.md)

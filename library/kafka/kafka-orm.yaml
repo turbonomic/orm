@@ -6,7 +6,7 @@ spec:
   owner: # target same namespace by default
     apiVersion: kafka.strimzi.io/v1beta2
     kind: Kafka
-    name: my-cluster
+    name: my-cluster # replace this with the kafka cluster(cr) name
   mappings:
     parameters:
       containers:
@@ -18,5 +18,5 @@ spec:
         kind: Pod
         matchLabels:
           strimzi.io/controller: strimzipodset
-          strimzi.io/cluster: my-cluster
+          strimzi.io/cluster: my-cluster            # replace this with the kafka cluster (cr) name
         path: .spec.containers[?(@.name=="{{containers}}")].resources

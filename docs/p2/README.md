@@ -1,4 +1,4 @@
-# Operator Resource Mapping with Redis 
+# Operator Resource Mapping with Advice Mappings 
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -21,6 +21,11 @@
 
 
 This document describes how to use this project in Redis Operator with Auto Scalers. We need vpa and hpa generator controllers in utils folder.
+
+## Architecture
+
+![image](../images/arch-p2.png)
+
 
 ## Prepare Redis Cluster
 
