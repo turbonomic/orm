@@ -16,4 +16,3 @@ spec:
         kind: StatefulSet
         name: redis-cluster-leader
         path: .spec.replicas
-
