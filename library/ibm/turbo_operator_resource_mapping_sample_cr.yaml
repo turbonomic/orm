@@ -107,7 +107,7 @@ spec:
           - plan-orchestrator
           - reporting
           - repository
-          - topology-processorws
+          - topology-processor
 
     patterns:
     - ownerPath: .spec.{{.owned.name}}.resources
