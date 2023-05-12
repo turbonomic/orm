@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"reflect"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -142,29 +141,34 @@ func (e *AdviceMappingReconciler) compareAndEnforce(am *devopsv1alpha1.AdviceMap
 			continue
 		}
 
-		fields := strings.Split(m.Owner.Path, ".")
-		lastField := fields[len(fields)-1]
-		valueInOwner, found, err := ormutils.NestedField(obj.Object, lastField, m.Owner.Path)
+		valueInOwner, found, err := ormutils.NestedField(obj.Object, m.Owner.Path)
 		if err != nil {
 			acLog.Error(err, "finding path in owner", "path", m.Owner.Path)
 			continue
 		}
-
-		value, err := runtime.DefaultUnstructuredConverter.ToUnstructured(m.Value)
+		var valueFromAdvisor interface{}
+		vMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(m.Value)
 		if err != nil {
 			acLog.Error(err, "converting value", "value", m.Value)
 			continue
 		}
+		for _, v := range vMap {
+			valueFromAdvisor = v
+			break
+		}
 
-		for _, v := range value {
-			if !found || !reflect.DeepEqual(v, valueInOwner) {
-				ormutils.SetNestedField(obj.Object, v, m.Owner.Path)
+		if !reflect.DeepEqual(valueInOwner, valueFromAdvisor) {
+			ormutils.SetNestedField(obj.Object, valueFromAdvisor, m.Owner.Path)
 
-				err = kubernetes.Toolbox.UpdateResourceWithGVK(obj.GroupVersionKind(), obj)
-				if err != nil {
-					acLog.Error(err, "updating true owner", "owner", m.Owner)
-					continue
-				}
+			err = kubernetes.Toolbox.UpdateResourceWithGVK(obj.GroupVersionKind(), obj)
+			if err != nil {
+				acLog.Error(err, "updating true owner", "owner", m.Owner)
+				continue
+			}
+			if !found {
+				kubernetes.Toolbox.RecordEventf(obj, "Normal", "Updated", "Updated %s as advised by %s/%s and completed omitted path", m.Owner.Path, am.GetNamespace(), am.GetName())
+			} else {
+				kubernetes.Toolbox.RecordEventf(obj, "Normal", "Updated", "Updated %s as advised by %s/%s", m.Owner.Path, am.GetNamespace(), am.GetName())
 			}
 		}
 	}

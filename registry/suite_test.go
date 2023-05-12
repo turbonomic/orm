@@ -84,7 +84,7 @@ var _ = BeforeSuite(func() {
 	err = cli.Create(ctx, &_t_ormMixed)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = kubernetes.InitToolbox(cfg, testEnv.Scheme)
+	err = kubernetes.InitToolbox(cfg, testEnv.Scheme, nil)
 	Expect(err).ToNot(HaveOccurred())
 
 })
@@ -274,11 +274,15 @@ var _ = Describe("ORM Test", func() {
 		Expect(ormobj.Status.OwnerMappingValues).NotTo(BeNil())
 		Expect(len(ormobj.Status.OwnerMappingValues)).To(BeEquivalentTo(2))
 
-		//assuming 0 is good, 1 is bad based on order in patterns, might be wrong
-		omv := ormobj.Status.OwnerMappingValues[0]
+		//there must be 1 good and 1 bad mapping
+		n := 0
+		if ormobj.Status.OwnerMappingValues[0].Message == "" {
+			n = 1 - n
+		}
+		omv := ormobj.Status.OwnerMappingValues[n]
 		Expect(omv.Message).NotTo(BeEmpty())
 		Expect(omv.Reason).NotTo(BeEmpty())
-		omv = ormobj.Status.OwnerMappingValues[1]
+		omv = ormobj.Status.OwnerMappingValues[1-n]
 		Expect(omv.Message).To(BeEmpty())
 		Expect(omv.Reason).To(BeEmpty())
 	})

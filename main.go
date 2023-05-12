@@ -92,7 +92,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = kubernetes.InitToolbox(mgr.GetConfig(), mgr.GetScheme())
+	err = kubernetes.InitToolbox(mgr.GetConfig(), mgr.GetScheme(), mgr.GetEventRecorderFor("ORM"))
 	if err != nil {
 		setupLog.Error(err, "unable to init kubernetes toolbox")
 		os.Exit(1)

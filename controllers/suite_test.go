@@ -141,7 +141,7 @@ var _ = BeforeSuite(func() {
 	k8sClient = k8sManager.GetClient()
 	Expect(k8sClient).NotTo(BeNil())
 
-	err = kubernetes.InitToolbox(k8sManager.GetConfig(), k8sManager.GetScheme())
+	err = kubernetes.InitToolbox(k8sManager.GetConfig(), k8sManager.GetScheme(), k8sManager.GetEventRecorderFor("test"))
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&OperatorResourceMappingReconciler{

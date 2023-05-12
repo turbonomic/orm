@@ -32,8 +32,8 @@ var (
 )
 
 // NestedField returns the value of a nested field in the given object based on the given JSON-Path.
-func NestedField(obj interface{}, name, path string) (interface{}, bool, error) {
-	j := jsonpath.New(name).AllowMissingKeys(true)
+func NestedField(obj interface{}, path string) (interface{}, bool, error) {
+	j := jsonpath.New(path).AllowMissingKeys(true)
 	template := fmt.Sprintf("{%s}", path)
 	err := j.Parse(template)
 	if err != nil {
@@ -103,7 +103,7 @@ func SetNestedField(obj interface{}, value interface{}, path string) error {
 			slice = true
 		}
 
-		parent, found, err = NestedField(obj, lastField, upperPath)
+		parent, found, err = NestedField(obj, upperPath)
 
 		if err != nil {
 			return err
@@ -140,7 +140,7 @@ func PrepareRawExtensionFromUnstructured(obj *unstructured.Unstructured, objPath
 
 	fields := strings.Split(objPath, ".")
 	lastField := fields[len(fields)-1]
-	valueInObj, found, err := NestedField(obj.Object, lastField, objPath)
+	valueInObj, found, err := NestedField(obj.Object, objPath)
 
 	valueMap := make(map[string]interface{})
 	valueMap[lastField] = valueInObj

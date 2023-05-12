@@ -60,7 +60,7 @@ var _ = Describe("Set Nested_Field", func() {
 	})
 
 	It("can get value from omitted path just created", func() {
-		v, found, err := NestedField(obj.Object, "resources", pathSimple)
+		v, found, err := NestedField(obj.Object, pathSimple)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(found).To(BeTrue())
 		Expect(v).To(BeEquivalentTo(resourceValue1))
@@ -72,7 +72,7 @@ var _ = Describe("Set Nested_Field", func() {
 	})
 
 	It("can get value from existing path just created", func() {
-		v, found, err := NestedField(obj.Object, "resources", pathSimple)
+		v, found, err := NestedField(obj.Object, pathSimple)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(found).To(BeTrue())
 		Expect(v).To(BeEquivalentTo(resourceValue2))
@@ -90,7 +90,7 @@ var _ = Describe("Set Nested_Field With Slice Filter", func() {
 	})
 
 	It("can get value from omitted path with filter just created", func() {
-		v, found, err := NestedField(obj.Object, "resources", pathWithFilter)
+		v, found, err := NestedField(obj.Object, pathWithFilter)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(found).To(BeTrue())
 		Expect(v).To(BeEquivalentTo(resourceValue1))
@@ -102,7 +102,7 @@ var _ = Describe("Set Nested_Field With Slice Filter", func() {
 	})
 
 	It("can get value from existing path with filter just created", func() {
-		v, found, err := NestedField(obj.Object, "resources", pathWithFilter)
+		v, found, err := NestedField(obj.Object, pathWithFilter)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(found).To(BeTrue())
 		Expect(v).To(BeEquivalentTo(resourceValue2))
@@ -114,14 +114,14 @@ var _ = Describe("Set Nested_Field With Slice Filter", func() {
 	})
 
 	It("can get value from partially existing path with filter just created", func() {
-		v, found, err := NestedField(obj.Object, "resources", pathWithFilter2)
+		v, found, err := NestedField(obj.Object, pathWithFilter2)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(found).To(BeTrue())
 		Expect(v).To(BeEquivalentTo(resourceValue1))
 	})
 
 	It("does not impact value from existing path with filter created before", func() {
-		v, found, err := NestedField(obj.Object, "resources", pathWithFilter)
+		v, found, err := NestedField(obj.Object, pathWithFilter)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(found).To(BeTrue())
 		Expect(v).To(BeEquivalentTo(resourceValue2))
