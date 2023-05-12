@@ -17,6 +17,8 @@ limitations under the License.
 package registry
 
 import (
+	"fmt"
+
 	"github.com/turbonomic/orm/kubernetes"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -48,7 +50,63 @@ type ResourceMappingRegistry struct {
 	advisorRegistry map[corev1.ObjectReference]ResourceMappingEntry
 }
 
+func deleteMappingFromRegistry(registry map[corev1.ObjectReference]ResourceMappingEntry, ownerPath string, objectPath string, orm types.NamespacedName, resource corev1.ObjectReference, index corev1.ObjectReference) {
+	if resource.Namespace == "" {
+		resource.Namespace = orm.Namespace
+	}
+
+	_, namespaced := kubernetes.Toolbox.FindGVRfromGVK(index.GroupVersionKind())
+	if namespaced {
+		if index.Namespace == "" {
+			index.Namespace = orm.Namespace
+		}
+	}
+
+	indexref := corev1.ObjectReference{
+		Namespace: index.Namespace,
+		Name:      index.Name,
+	}
+	indexref.SetGroupVersionKind(index.GroupVersionKind())
+
+	var ResourceMappingEntry ResourceMappingEntry
+	var exists bool
+	if ResourceMappingEntry, exists = registry[indexref]; !exists {
+		// empty, just return
+		return
+	}
+
+	var oe ObjectEntry
+	var ok bool
+
+	if oe, ok = ResourceMappingEntry[orm]; !ok {
+		// empty, just return
+		return
+	}
+
+	resref := corev1.ObjectReference{
+		Namespace: resource.Namespace,
+		Name:      resource.Name,
+	}
+	resref.SetGroupVersionKind(resource.GroupVersionKind())
+
+	var m Mappings
+	if m, ok = oe[resref]; !ok {
+		// empty, just return
+		return
+	}
+
+	delete(m, ownerPath)
+
+	oe[resref] = m
+	ResourceMappingEntry[orm] = oe
+	registry[indexref] = ResourceMappingEntry
+
+}
+
 func registerMappingToRegistry(registry map[corev1.ObjectReference]ResourceMappingEntry, ownerPath string, objectPath string, orm types.NamespacedName, resource corev1.ObjectReference, index corev1.ObjectReference) error {
+	if registry == nil {
+		return fmt.Errorf("registry is nil")
+	}
 
 	if resource.Namespace == "" {
 		resource.Namespace = orm.Namespace

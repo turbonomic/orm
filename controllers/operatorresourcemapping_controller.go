@@ -86,7 +86,7 @@ func (r *OperatorResourceMappingReconciler) Reconcile(ctx context.Context, req c
 		ocLog.Error(err, "registering sources of operator "+req.String()+" ... skipping")
 
 		orm.Status.State = devopsv1alpha1.ORMTypeError
-		orm.Status.Reason = string(devopsv1alpha1.ORMStatusReasonOwnerError)
+		orm.Status.Reason = devopsv1alpha1.ORMStatusReasonOwnerError
 		orm.Status.Message = err.Error()
 		r.checkAndUpdateStatus(oldStatus, orm)
 		return ctrl.Result{}, nil
@@ -118,7 +118,11 @@ func (r *OperatorResourceMappingReconciler) SetupWithManagerAndRegistry(mgr ctrl
 		For(&devopsv1alpha1.OperatorResourceMapping{}).
 		WithEventFilter(predicate.Funcs{
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+				if e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
+					return true
+				}
+
+				return !reflect.DeepEqual(e.ObjectOld.GetAnnotations(), e.ObjectNew.GetAnnotations())
 			}}).
 		Complete(r)
 }

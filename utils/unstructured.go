@@ -140,7 +140,7 @@ func PrepareRawExtensionFromUnstructured(obj *unstructured.Unstructured, objPath
 
 	fields := strings.Split(objPath, ".")
 	lastField := fields[len(fields)-1]
-	valueInObj, found, err := NestedField(obj, lastField, objPath)
+	valueInObj, found, err := NestedField(obj.Object, lastField, objPath)
 
 	valueMap := make(map[string]interface{})
 	valueMap[lastField] = valueInObj

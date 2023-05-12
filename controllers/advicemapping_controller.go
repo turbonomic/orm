@@ -144,7 +144,7 @@ func (e *AdviceMappingReconciler) compareAndEnforce(am *devopsv1alpha1.AdviceMap
 
 		fields := strings.Split(m.Owner.Path, ".")
 		lastField := fields[len(fields)-1]
-		valueInOwner, found, err := ormutils.NestedField(obj, lastField, m.Owner.Path)
+		valueInOwner, found, err := ormutils.NestedField(obj.Object, lastField, m.Owner.Path)
 		if err != nil {
 			acLog.Error(err, "finding path in owner", "path", m.Owner.Path)
 			continue
