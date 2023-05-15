@@ -219,7 +219,6 @@ func (or *ResourceMappingRegistry) staticCheckORMSpec(orm *devopsv1alpha1.Operat
 }
 
 func (or *ResourceMappingRegistry) setORMStatus(owner *unstructured.Unstructured, orm *devopsv1alpha1.OperatorResourceMapping) {
-	var err error
 	// set owner info and clean previous error status at status top level
 	orm.Status = devopsv1alpha1.OperatorResourceMappingStatus{}
 
@@ -248,6 +247,7 @@ func (or *ResourceMappingRegistry) setORMStatus(owner *unstructured.Unstructured
 		ownedobj := &unstructured.Unstructured{}
 		ownedobj.SetGroupVersionKind(ownedref.GroupVersionKind())
 
+		var err error
 		ownedobj, err = kubernetes.Toolbox.GetResourceWithGVK(ownedref.GroupVersionKind(),
 			types.NamespacedName{Namespace: ownedref.Namespace, Name: ownedref.Name})
 		// failed to locate owned resource, set error to all paths
@@ -401,11 +401,11 @@ func (or *ResourceMappingRegistry) CleanupRegistryForORM(orm types.NamespacedNam
 	}
 }
 
-func (or *ResourceMappingRegistry) retrieveORMEntryForOwner(owner corev1.ObjectReference) ResourceMappingEntry {
+func (or *ResourceMappingRegistry) retrieveORMEntryForOwner(owner corev1.ObjectReference) ResourceMappingEntryType {
 	return retrieveResourceMappingEntryForObjectFromRegistry(or.ownerRegistry, owner)
 }
 
-func (or *ResourceMappingRegistry) retrieveORMEntryForOwned(owned corev1.ObjectReference) ResourceMappingEntry {
+func (or *ResourceMappingRegistry) retrieveORMEntryForOwned(owned corev1.ObjectReference) ResourceMappingEntryType {
 	return retrieveResourceMappingEntryForObjectFromRegistry(or.ownedRegistry, owned)
 }
 

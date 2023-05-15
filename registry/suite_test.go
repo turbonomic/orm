@@ -107,7 +107,7 @@ var _ = Describe("Registry Test", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
-	registry := make(map[corev1.ObjectReference]ResourceMappingEntry)
+	registry := make(map[corev1.ObjectReference]ResourceMappingEntryType)
 	It("can register path", func() {
 		err := registerMappingToRegistry(registry, _t_ownerpath, _t_ownedpath, _t_ormkey, _t_ownerref, _t_ownedref)
 		Expect(err).NotTo(HaveOccurred())

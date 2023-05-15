@@ -33,6 +33,11 @@ var (
 
 // NestedField returns the value of a nested field in the given object based on the given JSON-Path.
 func NestedField(obj interface{}, path string) (interface{}, bool, error) {
+
+	if obj == nil || path == "" {
+		return nil, false, nil
+	}
+
 	j := jsonpath.New(path).AllowMissingKeys(true)
 	template := fmt.Sprintf("{%s}", path)
 	err := j.Parse(template)
@@ -58,6 +63,10 @@ func SetNestedField(obj interface{}, value interface{}, path string) error {
 		return errors.New("setting value to nil object")
 	}
 
+	if path == "" {
+		return errors.New("setting value to empty path")
+	}
+
 	var parent interface{}
 	var err error
 	found := false
@@ -77,7 +86,7 @@ func SetNestedField(obj interface{}, value interface{}, path string) error {
 		slice = false
 
 		// special processing for slice filter
-		// only support format: field[?(@.key=\"value\"")]
+		// only support format: field[?(@.key==\"value\"")]
 		if strings.ContainsAny(lastField, "]") {
 			// get full field and remove the "." before key
 			tmp := lastField
