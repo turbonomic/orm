@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -36,6 +37,7 @@ type ToolboxType struct {
 	Schema
 	Client
 	InformerFactory
+	record.EventRecorder
 }
 
 var (
@@ -49,11 +51,13 @@ func (r *ToolboxType) Start(ctx context.Context) {
 	r.InformerFactory.Start(r.ctx.Done())
 }
 
-func InitToolbox(config *rest.Config, scheme *runtime.Scheme) error {
+func InitToolbox(config *rest.Config, scheme *runtime.Scheme, rec record.EventRecorder) error {
 	var err error
 
 	if Toolbox == nil {
-		Toolbox = &ToolboxType{}
+		Toolbox = &ToolboxType{
+			EventRecorder: rec,
+		}
 	}
 
 	Toolbox.cfg = config

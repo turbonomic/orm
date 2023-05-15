@@ -14,9 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package util
+package utils
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -31,14 +32,19 @@ var (
 )
 
 // NestedField returns the value of a nested field in the given object based on the given JSON-Path.
-func NestedField(obj *unstructured.Unstructured, name, path string) (interface{}, bool, error) {
-	j := jsonpath.New(name).AllowMissingKeys(true)
+func NestedField(obj interface{}, path string) (interface{}, bool, error) {
+
+	if obj == nil || path == "" {
+		return nil, false, nil
+	}
+
+	j := jsonpath.New(path).AllowMissingKeys(true)
 	template := fmt.Sprintf("{%s}", path)
 	err := j.Parse(template)
 	if err != nil {
 		return nil, false, err
 	}
-	results, err := j.FindResults(obj.UnstructuredContent())
+	results, err := j.FindResults(obj)
 	if err != nil {
 		return nil, false, err
 	}
@@ -53,26 +59,88 @@ func NestedField(obj *unstructured.Unstructured, name, path string) (interface{}
 
 func SetNestedField(obj interface{}, value interface{}, path string) error {
 
-	loc := strings.LastIndex(path, ".")
-	uppath := path[:loc]
-	lastfield := path[loc+1:]
+	if obj == nil {
+		return errors.New("setting value to nil object")
+	}
 
-	j := jsonpath.New(lastfield).AllowMissingKeys(true)
-	template := fmt.Sprintf("{%s}", uppath)
-	err := j.Parse(template)
-	if err != nil {
-		return err
+	if path == "" {
+		return errors.New("setting value to empty path")
 	}
-	results, err := j.FindResults(obj)
-	if err != nil {
-		return err
+
+	var parent interface{}
+	var err error
+	found := false
+	slice := false
+
+	// remove all spaces because it is not allowed as path name
+	path = strings.ReplaceAll(path, " ", "")
+
+	loc := len(path)
+	lastField := ""
+	upperPath := ""
+
+	for loc > 0 {
+		loc = strings.LastIndex(path, ".")
+		lastField = path[loc+1:]
+		upperPath = path[:loc]
+		slice = false
+
+		// special processing for slice filter
+		// only support format: field[?(@.key==\"value\"")]
+		if strings.ContainsAny(lastField, "]") {
+			// get full field and remove the "." before key
+			tmp := lastField
+			path = upperPath
+			loc = strings.LastIndex(path, ".")
+			lastField = path[loc+1:] + tmp
+			upperPath = path[:loc]
+
+			var k, v string
+			lastField = strings.ReplaceAll(lastField, "[?(@", " ")
+			lastField = strings.ReplaceAll(lastField, "==", " ")
+			lastField = strings.ReplaceAll(lastField, "\"", "")
+			lastField = strings.ReplaceAll(lastField, ")]", " ")
+			n, err := fmt.Sscanf(lastField, "%s %s %s", &lastField, &k, &v)
+			if n != 3 || err != nil {
+				if err == nil {
+					err = fmt.Errorf("failed to parse slice filter, only got %d, need 3", n)
+				}
+				return err
+			}
+			value.(map[string]interface{})[k] = v
+			value = []map[string]interface{}{value.(map[string]interface{})}
+			slice = true
+		}
+
+		parent, found, err = NestedField(obj, upperPath)
+
+		if err != nil {
+			return err
+		}
+
+		if found {
+			break
+		}
+
+		// full path is not located, try upper path
+
+		value = map[string]interface{}{
+			lastField: value,
+		}
+		path = upperPath
 	}
-	if len(results) == 0 || len(results[0]) == 0 {
-		return nil
+
+	if found {
+		if slice {
+			s := parent.(map[string]interface{})[lastField].([]map[string]interface{})
+			s = append(s, value.([]map[string]interface{})...)
+			parent.(map[string]interface{})[lastField] = s
+		} else {
+			parent.(map[string]interface{})[lastField] = value
+		}
+	} else {
+		obj.(map[string]interface{})[lastField] = value.(map[string]interface{})[lastField]
 	}
-	// The input path refers to a unique field, we can assume to have only one result or none.
-	parent := results[0][0].Interface().(map[string]interface{})
-	parent[lastfield] = value
 
 	return nil
 }
@@ -81,7 +149,7 @@ func PrepareRawExtensionFromUnstructured(obj *unstructured.Unstructured, objPath
 
 	fields := strings.Split(objPath, ".")
 	lastField := fields[len(fields)-1]
-	valueInObj, found, err := NestedField(obj, lastField, objPath)
+	valueInObj, found, err := NestedField(obj.Object, objPath)
 
 	valueMap := make(map[string]interface{})
 	valueMap[lastField] = valueInObj

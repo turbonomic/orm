@@ -34,7 +34,6 @@ import (
 )
 
 var (
-	messagePlaceHolder                 = "owner path located"
 	errorMessageMultipleSourceForOwner = "allow 1 and only 1 input from owned.name, owned.selector, owner.labelSelector"
 	errorMessageUnknownSelector        = "unknown selector"
 )
@@ -120,7 +119,7 @@ func (or *ResourceMappingRegistry) SetORMStatusForOwner(owner *unstructured.Unst
 	if orm != nil && !or.staticCheckORMSpec(orm) {
 		err = kubernetes.Toolbox.OrmClient.Status().Update(context.TODO(), orm)
 		if err != nil {
-			rLog.Error(err, "retry status")
+			rLog.Error(err, "static check failed")
 		}
 		return
 	}
@@ -130,21 +129,30 @@ func (or *ResourceMappingRegistry) SetORMStatusForOwner(owner *unstructured.Unst
 	objref.Namespace = owner.GetNamespace()
 	objref.SetGroupVersionKind(owner.GetObjectKind().GroupVersionKind())
 
+	if orm != nil {
+		or.setORMStatus(owner, orm)
+		err = kubernetes.Toolbox.OrmClient.Status().Update(context.TODO(), orm)
+		if err != nil {
+			rLog.Error(err, "updating orm status")
+		}
+		return
+	}
+
 	ormEntry := or.retrieveORMEntryForOwner(objref)
 	// orm and owner are 1-1 mapping, ormEntry should be 1 only
 	for ormk := range ormEntry {
 
-		if orm == nil {
-			orm = &devopsv1alpha1.OperatorResourceMapping{}
-			err = kubernetes.Toolbox.OrmClient.Get(context.TODO(), ormk, orm)
-			if err != nil {
-				rLog.Error(err, "retrieving ", "orm", ormk)
-			}
+		orm = &devopsv1alpha1.OperatorResourceMapping{}
+		err = kubernetes.Toolbox.OrmClient.Get(context.TODO(), ormk, orm)
+		if err != nil {
+			rLog.Error(err, "retrieving ", "orm", ormk)
 		}
+
 		or.setORMStatus(owner, orm)
+
 		err = kubernetes.Toolbox.OrmClient.Status().Update(context.TODO(), orm)
 		if err != nil {
-			rLog.Error(err, "retry status")
+			rLog.Error(err, "updating orm status")
 		}
 	}
 }
@@ -179,14 +187,22 @@ func (or *ResourceMappingRegistry) staticCheckPattern(p *devopsv1alpha1.Pattern,
 func (or *ResourceMappingRegistry) staticCheckORMSpec(orm *devopsv1alpha1.OperatorResourceMapping) bool {
 	var passed = true
 
+	if !validateOwnerPathEnabled(orm) {
+		orm.Status.Message += "owner path validation is disabled;"
+	}
+
+	if !validateOwnedPathEnabled(orm) {
+		orm.Status.Message += "owned resource path validation is disabled;"
+	}
+
 	errMappingValues := []devopsv1alpha1.OwnerMappingValue{}
-	// only allow 1 way to choose target
+	// only allow 1 way to choose owner
 	for _, p := range orm.Spec.Mappings.Patterns {
 		if err := or.staticCheckPattern(&p, orm.Spec.Mappings.Selectors, orm.Spec.Mappings.Parameters); err != nil {
 			mv := devopsv1alpha1.OwnerMappingValue{
 				OwnerPath:         p.OwnerPath,
 				OwnedResourcePath: &p.OwnedResourcePath,
-				Reason:            string(devopsv1alpha1.ORMStatusReasonOwnedResourceError),
+				Reason:            devopsv1alpha1.ORMStatusReasonOwnedResourceError,
 				Message:           err.Error(),
 			}
 			errMappingValues = append(errMappingValues, mv)
@@ -203,7 +219,6 @@ func (or *ResourceMappingRegistry) staticCheckORMSpec(orm *devopsv1alpha1.Operat
 }
 
 func (or *ResourceMappingRegistry) setORMStatus(owner *unstructured.Unstructured, orm *devopsv1alpha1.OperatorResourceMapping) {
-
 	// set owner info and clean previous error status at status top level
 	orm.Status = devopsv1alpha1.OperatorResourceMappingStatus{}
 
@@ -228,18 +243,65 @@ func (or *ResourceMappingRegistry) setORMStatus(owner *unstructured.Unstructured
 		Name:      orm.GetName(),
 	})
 
-	for o, mappings := range *oe {
-		for op, sp := range mappings {
-			owned := devopsv1alpha1.OwnedResourcePath{
-				Path: sp,
+	for ownedref, mappings := range *oe {
+		ownedobj := &unstructured.Unstructured{}
+		ownedobj.SetGroupVersionKind(ownedref.GroupVersionKind())
+
+		var err error
+		ownedobj, err = kubernetes.Toolbox.GetResourceWithGVK(ownedref.GroupVersionKind(),
+			types.NamespacedName{Namespace: ownedref.Namespace, Name: ownedref.Name})
+		// failed to locate owned resource, set error to all paths
+		if err != nil {
+			for op := range mappings {
+				omv := devopsv1alpha1.OwnerMappingValue{
+					OwnerPath: op,
+					Message:   "Failed to locate owned resource: " + ownedref.String(),
+					Reason:    devopsv1alpha1.ORMStatusReasonOwnedResourceError,
+				}
+				orm.Status.OwnerMappingValues = append(orm.Status.OwnerMappingValues, omv)
 			}
-			owned.ObjectReference = o
-			mapitem := PrepareMappingForObject(owner, op, &owned)
-			orm.Status.OwnerMappingValues = append(orm.Status.OwnerMappingValues, *mapitem)
+			continue
+		}
+
+		for op, sp := range mappings {
+			omv := devopsv1alpha1.OwnerMappingValue{
+				OwnerPath: op,
+				OwnedResourcePath: &devopsv1alpha1.OwnedResourcePath{
+					ObjectLocator: devopsv1alpha1.ObjectLocator{
+						ObjectReference: ownedref,
+					},
+					Path: sp,
+				},
+				Value: ormutils.PrepareRawExtensionFromUnstructured(owner, op),
+			}
+
+			hide := false
+			if omv.Value == nil {
+				omv.Message = "Failed to locate ownerPath " + op
+				omv.Reason = devopsv1alpha1.ORMStatusReasonOwnerError
+				if validateOwnerPathEnabled(orm) {
+					orm.Status.OwnerMappingValues = append(orm.Status.OwnerMappingValues, omv)
+					continue
+				}
+				hide = true
+			}
+
+			testValue := ormutils.PrepareRawExtensionFromUnstructured(ownedobj, sp)
+			if testValue == nil {
+				omv.Message = "Failed to locate owned resource path " + sp
+				omv.Reason = devopsv1alpha1.ORMStatusReasonOwnedResourceError
+				if validateOwnedPathEnabled(orm) {
+					orm.Status.OwnerMappingValues = append(orm.Status.OwnerMappingValues, omv)
+					continue
+				}
+				hide = true
+			}
+
+			if !hide {
+				orm.Status.OwnerMappingValues = append(orm.Status.OwnerMappingValues, omv)
+			}
 		}
 	}
-
-	or.validateOwnedResources(owner, orm)
 
 	orm.Status.LastTransitionTime = &metav1.Time{
 		Time: time.Now(),
@@ -292,9 +354,9 @@ func (or *ResourceMappingRegistry) ValidateAndRegisterORM(orm *devopsv1alpha1.Op
 
 			if len(srcObjs) == 0 {
 				// add a fake pattern to generate error message, use name to carry label selector info
-				fakep := *p.DeepCopy()
-				fakep.OwnedResourcePath.ObjectReference.Name = p.OwnedResourcePath.ObjectLocator.LabelSelector.String()
-				allpatterns = append(allpatterns, fakep)
+				fakePattern := *p.DeepCopy()
+				fakePattern.OwnedResourcePath.ObjectReference.Name = p.OwnedResourcePath.ObjectLocator.LabelSelector.String()
+				allpatterns = append(allpatterns, fakePattern)
 				continue
 			}
 			for _, obj := range srcObjs {
@@ -339,11 +401,11 @@ func (or *ResourceMappingRegistry) CleanupRegistryForORM(orm types.NamespacedNam
 	}
 }
 
-func (or *ResourceMappingRegistry) retrieveORMEntryForOwner(owner corev1.ObjectReference) ResourceMappingEntry {
+func (or *ResourceMappingRegistry) retrieveORMEntryForOwner(owner corev1.ObjectReference) ResourceMappingEntryType {
 	return retrieveResourceMappingEntryForObjectFromRegistry(or.ownerRegistry, owner)
 }
 
-func (or *ResourceMappingRegistry) retrieveORMEntryForOwned(owned corev1.ObjectReference) ResourceMappingEntry {
+func (or *ResourceMappingRegistry) retrieveORMEntryForOwned(owned corev1.ObjectReference) ResourceMappingEntryType {
 	return retrieveResourceMappingEntryForObjectFromRegistry(or.ownedRegistry, owned)
 }
 
@@ -380,76 +442,40 @@ func populatePatterns(parameters map[string][]string, pattern devopsv1alpha1.Pat
 	return allpatterns
 }
 
-func (or *ResourceMappingRegistry) validateOwnedResources(owner *unstructured.Unstructured, orm *devopsv1alpha1.OperatorResourceMapping) {
-	var err error
-
-	ownerRef := corev1.ObjectReference{
-		Namespace: owner.GetNamespace(),
-		Name:      owner.GetName(),
-	}
-	ownerRef.SetGroupVersionKind(owner.GetObjectKind().GroupVersionKind())
-
-	oe := or.retrieveObjectEntryForOwnerAndORM(ownerRef, types.NamespacedName{
-		Namespace: orm.GetNamespace(),
-		Name:      orm.GetName(),
-	})
-
-	if oe == nil {
-		rLog.Error(errors.New("failed to locate owner in registry"), "owner ref", ownerRef, "orm", orm)
-		return
+// ValidateOwnedPathEnabled checks if the annotation is set to "disabled", otherwise it is enabled
+func validateOwnedPathEnabled(orm *devopsv1alpha1.OperatorResourceMapping) bool {
+	if orm == nil {
+		return true
 	}
 
-	for resource, mappings := range *oe {
-		resobj := &unstructured.Unstructured{}
-		resobj.SetGroupVersionKind(resource.GroupVersionKind())
-
-		resobj, err = kubernetes.Toolbox.GetResourceWithGVK(resource.GroupVersionKind(), types.NamespacedName{Namespace: resource.Namespace, Name: resource.Name})
-		if err != nil {
-			for op := range mappings {
-				for n, m := range orm.Status.OwnerMappingValues {
-					if op == m.OwnerPath {
-						orm.Status.OwnerMappingValues[n].Message = "Failed to locate owned resource: " + resource.String()
-						orm.Status.OwnerMappingValues[n].Reason = string(devopsv1alpha1.ORMStatusReasonOwnedResourceError)
-					}
-				}
-			}
-			continue
-		}
-
-		for op, sp := range mappings {
-			testValue := ormutils.PrepareRawExtensionFromUnstructured(resobj, sp)
-			for n, m := range orm.Status.OwnerMappingValues {
-				if op == m.OwnerPath {
-					if testValue == nil && orm.Status.OwnerMappingValues[n].Message == messagePlaceHolder {
-						orm.Status.OwnerMappingValues[n].Message = "Failed to locate mapping path " + sp + " in owned resource"
-						orm.Status.OwnerMappingValues[n].Reason = string(devopsv1alpha1.ORMStatusReasonOwnedResourceError)
-					} else if testValue != nil && orm.Status.OwnerMappingValues[n].Message == messagePlaceHolder {
-						orm.Status.OwnerMappingValues[n].Message = ""
-						orm.Status.OwnerMappingValues[n].Reason = ""
-					} else if testValue != nil && orm.Status.OwnerMappingValues[n].Reason == string(devopsv1alpha1.ORMStatusReasonOwnedResourceError) {
-						orm.Status.OwnerMappingValues[n].Message = ""
-						orm.Status.OwnerMappingValues[n].Reason = ""
-					}
-				}
-			}
-		}
+	annotations := orm.GetAnnotations()
+	if annotations == nil {
+		return true
 	}
 
+	v, ok := annotations[devopsv1alpha1.ANNOTATIONKEY_VALIDATE_OWNED_PATH]
+	if ok && strings.EqualFold(v, devopsv1alpha1.ANNOTATIONVALUE_DISABLED) {
+		return false
+	}
+
+	return true
 }
 
-func PrepareMappingForObject(obj *unstructured.Unstructured, objPath string, owned *devopsv1alpha1.OwnedResourcePath) *devopsv1alpha1.OwnerMappingValue {
-	mapitem := devopsv1alpha1.OwnerMappingValue{}
-	mapitem.OwnerPath = objPath
-
-	mapitem.Value = ormutils.PrepareRawExtensionFromUnstructured(obj, objPath)
-	if mapitem.Value == nil {
-		mapitem.Message = "Failed to locate ownerPath in owner"
-		mapitem.Reason = string(devopsv1alpha1.ORMStatusReasonOwnerError)
-		return &mapitem
+// ValidateOwnedPathEnabled checks if the annotation is set to "disabled", otherwise it is enabled
+func validateOwnerPathEnabled(orm *devopsv1alpha1.OperatorResourceMapping) bool {
+	if orm == nil {
+		return true
 	}
 
-	mapitem.Message = messagePlaceHolder
-	mapitem.OwnedResourcePath = owned
+	annotations := orm.GetAnnotations()
+	if annotations == nil {
+		return true
+	}
 
-	return &mapitem
+	v, ok := annotations[devopsv1alpha1.ANNOTATIONKEY_VALIDATE_OWNER_PATH]
+	if ok && strings.EqualFold(v, devopsv1alpha1.ANNOTATIONVALUE_DISABLED) {
+		return false
+	}
+
+	return true
 }

@@ -57,6 +57,6 @@ func (or *ResourceMappingRegistry) RegisterAM(am *devopsv1alpha1.AdviceMapping) 
 	return err
 }
 
-func (or *ResourceMappingRegistry) RetrieveAMEntryForAdvisor(advisor corev1.ObjectReference) ResourceMappingEntry {
+func (or *ResourceMappingRegistry) RetrieveAMEntryForAdvisor(advisor corev1.ObjectReference) ResourceMappingEntryType {
 	return retrieveResourceMappingEntryForObjectFromRegistry(or.advisorRegistry, advisor)
 }

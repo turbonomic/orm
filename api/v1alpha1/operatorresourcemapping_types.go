@@ -25,6 +25,16 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+var (
+	ANNOTATION_GROUP = "devops.turbonomic.io"
+
+	ANNOTATIONKEY_VALIDATE_OWNER_PATH = ANNOTATION_GROUP + "/validate-owner-path" // default: enabled
+	ANNOTATIONKEY_VALIDATE_OWNED_PATH = ANNOTATION_GROUP + "/validate-owned-path" // default: enabled
+
+	ANNOTATIONVALUE_ENABLED  = "enabled"
+	ANNOTATIONVALUE_DISABLED = "disabled"
+)
+
 // Reference to object by name or by label
 type ObjectLocator struct {
 	// if namespace is empty, use the owner's namespace as default;
@@ -91,7 +101,7 @@ type OwnerMappingValue struct {
 
 	// The reason for the condition's last transition.
 	// +optional
-	Reason string `json:"reason,omitempty"`
+	Reason ORMStatusReason `json:"reason,omitempty"`
 	// A human readable message indicating details about the transition.
 	// +optional
 	Message string `json:"message,omitempty"`
@@ -100,6 +110,7 @@ type OwnerMappingValue struct {
 type ORMStatusType string
 
 const (
+	ORMEmpty     ORMStatusType = ""
 	ORMTypeOK    ORMStatusType = "ok"
 	ORMTypeError ORMStatusType = "error"
 )
@@ -120,7 +131,7 @@ type OperatorResourceMappingStatus struct {
 	// state of ORM resource
 	State ORMStatusType `json:"state,omitempty"`
 	// +optional
-	Reason string `json:"reason,omitempty"`
+	Reason ORMStatusReason `json:"reason,omitempty"`
 	// A human readable message indicating details about the transition.
 	// +optional
 	Message string `json:"message,omitempty"`
