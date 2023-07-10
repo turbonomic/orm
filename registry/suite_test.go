@@ -84,6 +84,9 @@ var _ = BeforeSuite(func() {
 	err = cli.Create(ctx, &_t_ormMixed)
 	Expect(err).ToNot(HaveOccurred())
 
+	err = cli.Create(ctx, &_t_ormWithVar)
+	Expect(err).ToNot(HaveOccurred())
+
 	err = kubernetes.InitToolbox(cfg, testEnv.Scheme, nil)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -304,6 +307,22 @@ var _ = Describe("ORM Test", func() {
 		Expect(omv.Reason).To(BeEmpty())
 
 	})
+
+	It("can register orm with var in owned path and show status", func() {
+		ormobj, ownerobj, err = rmr.ValidateAndRegisterORM(&_t_ormWithVar)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ownerobj).ToNot(BeNil())
+		Expect(ormobj).ToNot(BeNil())
+
+		rmr.SetORMStatusForOwner(ownerobj, ormobj)
+		Expect(ormobj.Status.State).To(BeEquivalentTo(devopsv1alpha1.ORMTypeOK))
+		Expect(ormobj.Status.Owner).To(BeEquivalentTo(_t_ownerref))
+		Expect(len(ormobj.Status.OwnerMappingValues)).To(BeEquivalentTo(1))
+		omv := ormobj.Status.OwnerMappingValues[0]
+		Expect(omv.Message).To(BeEmpty())
+		Expect(omv.Reason).To(BeEmpty())
+	})
+
 })
 
 func TestUtils(t *testing.T) {
