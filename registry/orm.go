@@ -443,7 +443,7 @@ func (or *ResourceMappingRegistry) retrieveObjectEntryForOwnerAndORM(owner corev
 	return retrieveObjectEntryForObjectAndORMFromRegistry(or.ownerRegistry, owner, orm)
 }
 
-func processshorthandvariables(str string) string {
+func processShorthandVariables(str string) string {
 	result := str
 
 	for k, v := range predefinedshorthand {
@@ -459,8 +459,8 @@ func populatePatterns(ownedMap map[types.NamespacedName]*unstructured.Unstructur
 	var err error
 	var allpatterns []devopsv1alpha1.Pattern
 
-	pattern.OwnerPath = processshorthandvariables(pattern.OwnerPath)
-	pattern.OwnedResourcePath.Path = processshorthandvariables(pattern.OwnedResourcePath.Path)
+	pattern.OwnerPath = processShorthandVariables(pattern.OwnerPath)
+	pattern.OwnedResourcePath.Path = processShorthandVariables(pattern.OwnedResourcePath.Path)
 
 	allpatterns = append(allpatterns, pattern)
 
