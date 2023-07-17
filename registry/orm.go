@@ -476,8 +476,8 @@ func populatePatterns(ownedMap map[types.NamespacedName]*unstructured.Unstructur
 		for _, p := range prevpatterns {
 			for _, v := range values {
 				newp := p.DeepCopy()
-				newp.OwnerPath = strings.ReplaceAll(p.OwnerPath, "{{"+name+"}}", v)
-				newp.OwnedResourcePath.Path = strings.ReplaceAll(p.OwnedResourcePath.Path, "{{"+name+"}}", v)
+				newp.OwnerPath = strings.ReplaceAll(p.OwnerPath, predefinedquotestart+name+predefinedquoteend, v)
+				newp.OwnedResourcePath.Path = strings.ReplaceAll(p.OwnedResourcePath.Path, predefinedquotestart+name+predefinedquoteend, v)
 				allpatterns = append(allpatterns, *newp)
 			}
 		}
@@ -518,17 +518,30 @@ func populatePatterns(ownedMap map[types.NamespacedName]*unstructured.Unstructur
 	return allpatterns, nil
 }
 
+// fillOwnedResourceValue - use the value from owned resource to fill the variables defined in ORM pattern path
+// e.g. replace all {{.owned.metadata.namespace}} with the namespace of owned resource.
+// input parameters
+// - obj, the owned resource object.
+// - path, the path in ORM pattern w/o variables
+// return values
+// - string, the updated path
+// - bool, true: variable found and replacement happened; false: original path returned
+// - error, errors found during value extraction
 func fillOwnedResourceValue(obj *unstructured.Unstructured, path string) (string, bool, error) {
-	start := strings.Index(path, "{{")
+	start := strings.Index(path, predefinedquotestart)
 	if start == -1 {
 		return path, false, nil
 	}
 
-	end := strings.Index(path, "}}")
+	end := strings.Index(path, predefinedquoteend)
 	if end == -1 {
 		return path, false, errors.New(errorMessageSyntaxError + path)
 	}
 
+	// description to variables used here:
+	// full is {{.owned.xxx.xxx.xxx}} 				- to identify the variable
+	// content is .owned.xxx.xxx.xxx from full 		- for syntax checking
+	// objPath is .xxx.xxx.xxx from content			- real path in the object to retrieve the value
 	full := path[start : end+len(predefinedquoteend)]
 	content := full[len(predefinedquotestart) : len(full)-len(predefinedquoteend)]
 
