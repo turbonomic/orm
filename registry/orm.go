@@ -518,6 +518,14 @@ func populatePatterns(ownedMap map[types.NamespacedName]*unstructured.Unstructur
 	return allpatterns, nil
 }
 
+// const for temporary function processDotInLabelsAndAnnotationKey
+const (
+	labelsPrefix      = "{{.owned.metadata.labels."
+	annotationsPrefix = "{{.owned.metadata.annotations."
+	inPathQuoteStart  = "['"
+	inPathQuoteEnd    = "']"
+)
+
 // processOwnedResourceLabelAndAnnotationValueWithDotInKey
 // according to jsonpath spec, dot(.) could be escaped with [' ']
 // e.g. the path to the label of following owned resource
@@ -560,13 +568,6 @@ func processDotInLabelsAndAnnotationKey(obj *unstructured.Unstructured, pathIn s
 
 	return path, err
 }
-
-const (
-	labelsPrefix      = "{{.owned.metadata.labels."
-	annotationsPrefix = "{{.owned.metadata.annotations."
-	inPathQuoteStart  = "['"
-	inPathQuoteEnd    = "']"
-)
 
 func processDotInMapKey(store map[string]string, prefix string, pathIn string) (string, bool, error) {
 	if len(store) == 0 {
