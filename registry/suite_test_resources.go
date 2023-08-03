@@ -29,18 +29,21 @@ import (
 var (
 	_t_ownerpath = ".spec.template.spec.containers[?(@.name==\"" + _t_ownerref.Name + "\")].resources"
 	_t_ownedpath = ".spec.template.spec.containers[?(@.name==\"" + _t_ownedref.Name + "\")].resources"
-	_t_ormkey    = types.NamespacedName{
-		Namespace: "default",
+
+	_t_namespace = "default"
+
+	_t_ormkey = types.NamespacedName{
+		Namespace: _t_namespace,
 		Name:      "orm",
 	}
 	_t_ownerref = corev1.ObjectReference{
-		Namespace:  "default",
+		Namespace:  _t_namespace,
 		Name:       "owner",
 		Kind:       "Deployment",
 		APIVersion: "apps/v1",
 	}
 	_t_ownedref = corev1.ObjectReference{
-		Namespace:  "default",
+		Namespace:  _t_namespace,
 		Name:       "owned",
 		Kind:       "Deployment",
 		APIVersion: "apps/v1",
@@ -92,7 +95,7 @@ var (
 	_t_owned = appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      _t_ownedref.Name,
-			Namespace: _t_ownerref.Namespace,
+			Namespace: _t_ownedref.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
@@ -144,17 +147,17 @@ var (
 		},
 	}
 
-	_t_ownedOmitPath = ".spec.template.spec.containers[?(@.name==\"" + _t_ownerref.Name + "\")].ports[?(@.protocol==\"TCP\")].containerPort"
+	_t_ownedOmitPath = ".spec.template.spec.containers[?(@.name==\"" + _t_ownedref.Name + "\")].ports[?(@.protocol==\"TCP\")].containerPort"
 	_t_ownerOmitPath = ".spec.template.spec.containers[?(@.name==\"" + _t_ownerref.Name + "\")].ports[?(@.protocol==\"TCP\")].containerPort"
 
-	_t_ormWitOmitPathKey = types.NamespacedName{
+	_t_ormWithOmitPathKey = types.NamespacedName{
 		Name:      "ormomitpath",
-		Namespace: "default",
+		Namespace: _t_namespace,
 	}
 	_t_ormWithOmitPath = devopsv1alpha1.OperatorResourceMapping{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      _t_ormWitOmitPathKey.Name,
-			Namespace: _t_ormWitOmitPathKey.Namespace,
+			Name:      _t_ormWithOmitPathKey.Name,
+			Namespace: _t_ormWithOmitPathKey.Namespace,
 		},
 		Spec: devopsv1alpha1.OperatorResourceMappingSpec{
 			Owner: devopsv1alpha1.ObjectLocator{
@@ -178,7 +181,7 @@ var (
 
 	_t_ormMixedKey = types.NamespacedName{
 		Name:      "ormmixed",
-		Namespace: "default",
+		Namespace: _t_namespace,
 	}
 	_t_ormMixed = devopsv1alpha1.OperatorResourceMapping{
 		ObjectMeta: metav1.ObjectMeta{
@@ -207,6 +210,38 @@ var (
 								ObjectReference: _t_ownedref,
 							},
 							Path: _t_ownedpath,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	_t_ownerpathwithvar = ".spec.template.spec.containers[?(@.name==\"" + _t_ownerref.Name + "\")].resources"
+	_t_ownedpathwithvar = ".spec.template.spec.containers[?(@.name==\"" + "{{.owned.name}}" + "\")].resources"
+
+	_t_ormWithVarKey = types.NamespacedName{
+		Name:      "ormwithvar",
+		Namespace: _t_namespace,
+	}
+	_t_ormWithVar = devopsv1alpha1.OperatorResourceMapping{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      _t_ormWithVarKey.Name,
+			Namespace: _t_ormWithVarKey.Namespace,
+		},
+		Spec: devopsv1alpha1.OperatorResourceMappingSpec{
+			Owner: devopsv1alpha1.ObjectLocator{
+				ObjectReference: _t_ownerref,
+			},
+			Mappings: devopsv1alpha1.MappingPatterns{
+				Patterns: []devopsv1alpha1.Pattern{
+					{
+						OwnerPath: _t_ownerpathwithvar,
+						OwnedResourcePath: devopsv1alpha1.OwnedResourcePath{
+							ObjectLocator: devopsv1alpha1.ObjectLocator{
+								ObjectReference: _t_ownedref,
+							},
+							Path: _t_ownedpathwithvar,
 						},
 					},
 				},

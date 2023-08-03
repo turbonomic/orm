@@ -36,6 +36,7 @@ import (
 var (
 	errorMessageMultipleSourceForOwner = "allow 1 and only 1 input from owned.name, owned.selector, owner.labelSelector"
 	errorMessageUnknownSelector        = "unknown selector"
+	errorMessageSyntaxError            = "syntax error in pattern "
 )
 
 func (or *ResourceMappingRegistry) SeekTopOwnersResourcePathsForOwnedResourcePath(owned devopsv1alpha1.ResourcePath) []devopsv1alpha1.ResourcePath {
@@ -70,7 +71,16 @@ func (or *ResourceMappingRegistry) SeekTopOwnersResourcePathsForOwnedResourcePat
 
 }
 
-const predefinedOwnedResourceName = ".owned.name"
+const predefinedquotestart = "{{"
+const predefinedquoteend = "}}"
+const predefinedownedprefix = ".owned"
+
+var predefinedshorthand map[string]string = map[string]string{
+	".name":        ".metadata.name",
+	".labels":      ".metadata.labels",
+	".annotations": ".metadata.annotations",
+}
+
 const predefinedParameterPlaceHolder = ".."
 
 func (or *ResourceMappingRegistry) validateORMOwner(orm *devopsv1alpha1.OperatorResourceMapping) (*unstructured.Unstructured, error) {
@@ -326,6 +336,7 @@ func (or *ResourceMappingRegistry) ValidateAndRegisterORM(orm *devopsv1alpha1.Op
 	}
 
 	allpatterns := []devopsv1alpha1.Pattern{}
+	allowned := make(map[types.NamespacedName]*unstructured.Unstructured)
 	for _, p := range orm.Spec.Mappings.Patterns {
 
 		if or.staticCheckPattern(&p, orm.Spec.Mappings.Selectors, orm.Spec.Mappings.Parameters) != nil {
@@ -340,6 +351,16 @@ func (or *ResourceMappingRegistry) ValidateAndRegisterORM(orm *devopsv1alpha1.Op
 		// TODO: avoid to retrieve same source repeatedly
 		if k.Name != "" {
 			allpatterns = append(allpatterns, *p.DeepCopy())
+			var obj *unstructured.Unstructured
+			obj, err = kubernetes.Toolbox.GetResourceWithGVK(p.OwnedResourcePath.GroupVersionKind(), k)
+			if err != nil {
+				rLog.Error(err, "getting resource", "source", p.OwnedResourcePath)
+				continue
+			}
+			allowned[types.NamespacedName{
+				Namespace: obj.GetNamespace(),
+				Name:      obj.GetName(),
+			}] = obj
 		} else {
 			var srcObjs []unstructured.Unstructured
 			selector := p.OwnedResourcePath.LabelSelector
@@ -364,6 +385,10 @@ func (or *ResourceMappingRegistry) ValidateAndRegisterORM(orm *devopsv1alpha1.Op
 				newp.OwnedResourcePath.ObjectReference.Name = obj.GetName()
 				newp.OwnedResourcePath.ObjectReference.Namespace = obj.GetNamespace()
 				allpatterns = append(allpatterns, newp)
+				allowned[types.NamespacedName{
+					Namespace: obj.GetNamespace(),
+					Name:      obj.GetName(),
+				}] = obj.DeepCopy()
 			}
 		}
 	}
@@ -375,7 +400,12 @@ func (or *ResourceMappingRegistry) ValidateAndRegisterORM(orm *devopsv1alpha1.Op
 
 	for _, p := range allpatterns {
 
-		patterns := populatePatterns(orm.Spec.Mappings.Parameters, p)
+		var patterns []devopsv1alpha1.Pattern
+		patterns, err = populatePatterns(allowned, orm.Spec.Mappings.Parameters, p)
+		if err != nil {
+			return orm, owner, err
+		}
+
 		for _, pattern := range patterns {
 			err = or.registerOwnershipMapping(pattern.OwnerPath, pattern.OwnedResourcePath.Path,
 				types.NamespacedName{Name: orm.Name, Namespace: orm.Namespace},
@@ -413,11 +443,24 @@ func (or *ResourceMappingRegistry) retrieveObjectEntryForOwnerAndORM(owner corev
 	return retrieveObjectEntryForObjectAndORMFromRegistry(or.ownerRegistry, owner, orm)
 }
 
-func populatePatterns(parameters map[string][]string, pattern devopsv1alpha1.Pattern) []devopsv1alpha1.Pattern {
+func processShorthandVariables(str string) string {
+	result := str
+
+	for k, v := range predefinedshorthand {
+		short := predefinedquotestart + predefinedownedprefix + k + predefinedquoteend
+		full := predefinedquotestart + predefinedownedprefix + v + predefinedquoteend
+		result = strings.ReplaceAll(result, short, full)
+	}
+
+	return result
+}
+
+func populatePatterns(ownedMap map[types.NamespacedName]*unstructured.Unstructured, parameters map[string][]string, pattern devopsv1alpha1.Pattern) ([]devopsv1alpha1.Pattern, error) {
+	var err error
 	var allpatterns []devopsv1alpha1.Pattern
 
-	pattern.OwnerPath = strings.ReplaceAll(pattern.OwnerPath, "{{"+predefinedOwnedResourceName+"}}", pattern.OwnedResourcePath.Name)
-	pattern.OwnedResourcePath.Path = strings.ReplaceAll(pattern.OwnedResourcePath.Path, "{{"+predefinedOwnedResourceName+"}}", pattern.OwnedResourcePath.Name)
+	pattern.OwnerPath = processShorthandVariables(pattern.OwnerPath)
+	pattern.OwnedResourcePath.Path = processShorthandVariables(pattern.OwnedResourcePath.Path)
 
 	allpatterns = append(allpatterns, pattern)
 
@@ -433,13 +476,99 @@ func populatePatterns(parameters map[string][]string, pattern devopsv1alpha1.Pat
 		for _, p := range prevpatterns {
 			for _, v := range values {
 				newp := p.DeepCopy()
-				newp.OwnerPath = strings.ReplaceAll(p.OwnerPath, "{{"+name+"}}", v)
-				newp.OwnedResourcePath.Path = strings.ReplaceAll(p.OwnedResourcePath.Path, "{{"+name+"}}", v)
+				newp.OwnerPath = strings.ReplaceAll(p.OwnerPath, predefinedquotestart+name+predefinedquoteend, v)
+				newp.OwnedResourcePath.Path = strings.ReplaceAll(p.OwnedResourcePath.Path, predefinedquotestart+name+predefinedquoteend, v)
 				allpatterns = append(allpatterns, *newp)
 			}
 		}
 	}
-	return allpatterns
+
+	// retrieve and replace generic string value from owned resource
+	prevpatterns = allpatterns
+	allpatterns = []devopsv1alpha1.Pattern{}
+	for _, p := range prevpatterns {
+		more := true
+		ownedKey := types.NamespacedName{
+			Namespace: p.OwnedResourcePath.Namespace,
+			Name:      p.OwnedResourcePath.Name,
+		}
+		ownedObj := ownedMap[ownedKey]
+		for more {
+			more = false
+			var found bool
+			p.OwnerPath, found, err = fillOwnedResourceValue(ownedObj, p.OwnerPath)
+			if err != nil {
+				return allpatterns, err
+			}
+			if found {
+				more = true
+			}
+
+			p.OwnedResourcePath.Path, found, err = fillOwnedResourceValue(ownedObj, p.OwnedResourcePath.Path)
+			if err != nil {
+				return allpatterns, err
+			}
+			if found {
+				more = true
+			}
+		}
+		allpatterns = append(allpatterns, p)
+	}
+
+	return allpatterns, nil
+}
+
+// fillOwnedResourceValue - use the value from owned resource to fill the variables defined in ORM pattern path
+// e.g. replace all {{.owned.metadata.namespace}} with the namespace of owned resource.
+// input parameters
+// - obj, the owned resource object.
+// - path, the path in ORM pattern w/o variables
+// return values
+// - string, the updated path
+// - bool, true: variable found and replacement happened; false: original path returned
+// - error, errors found during value extraction
+func fillOwnedResourceValue(obj *unstructured.Unstructured, path string) (string, bool, error) {
+	start := strings.Index(path, predefinedquotestart)
+	if start == -1 {
+		return path, false, nil
+	}
+
+	end := strings.Index(path, predefinedquoteend)
+	if end == -1 {
+		return path, false, errors.New(errorMessageSyntaxError + path)
+	}
+
+	// description to variables used here:
+	// full is {{.owned.xxx.xxx.xxx}} 				- to identify the variable
+	// content is .owned.xxx.xxx.xxx from full 		- for syntax checking
+	// objPath is .xxx.xxx.xxx from content			- real path in the object to retrieve the value
+	full := path[start : end+len(predefinedquoteend)]
+	content := full[len(predefinedquotestart) : len(full)-len(predefinedquoteend)]
+
+	if strings.Index(content, predefinedownedprefix) != 0 {
+		return path, false, errors.New(errorMessageSyntaxError + path)
+	}
+
+	objPath := content[len(predefinedownedprefix):]
+	v, found, err := ormutils.NestedField(obj.Object, objPath)
+
+	if err != nil {
+		return path, false, err
+	}
+
+	if !found {
+		return path, false, nil
+	}
+
+	switch v.(type) {
+	case string:
+		break
+	default:
+		return path, false, errors.New(errorMessageSyntaxError + path)
+
+	}
+
+	return strings.ReplaceAll(path, full, v.(string)), false, nil
 }
 
 // ValidateOwnedPathEnabled checks if the annotation is set to "disabled", otherwise it is enabled
