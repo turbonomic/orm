@@ -518,6 +518,81 @@ func populatePatterns(ownedMap map[types.NamespacedName]*unstructured.Unstructur
 	return allpatterns, nil
 }
 
+// const for temporary function processDotInLabelsAndAnnotationKey
+const (
+	labelsPrefix      = "{{.owned.metadata.labels."
+	annotationsPrefix = "{{.owned.metadata.annotations."
+	inPathQuoteStart  = "['"
+	inPathQuoteEnd    = "']"
+)
+
+// processOwnedResourceLabelAndAnnotationValueWithDotInKey
+// according to jsonpath spec, dot(.) could be escaped with [' ']
+// e.g. the path to the label of following owned resource
+// metadata:
+//
+//	labels:
+//	  turbonomic.org/key: "value"
+//
+// should be
+//
+//	.owned.metadata.labels.['turbonomic.org/key']
+//
+// NOT
+//
+//	.owned.metadata.labels.turbonomic.org/key
+//
+// This could happen not just in labels and annotations, but normal fields or a CRD as well.
+// Ideally this should be addressed in jsonpath library from client-go, but community is not responding to this gap right now
+// We develop this feature to ONLY support labels and annotations for now
+// until a thorough implementation is provided by client-go library.
+func processDotInLabelsAndAnnotationKey(obj *unstructured.Unstructured, pathIn string) (string, error) {
+	var err error
+
+	found := true
+	path := pathIn
+	for found {
+		path, found, err = processDotInMapKey(obj.GetLabels(), labelsPrefix, path)
+		if err != nil {
+			return pathIn, err
+		}
+	}
+
+	found = true
+	for found {
+		path, found, err = processDotInMapKey(obj.GetAnnotations(), annotationsPrefix, path)
+		if err != nil {
+			return pathIn, err
+		}
+	}
+
+	return path, err
+}
+
+func processDotInMapKey(store map[string]string, prefix string, pathIn string) (string, bool, error) {
+	if len(store) == 0 {
+		return pathIn, false, nil
+	}
+
+	start := strings.Index(pathIn, prefix)
+	if start == -1 {
+		return pathIn, false, nil
+	}
+	path := pathIn[start:]
+	end := strings.Index(path, predefinedquoteend)
+	if end == -1 {
+		return path, false, errors.New(errorMessageSyntaxError + path)
+	}
+
+	full := path[:end+len(predefinedquoteend)]
+	key := full[len(prefix) : len(full)-len(predefinedquoteend)]
+	key = strings.ReplaceAll(key, inPathQuoteStart, "")
+	key = strings.ReplaceAll(key, inPathQuoteEnd, "")
+	value := store[key]
+
+	return strings.ReplaceAll(pathIn, full, value), true, nil
+}
+
 // fillOwnedResourceValue - use the value from owned resource to fill the variables defined in ORM pattern path
 // e.g. replace all {{.owned.metadata.namespace}} with the namespace of owned resource.
 // input parameters
@@ -527,7 +602,16 @@ func populatePatterns(ownedMap map[types.NamespacedName]*unstructured.Unstructur
 // - string, the updated path
 // - bool, true: variable found and replacement happened; false: original path returned
 // - error, errors found during value extraction
-func fillOwnedResourceValue(obj *unstructured.Unstructured, path string) (string, bool, error) {
+func fillOwnedResourceValue(obj *unstructured.Unstructured, pathIn string) (string, bool, error) {
+	if obj == nil {
+		return pathIn, false, nil
+	}
+
+	path, err := processDotInLabelsAndAnnotationKey(obj, pathIn)
+	if err != nil {
+		return path, false, err
+	}
+
 	start := strings.Index(path, predefinedquotestart)
 	if start == -1 {
 		return path, false, nil

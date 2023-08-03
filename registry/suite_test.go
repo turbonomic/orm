@@ -323,6 +323,39 @@ var _ = Describe("ORM Test", func() {
 		Expect(omv.Reason).To(BeEmpty())
 	})
 
+	// this test is temporary, should be removed after client-go implemented the feature
+	It("can process labels and annotations with dot(.) in the key", func() {
+		var (
+			normalkey   = "normal"
+			normalvalue = "normal"
+
+			key         = "test.dot.key"
+			annovalue   = "annotation-value"
+			labelvalue  = "label-value"
+			annotations = map[string]string{
+				key:       annovalue,
+				normalkey: normalvalue,
+			}
+			labels = map[string]string{
+				key:       labelvalue,
+				normalkey: normalvalue,
+			}
+			pathInNormal  = ".spec.{{.owned.metadata.labels." + normalkey + "}}.plus.{{.owned.metadata.annotations." + normalkey + "}}"
+			pathOutNormal = ".spec." + normalvalue + ".plus." + normalvalue
+			pathIn        = ".spec.{{.owned.metadata.labels.['" + key + "']}}.plus.{{.owned.metadata.annotations.['" + key + "']}}"
+			pathOut       = ".spec." + labelvalue + ".plus." + annovalue
+		)
+
+		obj := &unstructured.Unstructured{}
+		obj.SetAnnotations(annotations)
+		obj.SetLabels(labels)
+		result, err := processDotInLabelsAndAnnotationKey(obj, pathIn)
+		Expect(err).To(BeNil())
+		Expect(result).To(BeEquivalentTo(pathOut))
+		result, err = processDotInLabelsAndAnnotationKey(obj, pathInNormal)
+		Expect(err).To(BeNil())
+		Expect(result).To(BeEquivalentTo(pathOutNormal))
+	})
 })
 
 func TestUtils(t *testing.T) {
