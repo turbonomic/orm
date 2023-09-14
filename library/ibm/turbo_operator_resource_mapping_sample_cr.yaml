@@ -116,14 +116,7 @@ spec:
         path: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].resources
         apiVersion: apps/v1
         kind: Deployment
-        
-    - ownerPath: .spec.{{.owned.name}}.replicaCount
-      owned:
-        selector: turbo_core_components
-        path: .spec.replicas
-        apiVersion: apps/v1
-        kind: Deployment
-       
+          
     - ownerPath: .spec.{{.owned.name}}.resources
       owned:
         path: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].resources
@@ -138,20 +131,6 @@ spec:
           - kafka
           - zookeeper
     
-    - ownerPath: .{{.owned.name}}.service.replicas
-      owned:
-        name: chronograf
-        path: .spec.replicas
-        apiVersion: apps/v1
-        kind: Deployment
-        
-    - ownerPath: .spec.{{.owned.name}}.resources
-      owned:
-        name: chronograf
-        path: .spec.replicas
-        apiVersion: apps/v1
-        kind: Deployment
-
     - ownerPath: .{{.owned.name}}.client.resources
       owned:
         name: elasticsearch
@@ -159,44 +138,4 @@ spec:
         apiVersion: apps/v1
         kind: Deployment
 
-    - ownerPath: .{{.owned.name}}.replicas
-      owned:
-        name: grafana
-        path: .spec.replicas
-        apiVersion: apps/v1
-        kind: Deployment
-
-    - ownerPath: .{{.owned.name}}.replicaCount
-      owned:
-        path: .spec.replicas
-        apiVersion: apps/v1
-        kind: Deployment
-        matchExpressions:
-        - key: app.kubernetes.io/name
-          operator: In
-          values:
-          - kibana
-          - nginx
-          - prometheus-mysql-exporter
-          - rsyslog
-
-    - ownerPath: .{{.owned.name}}.alertmanager.replicaCount
-      owned:
-        name: prometheus-alertmanager
-        path: .spec.replicas
-        kind: Deployment
-        apiVersion: apps/v1
-
-    - ownerPath: .spec.{{.owned.name}}.kubeStateMetrics.replicaCount
-      owned:
-        name: prometheus-kube-state-metrics
-        path: .spec.replicas
-        apiVersion: apps/v1
-        kind: Deployment
-        
-    - ownerPath: .spec.{{.owned.name}}.pushgateway.replicaCount
-      owned:
-        name: prometheus-pushgateway
-        path: .spec.replicas
-        apiVersion: apps/v1
-        kind: Deployment        
+   
