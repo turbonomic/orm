@@ -107,7 +107,9 @@ spec:
           - plan-orchestrator
           - reporting
           - repository
+          - suspend
           - topology-processor
+          - ui
 
     patterns:
     - ownerPath: .spec.{{.owned.name}}.resources
