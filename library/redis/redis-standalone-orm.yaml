@@ -1,0 +1,22 @@
+apiVersion: devops.turbonomic.io/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  namespace: ot-operators
+  name: redis-orm
+spec:
+  owner: # target same namespace by default
+    apiVersion: redis.redis.opstreelabs.in/v1beta1
+    kind: Redis
+    name: redis               # replace this with the actual redis cr name
+  mappings:
+    selectors:
+      my_redis_sts:                   #replace this with the actual labels to select redis statefulsets
+        matchLabels:
+          app: redis
+    patterns:
+    - owned:
+        apiVersion: apps/v1
+        kind: StatefulSet
+        selector: my_redis_sts
+        path: .spec.template.spec.containers[?(@.name=="redis")].resources
+      ownerPath: .spec.kubernetesConfig.resources

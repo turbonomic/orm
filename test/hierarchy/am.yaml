@@ -1,0 +1,26 @@
+apiVersion: devops.turbonomic.io/v1alpha1
+kind: AdviceMapping
+metadata:
+  name: hierarchy
+spec:
+  mappings:
+  - advisor:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: ormadvisor-hierarchy
+      path: .spec.replicas
+    target:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: ormowned-hierarchy
+      path: .spec.replicas
+  - advisor:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: ormadvisor-hierarchy
+      path: .spec.template.spec.containers[?(@.name=="workload-0001")].resources
+    target:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: ormowned-hierarchy
+      path: .spec.template.spec.containers[?(@.name=="workload-0001")].resources
