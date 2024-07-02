@@ -1,0 +1,49 @@
+# This is a sample ORM CR for CP4I IntegrationRuntime CRD.
+apiVersion: turbonomic.com/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  # CP4I IntegrationRuntime operator CRD
+  name: integrationruntimes.appconnect.ibm.com
+spec:
+  resourceMappings:
+    - srcResourceSpec:
+        kind: Deployment
+        componentNames:
+          - wouser1-ir-00001-deployment
+          - wouser1-ir-00002-deployment
+          - wouser1-ir-00003-deployment
+          - wouser1-ir-00004-deployment
+          - wouser1-ir-00005-deployment
+          - wouser1-ir-00006-deployment
+          - wouser1-ir-00007-deployment
+          - wouser1-ir-00008-deployment
+          - wouser1-ir-00009-deployment
+      resourceMappingTemplates:
+        - srcPath: .spec.template.spec.containers[?(@.name=="designerflows")].resources
+#          destPath: .spec.serverless.knativeSevice.template.spec.container[?(@.name=="designerflows")].resources
+          destPath: .spec.serverless.knativeSevice.template.spec.container[0].resources
+        - srcPath: .spec.template.spec.containers[?(@.name=="runtime")].resources
+#          destPath: .spec.serverless.knativeSevice.template.spec.container[?(@.name=="runtime")].resources
+          destPath: .spec.serverless.knativeSevice.template.spec.container[1].resources
+---
+#apiVersion: appconnect.ibm.com/v1beta1
+#kind: IntegrationRuntime
+#metadata:
+#  name: wouser1
+#spec:
+#  configurations:
+#    - httpaccount
+#  connectorService:
+#    enabled: true
+#  designerFlowYaml:
+#    - weatherstation
+#  serverless:
+#    knativeSevice:
+#      enabled: true
+#      template:
+#        spec:
+#          container:
+#            - name: designerflows
+#              resources: {}
+#            - name: runtime
+#              resources: {}

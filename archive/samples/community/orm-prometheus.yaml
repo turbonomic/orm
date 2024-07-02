@@ -1,0 +1,17 @@
+# This is a sample ORM CR for Prometheus CRD.
+apiVersion: turbonomic.com/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  # Prometheus operator CRD
+  name: prometheuses.monitoring.coreos.com
+spec:
+  resourceMappings:
+    - srcResourceSpec:
+        kind: StatefulSet
+        componentNames:
+          - k8s
+      resourceMappingTemplates:
+        - srcPath: .spec.template.spec.containers[?(@.name=="prometheus")].resources
+          destPath: .spec.resources
+        - srcPath: .spec.replicas
+          destPath: .spec.replicas
