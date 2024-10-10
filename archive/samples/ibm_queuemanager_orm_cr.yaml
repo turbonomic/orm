@@ -1,0 +1,23 @@
+# This is a sample ORM CR for QueueManager CRD.
+apiVersion: turbonomic.com/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  # QueueManager CRD name.
+  name: queuemanagers.mq.ibm.com
+spec:
+  resourceMappings:
+    - srcResourceSpec:
+        # Controller kind
+        kind: StatefulSet
+        componentNames:
+            # Name of k8s controller (like Deployment, StatefulSet,etc)
+          - quickstart-cp4i-ibm-mq
+      resourceMappingTemplates:
+          # Path of container "resources" in the corresponding K8s controller like Deployment, 
+          # where the resource values will be updated by the Operator after changing the CR.
+          # The sample srcPath
+          # .spec.template.spec.containers[?(@.name=="{{.componentName}}")].resources
+          # only works when container name and controller name is same.
+        - srcPath: .spec.template.spec.containers[?(@.name=="qmgr")].resources
+          # Path of "resources" in the Operator managed CR, where we need to directly modify
+          destPath: .spec.queueManager.resources
