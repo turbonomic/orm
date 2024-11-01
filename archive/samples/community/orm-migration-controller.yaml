@@ -1,0 +1,21 @@
+# This is a sample ORM CR for MigrationController CRD.
+apiVersion: turbonomic.com/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  # MigrationController operator CRD
+  name: migrationcontrollers.migration.openshift.io
+spec:
+  resourceMappings:
+    - srcResourceSpec:
+        kind: Deployment
+        componentNames:
+          - migration-controller
+      resourceMappingTemplates:
+        - srcPath: .spec.template.spec.containers[?(@.name=="mtc")].resources.limits.cpu
+          destPath: .spec.resources.mig_controller_limits_cpu
+        - srcPath: .spec.template.spec.containers[?(@.name=="mtc")].resources.limits.memory
+          destPath: .spec.resources.mig_controller_limits_memory
+        - srcPath: .spec.template.spec.containers[?(@.name=="mtc")].resources.requests.cpu
+          destPath: .spec.resources.mig_controller_requests_cpu
+        - srcPath: .spec.template.spec.containers[?(@.name=="mtc")].resources.requests.memory
+          destPath: .spec.resources.mig_controller_requests_memory
