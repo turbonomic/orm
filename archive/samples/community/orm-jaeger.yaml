@@ -1,0 +1,15 @@
+# This is a sample ORM CR for Jaeger CRD.
+apiVersion: turbonomic.com/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  # Jaeger operator CRD name
+  name: jaegers.jaegertracing.io
+spec:
+  resourceMappings:
+    - srcResourceSpec:
+        kind: Deployment
+        componentNames:
+          - jaeger
+      resourceMappingTemplates:
+        - srcPath: .spec.template.spec.containers[?(@.name=="{{.componentName}}")].resources
+          destPath: .spec.resources

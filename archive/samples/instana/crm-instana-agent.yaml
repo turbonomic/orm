@@ -1,0 +1,14 @@
+# This is an ORM CR for Instana Agent Operator.
+apiVersion: turbonomic.com/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  name: clusterserviceversions.operators.coreos.com
+spec:
+  resourceMappings:
+  - srcResourceSpec:
+      kind: Deployment
+      componentNames:
+      - instana-agent-operator
+    resourceMappingTemplates:
+      - srcPath: .spec.template.spec.containers[?(@.name=="{{.componentName}}")].resources
+        destPath: .spec.install.spec.deployments[0].spec.template.spec.containers[0].resources

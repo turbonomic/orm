@@ -1,0 +1,143 @@
+# This is a sample ORM CR for Xl CRD.
+apiVersion: devops.turbonomic.io/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  name: turbonomicxl
+spec:
+  owner:
+    apiVersion: charts.helm.k8s.io/v1
+    kind: Xl
+    name: xl-release
+    namespace: turbonomic
+  mappings:
+    selectors:
+      turbo_core_components:
+        matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values:
+          - action-orchestrator
+          - api
+          - auth
+          - clustermgr
+          - cost
+          - extractor
+          - db
+          - group
+          - history
+          - intersight-integration
+          - kafka
+          - kubeturbo
+          - market
+          - mediation-acims
+          - mediation-actionscript
+          - mediation-actionstream-kafka
+          - mediation-aix
+          - mediation-apic
+          - mediation-appdynamics
+          - mediation-appinsights
+          - mediation-aws
+          - mediation-awsbilling
+          - mediation-awscloudbilling
+          - mediation-awscost
+          - mediation-awslambda
+          - mediation-azure
+          - mediation-azurecost
+          - mediation-azureea
+          - mediation-azuresp
+          - mediation-azurevolumes
+          - mediation-baremetal
+          - mediation-cloudfoundry
+          - mediation-compellent
+          - mediation-datadog
+          - mediation-dynatrace
+          - mediation-flexera
+          - mediation-gcpproject
+          - mediation-gcpbilling
+          - mediation-gcpcost
+          - mediation-gcpsa
+          - mediation-hds
+          - mediation-horizon
+          - mediation-hpe3par
+          - mediation-hyperflex
+          - mediation-hyperv
+          - mediation-ibmstorage-flashsystem
+          - mediation-instana
+          - mediation-intersight
+          - mediation-intersighthyperflex
+          - mediation-intersightucs
+          - mediation-istio
+          - mediation-jboss
+          - mediation-jvm
+          - mediation-mssql
+          - mediation-mysql
+          - mediation-netapp
+          - mediation-netflow
+          - mediation-newrelic
+          - mediation-nutanix
+          - mediation-oneview
+          - mediation-openstack
+          - mediation-oracle
+          - mediation-pivotal
+          - mediation-pure
+          - mediation-rhv
+          - mediation-scaleio
+          - mediation-servicenow
+          - mediation-snmp
+          - mediation-tanium
+          - mediation-terraform
+          - mediation-tetration
+          - mediation-tomcat
+          - mediation-ucs
+          - mediation-ucsdirector
+          - mediation-udt
+          - mediation-vcd
+          - mediation-vcenter
+          - mediation-vcenterbrowsing
+          - mediation-vmax
+          - mediation-vmm
+          - mediation-vplex
+          - mediation-webhook
+          - mediation-weblogic
+          - mediation-websphere
+          - mediation-wmi
+          - mediation-xtremio
+          - ml-datastore
+          - ml-training
+          - plan-orchestrator
+          - reporting
+          - repository
+          - suspend
+          - topology-processor
+          - ui
+
+    patterns:
+    - ownerPath: .spec.{{.owned.name}}.resources
+      owned:
+        selector: turbo_core_components
+        path: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].resources
+        apiVersion: apps/v1
+        kind: Deployment
+          
+    - ownerPath: .spec.{{.owned.name}}.resources
+      owned:
+        path: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].resources
+        apiVersion: apps/v1
+        kind: Deployment
+        matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values:
+          - arangodb
+          - influxdb
+          - kafka
+          - zookeeper
+    
+    - ownerPath: .{{.owned.name}}.client.resources
+      owned:
+        name: elasticsearch
+        path: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].resources
+        apiVersion: apps/v1
+        kind: Deployment
+
+   
