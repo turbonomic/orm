@@ -2,7 +2,6 @@
 [![GoDoc](https://godoc.org/github.com/turbonomic/orm?status.svg)](https://godoc.org/github.com/turbonomic/orm)
 [![License](https://img.shields.io/:license-apache-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/turbonomic/orm)](https://goreportcard.com/report/github.com/turbonomic/orm)
-![workflow](https://github.com/turbonomic/orm/actions/workflows/go.yaml/badge.svg)
 
 <em>Previous ORM CRD and Samples are moved to [archive](./archive/), please find doc for compatibility [here](./docs/compatibility.md).</em>
 
@@ -13,24 +12,15 @@
 
 - [Overview](#overview)
   - [Terminology](#terminology)
-- [ORM Schema](#orm-shcema)
+- [ORM Schema](#orm-schema)
 - [Use Cases](#use-cases)
-- [QuickStart to Test Your ORM CR with Turbonomic/Kubeturbo](#quickstart-to-test-your-orm-cr-with-turbonomic/kubeturbo)
+- [QuickStart to Test Your ORM CR with Turbonomic/Kubeturbo](#quickstart-to-test-your-orm-cr-with-turbonomickubeturbo)
     - [Architecture](#architecture)
     - [Step 1. Clone the repository](#step-1-clone-the-repository)
     - [Step 2. Deploy ORM](#step-2-deploy-orm)
-- [QuickStart to Test Your ORM CR with ORM Controllers](#quickstart-to-test-your-orm-cr-with-orm-controllers)
-  - [Architecture](#architecture)
-    - [Core Controllers](#core-controllers)
-    - [Utility Controllers](#utility-controllers)
-  - [Step 1. Clone the repository](#step-1-clone-the-repository)
-  - [Step 2. Build and Run](#step-2-build-and-run)
-    - [Run locally](#run-locally)
-    - [Other options](#other-options)
-  - [Step 3 Try Redis example](#step-3-try-redis-example)
-    - [Prepare Standalone Redis](#prepare-standalone-redis)
-    - [Apply OperatorResourceMapping for Redis](#apply-operatorresourcemapping-for-redis)
-- [Next Step](#next-step)
+    - [Step 3 Try Redis example](#step-3-try-redis-example)
+      - [Prepare Standalone Redis](#prepare-standalone-redis)
+      - [Apply OperatorResourceMapping for Redis](#apply-operatorresourcemapping-for-redis)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -64,10 +54,7 @@ The proposed solution involves updating workload specifications via the CR allow
 
 ORM works at an operand basis. The user will define within the ORM which operand provides the desired status of which resources that can be managed. The user will provide information on the parameters that directs how other assets can programmatically make changes to the Custom Resource.
 
-This repo provides new ORM resource scheme, legacy ORM CRD and examples are in [archive folder](https://github.ibm.com/turbonomic/orm/tree/master/archive). Controllers in this repo are 
-
-- helping users to compose and test ORMs with the operands and deployed resources only.
-- generating ORM resource from legacy ORM resources for backward compatibility
+This repo provides new ORM resource scheme, legacy ORM CRD and examples are in [archive folder](https://github.com/turbonomic/orm/tree/master/archive).
 
 ### Terminology
 
@@ -135,7 +122,7 @@ status:
   state: # The status of the resource mapping indicates whether it is 'ok' or if there have been any errors with a reason during the discovery of ORM's and building the ORM mapping registry .
 ```
 
-Sample Operator resource mappings can be found [here](https://github.ibm.com/turbonomic/orm/tree/master/library)
+Sample Operator resource mappings can be found [here](https://github.com/turbonomic/orm/tree/master/library)
 
 ## Use Cases
 
@@ -143,19 +130,19 @@ Sample Operator resource mappings can be found [here](https://github.ibm.com/tur
 
 ![image](./docs/images/usecase-solo.png)
 
-Example for this use case can be found [here](https://github.ibm.com/turbonomic/orm/tree/master/test/solo)
+Example for this use case can be found [here](https://github.com/turbonomic/orm/tree/master/test/solo)
 
 ### One ORM for two Owned Resource controlled by one Operator
 
 ![image](./docs/images/usecase-pattern.png)
 
-Example for this use case can be found [here](https://github.ibm.com/turbonomic/orm/tree/master/test/patterns)
+Example for this use case can be found [here](https://github.com/turbonomic/orm/tree/master/test/patterns)
 
 ### Multiple ORM's for one Owned Resource with Hierarchy of Operators
 
 ![image](./docs/images/usecase-hierarchy.png)
 
-Example for this use case can be found [here](https://github.ibm.com/turbonomic/orm/tree/master/test/hierarchy)
+Example for this use case can be found [here](https://github.com/turbonomic/orm/tree/master/test/hierarchy)
 
 ## QuickStart to Test Your ORM CR with Turbonomic/Kubeturbo
 
@@ -170,18 +157,18 @@ System architecture for ORM CR with Turbonomic/Kubeturbo is described in the fig
 ```script
 mkdir turbonomic
 cd turbonomic
-git clone https://github.ibm.com/turbonomic/orm.git
+git clone https://github.com/turbonomic/orm.git
 cd orm
 ```
 
 ### Step 2. Deploy ORM
 
-1. Create the ORM [Customer Resource Definition (CRD)](https://github.ibm.com/turbonomic/orm/tree/master/config/crd/bases) in the kubernetes cluster (where kubeturbo is also running):
+1. Create the ORM [Customer Resource Definition (CRD)](https://github.com/turbonomic/orm/tree/master/config/crd/bases) in the kubernetes cluster (where kubeturbo is also running):
 ```bash
 kubectl apply -f config/crd/bases/devops.turbonomic.io_operatorresourcemappings.yaml
 ```
 >This CRD supports kubnernetes 1.16 and higher.
-2. Next deploy the ORM Custom Resource (CR) for your application in the namespace of that app. Sample CRs are located [here](https://github.ibm.com/turbonomic/orm/tree/master/library). In our example, to allow for resizing of Turbonomic Server app services, we will deploy the Turbonomic XL ORM CR into the namespace where the Turbonomic Server is running:
+2. Next deploy the ORM Custom Resource (CR) for your application in the namespace of that app. Sample CRs are located [here](https://github.com/turbonomic/orm/tree/master/library). In our example, to allow for resizing of Turbonomic Server app services, we will deploy the Turbonomic XL ORM CR into the namespace where the Turbonomic Server is running:
 ```bash
 kubectl -n turbonomic apply -f library/ibm/turbo_operator_resource_mapping_sample_cr.yaml
 ```
@@ -192,52 +179,7 @@ I0118 22:34:08.013144       1 k8s_discovery_client.go:327] Discovered 1 v2 ORM R
 
 ### Note:
 
-In order for Kubeturbo to access Operator managed CR's from CRD and map the resources using ORM, Kubeturbo should run with cluster-admin role. You can find more details about Kubeturbo Cluster roles [here](https://github.ibm.com/turbonomic/kubeturbo/wiki/Kubeturbo-Cluster-Roles)
-
-## QuickStart to Test Your ORM CR with ORM Controllers
-
-### Architecture
-
-System architecture is described in the figure below:
-
-![image](./docs/images/arch-p1.png)
-
-### Core Controllers
-
-ORM Controller – watch ORM resource and update registry with mappings
-
-Mapper Ownership – retrieve value from owner resource and update ORM status
-
-### Utility Controllers
-
-Compatibility Controller - Generate new ORM from legacy ORM
-
-ORM leverages operator sdk to create/build project, follow the standard operator sdk approach to run it locally or generate images to deploy to a target cluster with right RBAC settings. 
-
-### Step 1. Clone the repository
-
-```script
-mkdir turbonomic
-cd turbonomic
-git clone https://github.ibm.com/turbonomic/orm.git
-cd orm
-```
-
-### Step 2. Build and Run
-
-#### Run locally
-
-You're able to run the orm controllers if you have access to a kubernetes cluster. Please ensure the rbac of your current access is able to cover the resources you want map.
-
-```shell
-make install run
-```
-
-You terminal is occupied by the controller after it is started, you need to start another terminal to try examples
-
-#### Other options
-
-Feel free to try other approaches in Operator SDK such as [OLM deployment](https://master.sdk.operatorframework.io/docs/building-operators/golang/quickstart/#olm-deployment), [Direct deployment](https://master.sdk.operatorframework.io/docs/building-operators/golang/quickstart/#direct-deployment).
+In order for Kubeturbo to access Operator managed CR's from CRD and map the resources using ORM, Kubeturbo should run with cluster-admin role. You can find more details about Kubeturbo Cluster roles [here](https://github.com/turbonomic/kubeturbo/wiki/Kubeturbo-Cluster-Roles)
 
 ### Step 3 Try Redis example
 
@@ -422,7 +364,7 @@ spec:
 ```
 #### Apply OperatorResourceMapping for Redis
 
-Apply the [redis standalone orm](https://github.ibm.com/turbonomic/orm/tree/master/library/redis) from library and you can see the pattern defined in `spec` are located in the cluster. Details are showed in `status`.
+Apply the [redis standalone orm](https://github.com/turbonomic/orm/tree/master/library/redis) from library and you can see the pattern defined in `spec` are located in the cluster. Details are showed in `status`.
 
 ```shell
 kubectl get orm -n ot-operators redis-orm -o yaml
