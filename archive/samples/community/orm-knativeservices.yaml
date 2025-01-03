@@ -1,0 +1,35 @@
+# This is a sample ORM CR for Knative service CRD.
+apiVersion: turbonomic.com/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  # Knative service CRD name
+  name: services.serving.knative.dev
+spec:
+  resourceMappings:
+    - srcResourceSpec:
+        kind: Deployment
+        componentNames:
+          - hello-service-00001-deployment
+          - hello-service-00002-deployment
+          - hello-service-00003-deployment
+          - hello-service-00004-deployment
+          - hello-service-00005-deployment
+          - hello-service-00006-deployment
+          - hello-service-00007-deployment
+          - hello-service-00008-deployment
+          - hello-service-00009-deployment
+      resourceMappingTemplates:
+        - srcPath: .spec.template.spec.containers[?(@.name=="user-container")].resources
+#          destPath: .spec.template.spec.containers[?(@.name=="user-container")].resources
+          destPath: .spec.template.spec.containers[0].resources
+---
+#apiVersion: serving.knative.dev/v1
+#kind: Service
+#metadata:
+#  name: hello-service
+#spec:
+#  template:
+#    spec:
+#      containers:
+#        - name: user-container
+#          resources: {}
