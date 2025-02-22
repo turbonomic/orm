@@ -1,0 +1,27 @@
+apiVersion: devops.turbonomic.io/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  name: cp4mcm-hybridapp
+spec:
+  owner: # target same namespace by default
+    apiVersion: deploy.hybridapp.io/v1alpha1
+    kind: Operator
+  mappings:
+    parameters:
+      containers:
+      - "placement"
+      - "deployable"
+    patterns:
+    - ownerPath: .spec.core.{{containers}}.resources
+      owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        path: .spec.template.spec.containers[?(@.name=="{{containers}}")].resources
+        matchLabels:
+          app: cp4mcm-hybridapp
+    - ownerPath: .spec.replicas
+      owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: cp4mcm-hybridapp
+        path: .spec.replicas
