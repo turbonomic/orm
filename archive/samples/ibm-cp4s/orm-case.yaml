@@ -1,0 +1,86 @@
+# This is a sample ORM CR for Kafka CRD.
+apiVersion: turbonomic.com/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  # CP4S soar operator CRD
+  name: cases.isc.ibm.com
+spec:
+  resourceMappings:
+    - srcResourceSpec:
+        kind: Deployment
+        componentNames:
+          - isc-cases-activemq
+      resourceMappingTemplates:
+        - srcPath: .spec.template.spec.containers[?(@.name=="activemq")].resources
+          destPath: .spec.cases.activemq.resources
+        - srcPath: .spec.template.spec.containers[?(@.name=="cases-activemq-log-tailer")].resources
+          destPath: .spec.cases.amq_logging_sidecar.resources
+        - srcPath: .spec.replicas
+          destPath: .spec.cases.activemq.replicas
+    - srcResourceSpec:
+        kind: Deployment
+        componentNames:
+          - isc-cases-application
+      resourceMappingTemplates:
+        - srcPath: .spec.template.spec.containers[?(@.name=="cases-application")].resources
+          destPath: .spec.cases.application.resources
+        - srcPath: .spec.template.spec.containers[?(@.name=="cases-scripting")].resources
+          destPath: .spec.cases.scripting.resources
+        - srcPath: .spec.replicas
+          destPath: .spec.cases.application.replicas
+    - srcResourceSpec:
+        kind: Deployment
+        componentNames:
+          - isc-cases-email
+      resourceMappingTemplates:
+        - srcPath: .spec.template.spec.containers[?(@.name=="email")].resources
+          destPath: .spec.cases.email.resources
+        - srcPath: .spec.template.spec.containers[?(@.name=="email-logs")].resources
+          destPath: .spec.cases.logging_sidecars.resources
+        - srcPath: .spec.replicas
+          destPath: .spec.cases.email.replicas
+    - srcResourceSpec:
+        kind: Deployment
+        componentNames:
+          - isc-cases-event-handler
+      resourceMappingTemplates:
+        - srcPath: .spec.template.spec.containers[?(@.name=="event-handler")].resources
+          destPath: .spec.cases.event_handler.resources
+        - srcPath: .spec.replicas
+          destPath: .spec.cases.event_handler.replicas
+    - srcResourceSpec:
+        kind: Deployment
+        componentNames:
+          - soar-postgres-proxy
+      resourceMappingTemplates:
+        - srcPath: .spec.template.spec.containers[?(@.name=="stolon-proxy")].resources
+          destPath: .spec.postgres.provision.stolon.proxy.resources
+        - srcPath: .spec.replicas
+          destPath: .spec.postgres.provision.stolon.proxy.replicas
+    - srcResourceSpec:
+        kind: StatefulSet
+        componentNames:
+          - soar-postgres-keeper
+      resourceMappingTemplates:
+        - srcPath: .spec.template.spec.containers[?(@.name=="stolon-keeper")].resources
+          destPath: .spec.postgres.provision.stolon.keeper.replicas
+        - srcPath: .spec.replicas
+          destPath: .spec.provision.stolon.keeper.replicas
+    - srcResourceSpec:
+        kind: Deployment
+        componentNames:
+          - soar-postgres-sentinel
+      resourceMappingTemplates:
+        - srcPath: .spec.template.spec.containers[?(@.name=="sentinel")].resources
+          destPath: .spec.postgres.provision.stolon.sentinel.resources
+        - srcPath: .spec.replicas
+          destPath: .spec.postgres.provision.stolon.sentinel.replicas
+    - srcResourceSpec:
+        kind: StatefulSet
+        componentNames:
+          - isc-cases--cb09-ib-6fb9-es-server-data
+      resourceMappingTemplates:
+        - srcPath: .spec.template.spec.containers[?(@.name=="elasticsearch")].resources
+          destPath: .spec.elastic.provision.es.resources
+        - srcPath: .spec.replicas
+          destPath: .spec.elastic.provision.replicas
