@@ -1,0 +1,23 @@
+# This is a sample ORM CR for PostgreSQL CRD.
+apiVersion: turbonomic.com/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  # PostgreSQL operator CRD name
+  name: databases.postgresql.dev4devs.com
+spec:
+  resourceMappings:
+    - srcResourceSpec:
+        kind: Deployment
+        componentNames:
+          - database
+      resourceMappingTemplates:
+        - srcPath: .spec.template.spec.containers[?(@.name=="{{.componentName}}")].resources.limits.memory
+          destPath: .spec.databaseMemoryLimit
+        - srcPath: .spec.template.spec.containers[?(@.name=="{{.componentName}}")].resources.limits.cpu
+          destPath: .spec.databaseCpuLimit
+        - srcPath: .spec.template.spec.containers[?(@.name=="{{.componentName}}")].resources.requests.memory
+          destPath: .spec.databaseMemoryRequest
+        - srcPath: .spec.template.spec.containers[?(@.name=="{{.componentName}}")].resources.requests.cpu
+          destPath: .spec.databaseCpu
+        - srcPath: .spec.replicas
+          destPath: .spec.size
