@@ -1,0 +1,22 @@
+apiVersion: devops.turbonomic.io/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  name: strimzi-kafka-solo
+spec:
+  owner: # target same namespace by default
+    apiVersion: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    name: my-cluster # replace this with the kafka cluster(cr) name
+  mappings:
+    parameters:
+      containers:
+      - kafka
+    patterns:
+    - ownerPath: .spec.{{containers}}.resources       
+      owned:
+        apiVersion: v1
+        kind: Pod
+        matchLabels:
+          strimzi.io/controller: strimzipodset
+          strimzi.io/cluster: my-cluster            # replace this with the kafka cluster (cr) name
+        path: .spec.containers[?(@.name=="{{containers}}")].resources

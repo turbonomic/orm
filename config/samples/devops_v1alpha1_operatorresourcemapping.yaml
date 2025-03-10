@@ -1,0 +1,52 @@
+# This is an sample to describe the syntax/features of ORM, it should not be used directly
+apiVersion: devops.turbonomic.io/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  labels:
+    app.kubernetes.io/name: operatorresourcemapping
+    app.kubernetes.io/instance: operatorresourcemapping-sample
+    app.kubernetes.io/part-of: orm
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: orm
+  name: sample-orm
+  namespace: default
+spec:
+  owner: # target same namespace by default
+    apiVersion: yourgroup.org/v1alpha1
+    kind: yourkind
+    name: myoperand
+  mappings:
+    selectors: # define selectors for patterns
+      my_components:
+        matchExpressions:
+        - key: my.org/group
+          operator: In
+          values:
+          - api
+          - auth
+          - db
+    patterns: # patterns to generate mappings in status
+    # pattern to map deployment resource to its operand(owner)
+    - ownerPath: ".spec.component1.resources"
+      owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: yourdeploy
+        path: ".spec.template.spec.containers[?(@.name=component1)].resources"
+    # pattern to use predefined selector to describe multiple mappings,
+    # assuming the container name and field in operand are all using deployment name as its name
+    - ownerPath: ".spec.{{.owned.name}}.resources"
+      owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        selector: my_components
+        path: ".spec.template.spec.containers[?(@.name={{.owned.name}})].resources"
+    # pattern to use predefined selector to describe multiple mappings,
+    # the container name in each deployment is its deployment name plus suffix "-container"
+    # the field in operand is defined in a label "appname" of the deployment
+    - ownerPath: ".spec.{{.owned.labels.appname}}.resources"
+      owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        selector: my_components
+        path: ".spec.template.spec.containers[?(@.name={{.owned.name}}-container)].resources"

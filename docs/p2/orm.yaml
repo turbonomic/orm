@@ -1,0 +1,18 @@
+apiVersion: devops.turbonomic.io/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  namespace: ot-operators
+  name: rediscluster
+spec:
+  owner: # target same namespace by default
+    apiVersion: redis.redis.opstreelabs.in/v1beta1
+    kind: RedisCluster
+    name: redis-cluster 
+  mappings:
+    patterns:
+    - ownerPath: .spec.redisLeader.replicas
+      owned:
+        apiVersion: apps/v1
+        kind: StatefulSet
+        name: redis-cluster-leader
+        path: .spec.replicas

@@ -1,0 +1,42 @@
+apiVersion: devops.turbonomic.io/v1alpha1
+kind: OperatorResourceMapping
+metadata:
+  name: patterns
+spec:
+  owner: # target same namespace by default
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ormoperand-patterns
+  mappings:
+    selectors:
+      my_selector:
+        matchLabels:
+          app: ormsource-patterns
+          id: "0001"
+    parameters:
+      ports:
+      - "TCP"
+      - "UDP"
+    patterns:
+    - ownerPath: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].ports[?(@.protocol=="{{ports}}")].containerPort
+      owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        selector: my_selector
+        path: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].ports[?(@.protocol=="{{ports}}")].containerPort
+    - ownerPath: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].ports[?(@.protocol=="{{ports}}")].containerPort
+      owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        matchLabels:
+          app: ormsource-patterns
+          id: "0002"
+        path: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].ports[?(@.protocol=="{{ports}}")].containerPort
+    - ownerPath: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].ports[?(@.protocol=="{{ports}}")].containerPort
+      owned:
+        apiVersion: apps/v1
+        kind: Deployment
+        matchLabels:
+          app: ormsource-patterns
+          id: "0003"
+        path: .spec.template.spec.containers[?(@.name=="{{.owned.name}}")].ports[?(@.protocol=="{{ports}}")].containerPort

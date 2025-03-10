@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ormsource-patterns-0002
+  labels:
+    app: ormsource-patterns
+    id: "0002"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ormsource-patterns-0002
+  template:
+    metadata:
+      labels:
+        app: ormsource-patterns-0002
+    spec:
+      containers:
+      - name: ormsource-patterns-0002
+        image: alpine:latest
+        command:
+        - /bin/sh
+        args:
+        - -c
+        - while sleep 3600; do :; done
+        ports:
+        - containerPort: 82
+          protocol: TCP
+        - containerPort: 10002
+          protocol: UDP
+        resources:
+          limits:
+            cpu: 200m
+            memory: 200Mi
+          requests:
+            cpu: 50m
+            memory: 50Mi

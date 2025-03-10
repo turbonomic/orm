@@ -1,0 +1,27 @@
+# permissions for end users to view advicemappings.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: advicemapping-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: orm
+    app.kubernetes.io/part-of: orm
+    app.kubernetes.io/managed-by: kustomize
+  name: advicemapping-viewer-role
+rules:
+- apiGroups:
+  - devops.turbonomic.io
+  resources:
+  - advicemappings
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - devops.turbonomic.io
+  resources:
+  - advicemappings/status
+  verbs:
+  - get
